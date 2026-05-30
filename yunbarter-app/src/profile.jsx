@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 export default function Profile({ userName, setUserName, teachers, onDeleteTeacher, onUpdateTeacher }) {
@@ -8,11 +8,23 @@ export default function Profile({ userName, setUserName, teachers, onDeleteTeach
   const [editTitle, setEditTitle] = useState('');
   const [editPrice, setEditPrice] = useState('');
 
-  // 新增：個人資料區塊的編輯狀態
+  // 個人資料區塊的編輯與顯示狀態
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [profileName, setProfileName] = useState(userName);
-  const [profileDept, setProfileDept] = useState('資訊管理系 | 學號：B1100001');
-  const [profileBio, setProfileBio] = useState('熱愛程式與音樂，目前在鑽研網頁設計與吉他指彈。');
+  const [profileDept, setProfileDept] = useState('');
+  const [profileBio, setProfileBio] = useState('');
+
+  // 🔄 進入個人主頁時，撈取該使用者的詳細 profile 資料
+  useEffect(() => {
+    fetch('http://localhost:5000/api/user/profile')
+      .then(res => res.json())
+      .then(data => {
+        setProfileName(data.userName);
+        setProfileDept(data.department);
+        setProfileBio(data.bio);
+      })
+      .catch(err => console.error("無法撈取個人檔案資料:", err));
+  }, [userName]); // 當全域 userName 改變時重新讀取
 
   const handleEditClick = (skill) => {
     setEditingId(skill.id);
@@ -29,9 +41,30 @@ export default function Profile({ userName, setUserName, teachers, onDeleteTeach
     setEditingId(null);
   };
 
-  const handleSaveProfile = () => {
-    setUserName(profileName);
-    setIsEditingProfile(false);
+  // 💾 儲存個人資料並推送到後端
+  const handleSaveProfile = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/user/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userName: profileName,
+          department: profileDept,
+          bio: profileBio
+        })
+      });
+      const data = await response.json();
+
+      if (response.ok) {
+        setUserName(data.userName); // 同步更新 App.jsx 的全域變數
+        setIsEditingProfile(false);
+        alert("✅ 個人資料儲存成功！");
+      } else {
+        alert("❌ 儲存失敗：" + data.error);
+      }
+    } catch (error) {
+      console.error("更新個人檔案時發生錯誤:", error);
+    }
   };
 
   return (
@@ -80,6 +113,7 @@ export default function Profile({ userName, setUserName, teachers, onDeleteTeach
         )}
       </div>
 
+      {/* 統計數據區塊 */}
       <div style={{ display: 'flex', gap: '20px', marginBottom: '30px' }}>
         <div style={{ flex: 1, backgroundColor: '#f9f9f9', padding: '20px', borderRadius: '15px', textAlign: 'center' }}>
           <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#2c3e50' }}>{mySkills.length}</div>
@@ -95,6 +129,7 @@ export default function Profile({ userName, setUserName, teachers, onDeleteTeach
         </div>
       </div>
 
+      {/* 技能清單表格 */}
       <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <h3 style={{ margin: 0, color: '#2c3e50' }}>我正在販售的技能</h3>

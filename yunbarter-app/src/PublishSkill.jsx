@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-// 這裡新增接收從 App.jsx 傳來的 onAddTeacher 功能
+// 這裡接收從 App.jsx 傳來的 onAddTeacher 功能
 export default function PublishSkill({ onAddTeacher }) {
   const navigate = useNavigate();
 
@@ -14,7 +14,8 @@ export default function PublishSkill({ onAddTeacher }) {
   
   const [isGenerating, setIsGenerating] = useState(false);
 
-  const handleAIGenerate = () => {
+  // 🤖 關鍵修改：改由向後端 API 請求生成文案
+  const handleAIGenerate = async () => {
     if (!skillInput.trim()) {
       alert('❌ 請先輸入您想教的技能名稱！');
       return;
@@ -22,27 +23,31 @@ export default function PublishSkill({ onAddTeacher }) {
 
     setIsGenerating(true);
 
-    setTimeout(() => {
-      let newTitle = '';
-      let newDesc = '';
-      let newPrice = (Math.random() * 3 + 1).toFixed(1); 
+    try {
+      const response = await fetch('http://localhost:5000/api/ai/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          skill: skillInput,
+          style: styleInput
+        })
+      });
 
-      if (styleInput === '幽默風趣') {
-        newTitle = `保證不打瞌睡的${skillInput}大師班`;
-        newDesc = `想學${skillInput}卻總是半途而廢嗎？別擔心，跟著我學，保證讓你笑著學會！我會用最生活化的比喻，把複雜的觀念變成一塊小蛋糕。上完這堂課，你不但能掌握${skillInput}，還能順便練腹肌喔！`;
-      } else if (styleInput === '熱血推銷') {
-        newTitle = `【極速上手】${skillInput}特訓營，突破你的極限！`;
-        newDesc = `給自己一個改變的機會！這堂${skillInput}課程專為渴望進步的你設計。我們沒有廢話，只有滿滿的實戰技巧。只要你肯練，我保證把你教到會！現在就加入，讓我們一起稱霸${skillInput}的領域！`;
+      const data = await response.json();
+
+      if (response.ok) {
+        setGeneratedTitle(data.title);
+        setGeneratedPrice(data.price);
+        setGeneratedDescription(data.description);
       } else {
-        newTitle = `基礎與進階：${skillInput}全方位解析`;
-        newDesc = `本課程致力於提供系統化的${skillInput}教學。我們將從核心基礎觀念著手，逐步深入至進階應用技巧。適合希望建立紮實基礎、並尋求專業指導的學習者。課程內容包含理論講解與實務演練。`;
+        alert("❌ AI 生成失敗：" + data.error);
       }
-
-      setGeneratedTitle(newTitle);
-      setGeneratedPrice(newPrice);
-      setGeneratedDescription(newDesc);
+    } catch (error) {
+      console.error("呼叫 AI 路由時發生錯誤:", error);
+      alert("無法連線至後端伺服器");
+    } finally {
       setIsGenerating(false);
-    }, 1500);
+    }
   };
 
   const handlePublish = () => {
@@ -51,7 +56,7 @@ export default function PublishSkill({ onAddTeacher }) {
       return;
     }
 
-    // 關鍵更新：呼叫 App.jsx 傳遞過來的新增功能，把標題和價格傳回去
+    // 呼叫 App.jsx 傳遞過來的新增功能，把標題和價格傳回去
     onAddTeacher(generatedTitle, generatedPrice);
 
     alert('✅ 技能發佈成功！您的課程已上架至平台。');

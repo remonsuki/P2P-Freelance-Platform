@@ -1,42 +1,78 @@
 import { useState } from 'react';
 
-// 直接從參數 (Props) 接收總部傳來的 transactions 與 setTransactions
+// 直接從參數 (Props) 接收總部傳來的 balance, setBalance, transactions, setTransactions
 export default function Wallet({ balance, setBalance, transactions, setTransactions }) {
   
-  const handleDeposit = () => {
+  // 💳 儲值入金
+  const handleDeposit = async () => {
     const amount = prompt("請輸入欲儲值的 TWD 金額 (模擬 1:1 兌換 YTC):");
-    if (amount && !isNaN(amount)) {
-      const num = parseFloat(amount);
-      setBalance(prev => prev + num);
-      // 這裡呼叫的 setTransactions，現在會直接去改動 App.jsx 裡面的總帳本
-      setTransactions([{
-        id: Date.now(),
-        type: '儲值',
-        amount: num,
-        date: new Date().toISOString().split('T')[0],
-        note: '信用卡支付成功'
-      }, ...transactions]);
-      alert(`✅ 模擬儲值成功！已存入 ${num} YTC`);
+    if (!amount || isNaN(amount) || parseFloat(amount) <= 0) {
+      if (amount) alert("❌ 請輸入正確的儲值金額！");
+      return;
+    }
+
+    const num = parseFloat(amount);
+
+    try {
+      // 🔄 向後端發送儲值請求
+      const response = await fetch('http://localhost:5000/api/wallet/deposit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: num })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // 同步更新 App.jsx 的全域狀態
+        setBalance(data.balance);
+        setTransactions([data.newTransaction, ...transactions]);
+        alert(`✅ 模擬儲值成功！已存入 ${num} YTC`);
+      } else {
+        alert("❌ 儲值失敗：" + data.error);
+      }
+    } catch (error) {
+      console.error("儲值連線時發生錯誤:", error);
+      alert("無法連線至伺服器，請稍後再試。");
     }
   };
 
-  const handleWithdraw = () => {
+  // 🏦 提領出金
+  const handleWithdraw = async () => {
     const amount = prompt("請輸入欲提領的 YTC 金額 (將換匯匯入您的實體銀行帳戶):");
-    if (amount && !isNaN(amount)) {
-      const num = parseFloat(amount);
-      if (num > balance) {
-        alert("❌ 餘額不足以提領！");
-        return;
+    if (!amount || isNaN(amount) || parseFloat(amount) <= 0) {
+      if (amount) alert("❌ 請輸入正確的提領金額！");
+      return;
+    }
+
+    const num = parseFloat(amount);
+
+    if (num > balance) {
+      alert("❌ 餘額不足以提領！");
+      return;
+    }
+
+    try {
+      // 🔄 向後端發送提領請求
+      const response = await fetch('http://localhost:5000/api/wallet/withdraw', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: num })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // 同步更新 App.jsx 的全域狀態
+        setBalance(data.balance);
+        setTransactions([data.newTransaction, ...transactions]);
+        alert(`✅ 提領申請已提交！模擬款項將在 24 小時內匯入您的銀行帳戶。`);
+      } else {
+        alert("❌ 提領失敗：" + data.error);
       }
-      setBalance(prev => prev - num);
-      setTransactions([{
-        id: Date.now(),
-        type: '提領',
-        amount: -num,
-        date: new Date().toISOString().split('T')[0],
-        note: '提領至 台灣銀行 (帳號 ****123)'
-      }, ...transactions]);
-      alert(`✅ 提領申請已提交！模擬款項將在 24 小時內匯入您的銀行帳戶。`);
+    } catch (error) {
+      console.error("提領連線時發生錯誤:", error);
+      alert("無法連線至伺服器，請稍後再試。");
     }
   };
 
@@ -79,7 +115,6 @@ export default function Wallet({ balance, setBalance, transactions, setTransacti
             </tr>
           </thead>
           <tbody>
-            {/* 這裡渲染的 transactions 現在是來自 App.jsx 的資料 */}
             {transactions.map(t => (
               <tr key={t.id} style={{ borderTop: '1px solid #eee' }}>
                 <td style={{ padding: '15px', fontWeight: 'bold' }}>{t.type}</td>

@@ -5,8 +5,6 @@ import { useNavigate } from 'react-router-dom';
 export default function SearchTeacher({ isLoggedIn, balance, onDeduct, teachers }) {
   const navigate = useNavigate();
 
-  // 注意：我們把原本寫在這裡的 const [teachers] = useState([...]) 刪除了！
-
   const [bookingTeacher, setBookingTeacher] = useState(null);
 
   const handleBookingClick = (teacher) => {
@@ -18,16 +16,25 @@ export default function SearchTeacher({ isLoggedIn, balance, onDeduct, teachers 
     setBookingTeacher(teacher);
   };
 
-  const confirmPayment = () => {
+  const confirmPayment = async () => {
+    // 🛡️ 雙重保險：扣款前再次跟 Props 的最新 balance (或後端) 確認餘額是否足夠
     if (balance < bookingTeacher.price) {
-      alert("餘額不足！請先至錢包儲值 YTC。");
+      alert("❌ 餘額不足！請先至錢包儲值 YTC。");
       setBookingTeacher(null);
       return;
     }
 
-    onDeduct(bookingTeacher.price, bookingTeacher.name, bookingTeacher.skill);
-    alert(`✅ 智能合約執行成功！已將 ${bookingTeacher.price} YTC 扣款並鎖定，祝您學習愉快！`);
-    setBookingTeacher(null); 
+    try {
+      // 呼叫 App.jsx 傳遞過來的扣款處理函式 (它會去打後端 /api/wallet/deduct)
+      await onDeduct(bookingTeacher.price, bookingTeacher.name, bookingTeacher.skill);
+      
+      alert(`✅ 智能合約模擬執行成功！已將 ${bookingTeacher.price.toFixed(1)} YTC 扣款並鎖定，祝您學習愉快！`);
+    } catch (error) {
+      console.error("交易失敗:", error);
+      alert("❌ 交易處理失敗，請稍後再試。");
+    } finally {
+      setBookingTeacher(null); 
+    }
   };
 
   return (
@@ -75,6 +82,7 @@ export default function SearchTeacher({ isLoggedIn, balance, onDeduct, teachers 
         ))}
       </div>
 
+      {/* 彈出式確認訂單視窗 (Modal) */}
       {bookingTeacher && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
           <div style={{ backgroundColor: 'white', padding: '35px', borderRadius: '20px', width: '90%', maxWidth: '400px', boxShadow: '0 10px 30px rgba(0,0,0,0.2)', textAlign: 'center' }}>

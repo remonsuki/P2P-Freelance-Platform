@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom';
 import SearchTeacher from './SearchTeacher';
 import PublishSkill from './PublishSkill';
@@ -15,57 +15,115 @@ function ProtectedRoute({ isLoggedIn, children }) {
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userName, setUserName] = useState('Yun');
-  const [balance, setBalance] = useState(100.5);
+  const [balance, setBalance] = useState(0); // 初始改由後端取得
+  const [transactions, setTransactions] = useState([]); // 初始改由後端取得
+  const [teachers, setTeachers] = useState([]); // 初始改由後端取得
 
-  const [transactions, setTransactions] = useState([
-    { id: 1, type: '上課支出', amount: -2.0, date: '2024-05-20', note: '阿弦老師 - 吉他指彈教學' },
-    { id: 2, type: '教學收入', amount: 3.0, date: '2024-05-18', note: '教小明 - 網頁開發' },
-    { id: 3, type: '儲值', amount: 50.0, date: '2024-05-15', note: '模擬綠界科技 - 信用卡入金' },
-  ]);
+  // 🔄 頁面初次載入：從後端 API 撈取所有初始化資料
+  useEffect(() => {
+    // 1. 獲取錢包與使用者狀態
+    fetch('http://localhost:5000/api/user/wallet')
+      .then(res => res.json())
+      .then(data => {
+        setUserName(data.userName);
+        setBalance(data.balance);
+        setTransactions(data.transactions);
+      })
+      .catch(err => console.error("無法獲取錢包資料:", err));
 
-  const [teachers, setTeachers] = useState([
-    { id: 1, name: '阿弦', skill: '吉他指彈教學', price: 2.0, category: '音樂' },
-    { id: 2, name: '林克', skill: '網頁開發', price: 3.5, category: '程式' },
-    { id: 3, name: '田中櫻', skill: '日文 N3 考前衝刺', price: 1.5, category: '語言' },
-  ]);
+    // 2. 獲取教師列表
+    fetch('http://localhost:5000/api/teachers')
+      .then(res => res.json())
+      .then(data => setTeachers(data))
+      .catch(err => console.error("無法獲取老師列表:", err));
+  }, []);
 
-  const handleDeduct = (amount, teacherName, skillName) => {
-    setBalance(prev => prev - amount);
-    setTransactions(prev => [
-      {
-        id: Date.now(),
-        type: '上課支出',
-        amount: -amount,
-        date: new Date().toISOString().split('T')[0],
-        note: `${teacherName}老師 - ${skillName}`
-      },
-      ...prev
-    ]);
+  // 💸 處理上課扣款
+  const handleDeduct = async (amount, teacherName, skillName) => {
+    try {
+      const response = await fetch('http://localhost:5000/api/wallet/deduct', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount, teacherName, skillName })
+      });
+      const data = await response.json();
+
+      if (response.ok) {
+        // 同步更新前端 State
+        setBalance(data.balance);
+        setTransactions(prev => [data.newTransaction, ...prev]);
+      } else {
+        alert("交易失敗：" + (data.error || "未知錯誤"));
+      }
+    } catch (error) {
+      console.error("發送交易請求時發生錯誤:", error);
+      alert("無法連線至後端伺服器");
+    }
   };
 
-  const handleAddTeacher = (newSkill, newPrice) => {
-    const newTeacher = {
-      id: Date.now(),
-      name: userName, 
-      skill: newSkill,
-      price: parseFloat(newPrice),
-      category: '綜合' 
-    };
-    setTeachers(prev => [newTeacher, ...prev]);
+  // ➕ 發佈新技能
+  const handleAddTeacher = async (newSkill, newPrice) => {
+    try {
+      const response = await fetch('http://localhost:5000/api/teachers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: userName, skill: newSkill, price: newPrice, category: '綜合' })
+      });
+      const data = await response.json();
+
+      if (response.ok) {
+        // 將後端回傳含新 ID 的老師物件塞回前端列表
+        setTeachers(prev => [data, ...prev]);
+      } else {
+        alert("發佈失敗：" + (data.error || "未知錯誤"));
+      }
+    } catch (error) {
+      console.error("發佈技能時發生錯誤:", error);
+    }
   };
 
-  // 這裡就是剛剛系統找不到的刪除功能，我們確實把它放在 function App() 的肚子裡了
-  const handleDeleteTeacher = (deleteId) => {
-    setTeachers(prev => prev.filter(teacher => teacher.id !== deleteId));
+  // ❌ 刪除教師課程
+  const handleDeleteTeacher = async (deleteId) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/teachers/${deleteId}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        // 後端刪除成功後，過濾掉該筆資料更新 UI
+        setTeachers(prev => prev.filter(teacher => teacher.id !== deleteId));
+      } else {
+        const data = await response.json();
+        alert("刪除失敗：" + (data.error || "未知錯誤"));
+      }
+    } catch (error) {
+      console.error("刪除課程時發生錯誤:", error);
+    }
   };
-  // 更新課程資料的功能
-  const handleUpdateTeacher = (updateId, newSkill, newPrice) => {
-    setTeachers(prev => prev.map(teacher => 
-      teacher.id === updateId 
-        ? { ...teacher, skill: newSkill, price: parseFloat(newPrice) } 
-        : teacher
-    ));
+
+  // 📝 更新教師課程資料
+  const handleUpdateTeacher = async (updateId, newSkill, newPrice) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/teachers/${updateId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ skill: newSkill, price: newPrice })
+      });
+      const data = await response.json();
+
+      if (response.ok) {
+        // 後端修改成功後，更新前端對應的老師物件資料
+        setTeachers(prev => prev.map(teacher => 
+          teacher.id === updateId ? data : teacher
+        ));
+      } else {
+        alert("更新失敗：" + (data.error || "未知錯誤"));
+      }
+    } catch (error) {
+      console.error("更新課程時發生錯誤:", error);
+    }
   };
+
   return (
     <BrowserRouter>
       <nav style={{ padding: '15px 20px', backgroundColor: '#fff', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', display: 'flex', gap: '20px', alignItems: 'center' }}>
@@ -98,7 +156,7 @@ function App() {
         
         <Route path="/profile" element={
           <ProtectedRoute isLoggedIn={isLoggedIn}>
-          <Profile 
+            <Profile 
               userName={userName} 
               setUserName={setUserName}
               teachers={teachers} 
@@ -110,6 +168,7 @@ function App() {
         
         <Route path="/wallet" element={
           <ProtectedRoute isLoggedIn={isLoggedIn}>
+            {/* 注意：這裡為了讓前端錢包儲值功能也能正常作用，實務上後續也可以將 Wallet 內部的儲值/扣款改寫成 API 呼叫 */}
             <Wallet balance={balance} setBalance={setBalance} transactions={transactions} setTransactions={setTransactions} />
           </ProtectedRoute>
         } />

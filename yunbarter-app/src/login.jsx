@@ -6,13 +6,56 @@ export default function Login({ setIsLoggedIn }) {
   const [isLoginView, setIsLoginView] = useState(true);
   const navigate = useNavigate(); // 用來切換網址的導航員
 
-  // 模擬登入成功的動作
-  const handleAuth = () => {
-    // 1. 把系統狀態改成「已登入」
+  // 🌟 新增：紀錄使用者輸入內容的狀態
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [schoolId, setSchoolId] = useState('');
+
+  // 處理傳統的帳密登入與註冊
+  const handleAuth = async () => {
+    if (!email || !password) {
+      alert("❌ 請填寫電子郵件與密碼");
+      return;
+    }
+
+    // 根據目前的畫面決定要呼叫登入還是註冊 API
+    const apiUrl = isLoginView 
+      ? 'http://localhost:5000/api/auth/login' 
+      : 'http://localhost:5000/api/auth/register';
+
+    const payload = isLoginView 
+      ? { email, password } 
+      : { email, password, schoolId };
+
+    try {
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // 1. 把系統狀態改成「已登入」
+        setIsLoggedIn(true);
+        // 2. 彈出成功提示
+        alert(`✅ ${isLoginView ? '登入' : '註冊'}成功！歡迎回來，${data.userName || '使用者'}。`);
+        // 3. 自動跳轉到個人主頁
+        navigate('/profile');
+      } else {
+        alert(`❌ 失敗：${data.error}`);
+      }
+    } catch (error) {
+      console.error("驗證時發生錯誤:", error);
+      alert("無法連線至後端伺服器");
+    }
+  };
+
+  // 模擬 Web3 登入
+  const handleWeb3Auth = () => {
     setIsLoggedIn(true);
-    // 2. 彈出成功提示
-    alert(`✅ ${isLoginView ? '登入' : '註冊'}成功！為您導向個人主頁...`);
-    // 3. 自動跳轉到個人主頁
+    alert("✅ Web3 錢包連接成功！為您導向個人主頁...");
     navigate('/profile');
   };
 
@@ -32,19 +75,36 @@ export default function Login({ setIsLoggedIn }) {
           {!isLoginView && (
             <div>
               <label style={{ display: 'block', marginBottom: '5px', color: '#34495e', fontWeight: 'bold' }}>學校信箱或學號</label>
-              <input type="text" placeholder="輸入您的學號或信箱" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ccc', boxSizing: 'border-box' }} />
+              <input 
+                type="text" 
+                placeholder="輸入您的學號或信箱" 
+                value={schoolId}
+                onChange={(e) => setSchoolId(e.target.value)}
+                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ccc', boxSizing: 'border-box' }} 
+              />
             </div>
           )}
           <div>
             <label style={{ display: 'block', marginBottom: '5px', color: '#34495e', fontWeight: 'bold' }}>電子郵件</label>
-            <input type="email" placeholder="example@email.com" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ccc', boxSizing: 'border-box' }} />
+            <input 
+              type="email" 
+              placeholder="example@email.com" 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ccc', boxSizing: 'border-box' }} 
+            />
           </div>
           <div>
             <label style={{ display: 'block', marginBottom: '5px', color: '#34495e', fontWeight: 'bold' }}>密碼</label>
-            <input type="password" placeholder="輸入密碼" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ccc', boxSizing: 'border-box' }} />
+            <input 
+              type="password" 
+              placeholder="輸入密碼" 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ccc', boxSizing: 'border-box' }} 
+            />
           </div>
 
-          {/* 🌟 綁定剛剛寫好的 handleAuth 函數 */}
           <button onClick={handleAuth} style={{ width: '100%', padding: '12px', backgroundColor: '#3498db', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer', marginTop: '10px' }}>
             {isLoginView ? '登入' : '註冊帳號'}
           </button>
@@ -65,7 +125,7 @@ export default function Login({ setIsLoggedIn }) {
           <div style={{ flex: 1, height: '1px', backgroundColor: '#eee' }}></div>
         </div>
 
-        <button onClick={handleAuth} style={{ width: '100%', padding: '12px', backgroundColor: '#f39c12', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer' }}>
+        <button onClick={handleWeb3Auth} style={{ width: '100%', padding: '12px', backgroundColor: '#f39c12', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer' }}>
           連接 Web3 錢包 (MetaMask)
         </button>
 
