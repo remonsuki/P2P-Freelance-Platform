@@ -2,113 +2,99 @@ import { Link } from 'react-router-dom';
 
 export default function Home() {
   return (
-    <div style={{ textAlign: 'center', padding: '60px 20px', fontFamily: 'sans-serif', backgroundColor: '#fdfefe', minHeight: '80vh' }}>
+    // 最外層：改為非常柔和的淡灰藍漸層背景，與白色 Navbar 無縫接軌
+    <div style={{ background: 'linear-gradient(135deg, #fdfbfb 0%, #f1f5f9 100%)', minHeight: 'calc(100vh - 70px)', overflow: 'hidden', fontFamily: 'sans-serif', position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       
-      {/* 英雄區塊 (Hero Section) */}
-      <div style={{ marginBottom: '60px', padding: '0 10px' }}>
-        <h1 style={{ fontSize: '52px', color: '#2c3e50', marginBottom: '15px', fontWeight: '800', letterSpacing: '1px' }}>
-          YunBarter <span style={{ color: '#f39c12' }}>時間銀行</span>
+      {/* 背景裝飾網格 (改成極淡的灰藍色，營造輕盈的工程感) */}
+      <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundImage: 'linear-gradient(#e2e8f0 1px, transparent 1px), linear-gradient(90deg, #e2e8f0 1px, transparent 1px)', backgroundSize: '40px 40px', opacity: 0.6, pointerEvents: 'none' }}></div>
+
+      {/* Hero 文字區塊：深色文字配上極致留白 */}
+      <div style={{ textAlign: 'center', marginTop: '100px', zIndex: 10, padding: '0 20px', position: 'relative' }}>
+        <h1 style={{ fontSize: '56px', color: '#0f172a', fontWeight: '900', margin: '0 0 20px 0', letterSpacing: '1px', lineHeight: '1.3' }}>
+          知識不該被定價，<br/>一起交流才是成長。
         </h1>
-        <p style={{ fontSize: '22px', color: '#7f8c8d', marginBottom: '45px', maxWidth: '600px', margin: '0 auto 45px auto', lineHeight: '1.5' }}>
-          打破金錢限制，用你的專業交換全世界的技能。
+        <p style={{ fontSize: '18px', color: '#64748b', margin: '0 0 40px 0', maxWidth: '600px', lineHeight: '1.7' }}>
+          把你的專長變成連結他人的橋樑。<br/>
+          在 YunBarter，你可以是學生，也是老師。<br/>在這裡，每一次交流都是成長的開始。
         </p>
 
-        {/* 核心導航按鈕 */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '25px', flexWrap: 'wrap' }}>
-          <Link to="/search" style={{ textDecoration: 'none' }}>
-            <button style={{
-              padding: '16px 35px', fontSize: '18px', fontWeight: 'bold', 
-              backgroundColor: '#3498db', color: 'white', border: 'none', 
-              borderRadius: '30px', cursor: 'pointer', boxShadow: '0 6px 15px rgba(52, 152, 219, 0.3)',
-              transition: 'transform 0.2s, cubic-bezier(0.175, 0.885, 0.32, 1.275)'
-            }}
-            onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-            onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1.0)'}
-            >
-              🔍 尋找教師 (我想學)
-            </button>
-          </Link>
-
-          <Link to="/publish" style={{ textDecoration: 'none' }}>
-            <button style={{
-              padding: '16px 35px', fontSize: '18px', fontWeight: 'bold', 
-              backgroundColor: '#9b59b6', color: 'white', border: 'none', 
-              borderRadius: '30px', cursor: 'pointer', boxShadow: '0 6px 15px rgba(155, 89, 182, 0.3)',
-              transition: 'transform 0.2s, cubic-bezier(0.175, 0.885, 0.32, 1.275)'
-            }}
-            onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-            onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1.0)'}
-            >
-              ✨ 發佈技能 (我想教)
-            </button>
-          </Link>
-        </div>
+        {/* 單一明確的號召按鈕 (CTA) - 改為亮眼的科技藍 */}
+        <Link to="/search" style={{ textDecoration: 'none' }}>
+          <button style={{
+            backgroundColor: '#3b82f6', color: 'white', border: 'none', padding: '16px 45px',
+            borderRadius: '30px', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer',
+            boxShadow: '0 10px 25px rgba(59, 130, 246, 0.3)', transition: 'transform 0.2s'
+          }}>
+            尋找學習夥伴
+          </button>
+        </Link>
       </div>
 
-      {/* 平台特色介紹 */}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: '30px', flexWrap: 'wrap', marginTop: '80px' }}>
+      {/* 底部漂浮卡片區塊：亮色系毛玻璃質感 */}
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', gap: '25px', marginTop: '90px', width: '100%', maxWidth: '1100px', position: 'relative' }}>
         
-        {/* 特色一 */}
+        {/* 左邊卡片 - 微傾斜、半透明毛玻璃 */}
         <div style={{ 
-          width: '260px', padding: '30px 20px', backgroundColor: 'white', borderRadius: '20px', 
-          display: 'flex', flexDirection: 'column', alignItems: 'center',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.03)', border: '1px solid #f1f3f5'
+          transform: 'rotate(-6deg) translateY(30px)', zIndex: 1,
+          backgroundColor: 'rgba(255, 255, 255, 0.6)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+          border: '1px solid rgba(255, 255, 255, 0.8)', borderRadius: '20px', padding: '25px', width: '300px', boxShadow: '0 15px 35px rgba(0,0,0,0.04)'
         }}>
-          {/* 圖示化佔位符 */}
-          <div style={{
-            width: '65px', height: '65px', backgroundColor: '#eaf2f8',
-            display: 'flex', justifyContent: 'center', alignItems: 'center', borderRadius: '50%',
-            fontSize: '30px', marginBottom: '20px'
-          }}>
-            🪙
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '15px' }}>
+            <div style={{ width: '45px', height: '45px', backgroundColor: '#f1f5f9', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '20px' }}></div>
+            <div>
+              <div style={{ fontWeight: 'bold', fontSize: '16px', color: '#1e293b' }}>排球扣球與防守特訓</div>
+              <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>指導者：阿翔</div>
+            </div>
           </div>
-          <h3 style={{ color: '#2c3e50', margin: '0 0 12px 0', fontSize: '18px' }}>Web3 時間幣</h3>
-          <p style={{ color: '#7f8c8d', fontSize: '14px', lineHeight: '1.6', margin: 0, textAlign: 'justify' }}>
-            導入 YTC 時間幣與智能合約概念，確保交易安全，讓校園內知識產出的價值完全透明化。
-          </p>
+          <div style={{ fontSize: '14px', color: '#475569', lineHeight: '1.6' }}>
+            針對校隊與系隊強度的訓練，調整起跳姿勢與防守預判，室外場地實戰演練。
+          </div>
         </div>
 
-        {/* 特色二 */}
+        {/* 中間卡片 - 正向、純白實體、視覺焦點 */}
         <div style={{ 
-          width: '260px', padding: '30px 20px', backgroundColor: 'white', borderRadius: '20px', 
-          display: 'flex', flexDirection: 'column', alignItems: 'center',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.03)', border: '1px solid #f1f3f5'
+          transform: 'translateY(0px)', zIndex: 5,
+          backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '20px', padding: '30px', width: '340px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.15)'
         }}>
-          {/* 圖示化佔位符 */}
-          <div style={{
-            width: '65px', height: '65px', backgroundColor: '#f5eef8',
-            display: 'flex', justifyContent: 'center', alignItems: 'center', borderRadius: '50%',
-            fontSize: '30px', marginBottom: '20px'
-          }}>
-            🤖
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '15px' }}>
+            <div style={{ width: '55px', height: '55px', backgroundColor: '#eff6ff', color: '#3b82f6', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '24px' }}></div>
+            <div>
+              <div style={{ fontWeight: 'bold', fontSize: '20px', color: '#0f172a' }}>Python 基礎與爬蟲</div>
+              <div style={{ fontSize: '14px', color: '#64748b', marginTop: '4px' }}>雲科大圖書館 / 線上</div>
+            </div>
           </div>
-          <h3 style={{ color: '#2c3e50', margin: '0 0 12px 0', fontSize: '18px' }}>AI 魔法助理</h3>
-          <p style={{ color: '#7f8c8d', fontSize: '14px', lineHeight: '1.6', margin: 0, textAlign: 'justify' }}>
-            不知道怎麼包裝行銷自己？AI 助理幫你一鍵自動生成吸睛的專業文案與最合適的階梯定價。
-          </p>
+          <div style={{ fontSize: '15px', color: '#475569', lineHeight: '1.6' }}>
+            資料收集不求人，從邏輯撰寫到帶你寫出第一隻爬蟲程式，適合零基礎新手！
+          </div>
+          <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #f1f5f9', paddingTop: '20px' }}>
+            <span style={{ color: '#2563eb', fontSize: '13px', fontWeight: 'bold', backgroundColor: '#eff6ff', padding: '6px 10px', borderRadius: '6px' }}>程式開發</span>
+            <span style={{ color: '#f59e0b', fontWeight: 'bold', fontSize: '16px' }}>技能交換</span>
+          </div>
         </div>
 
-        {/* 特色三 */}
+        {/* 右邊卡片 - 微傾斜、半透明毛玻璃 */}
         <div style={{ 
-          width: '260px', padding: '30px 20px', backgroundColor: 'white', borderRadius: '20px', 
-          display: 'flex', flexDirection: 'column', alignItems: 'center',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.03)', border: '1px solid #f1f3f5'
+          transform: 'rotate(6deg) translateY(30px)', zIndex: 1,
+          backgroundColor: 'rgba(255, 255, 255, 0.6)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+          border: '1px solid rgba(255, 255, 255, 0.8)', borderRadius: '20px', padding: '25px', width: '300px', boxShadow: '0 15px 35px rgba(0,0,0,0.04)'
         }}>
-          {/* 圖示化佔位符 */}
-          <div style={{
-            width: '65px', height: '65px', backgroundColor: '#eafaf1',
-            display: 'flex', justifyContent: 'center', alignItems: 'center', borderRadius: '50%',
-            fontSize: '30px', marginBottom: '20px'
-          }}>
-            🎓
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '15px' }}>
+            <div style={{ width: '45px', height: '45px', backgroundColor: '#f1f5f9', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '20px' }}></div>
+            <div>
+              <div style={{ fontWeight: 'bold', fontSize: '16px', color: '#1e293b' }}>檔車入門與保養</div>
+              <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>指導者：車神小豪</div>
+            </div>
           </div>
-          <h3 style={{ color: '#2c3e50', margin: '0 0 12px 0', fontSize: '18px' }}>校園互助圈</h3>
-          <p style={{ color: '#7f8c8d', fontSize: '14px', lineHeight: '1.6', margin: 0, textAlign: 'justify' }}>
-            從專業期中課業輔導到生活興趣技能，輕鬆建立屬於大學生跨科系的專屬技能交換生態圈。
-          </p>
+          <div style={{ fontSize: '14px', color: '#475569', lineHeight: '1.6' }}>
+            考照指導、安全駕駛觀念建立，以及洗車保養與日常鏈條清潔教學。
+          </div>
         </div>
 
       </div>
+
+      {/* 漸層遮罩，讓卡片下方完美融入背景，避免被切斷 */}
+      <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: '150px', background: 'linear-gradient(to bottom, rgba(241,245,249,0) 0%, rgba(241,245,249,1) 100%)', zIndex: 10, pointerEvents: 'none' }}></div>
+
     </div>
   );
 }

@@ -152,7 +152,9 @@ function App() {
           </ProtectedRoute>
         } />
         
-        <Route path="/login" element={<Login setIsLoggedIn={setIsLoggedIn} />} />
+        <Route path="/login" element={
+          <Login setIsLoggedIn={setIsLoggedIn} setUserName={setUserName} />
+        } />
         
         <Route path="/profile" element={
           <ProtectedRoute isLoggedIn={isLoggedIn}>

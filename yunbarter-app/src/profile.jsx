@@ -1,219 +1,190 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 
 export default function Profile({ userName, setUserName, teachers, onDeleteTeacher, onUpdateTeacher }) {
-  const mySkills = teachers.filter(teacher => teacher.name === userName);
+  const [isEditing, setIsEditing] = useState(false);
+  
+  // 📝 編輯模式的狀態
+  const [editName, setEditName] = useState(userName);
+  const [editBio, setEditBio] = useState('熱愛程式與音樂，目前在鑽研網頁設計與吉他指彈。');
+  const [editDept, setEditDept] = useState('尚未填寫系所');
 
-  const [editingId, setEditingId] = useState(null);
-  const [editTitle, setEditTitle] = useState('');
-  const [editPrice, setEditPrice] = useState('');
-
-  // 個人資料區塊的編輯與顯示狀態
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [profileName, setProfileName] = useState(userName);
-  const [profileDept, setProfileDept] = useState('');
-  const [profileBio, setProfileBio] = useState('');
-
-  // 🔄 進入個人主頁時，撈取該使用者的詳細 profile 資料
+  // 🔄 頁面載入時：去後端抓取真正的自我介紹跟系級！
   useEffect(() => {
     fetch('http://localhost:5000/api/user/profile')
       .then(res => res.json())
       .then(data => {
-        setProfileName(data.userName);
-        setProfileDept(data.department);
-        setProfileBio(data.bio);
+        setEditName(data.userName);
+        setUserName(data.userName); // 同步給總部
+        if (data.department) setEditDept(data.department);
+        if (data.bio) setEditBio(data.bio);
       })
-      .catch(err => console.error("無法撈取個人檔案資料:", err));
-  }, [userName]); // 當全域 userName 改變時重新讀取
+      .catch(err => console.error("無法獲取個人資料:", err));
+  }, []);
 
-  const handleEditClick = (skill) => {
-    setEditingId(skill.id);
-    setEditTitle(skill.skill);
-    setEditPrice(skill.price);
-  };
+  const myTeachers = teachers.filter(teacher => teacher.name === userName);
 
-  const handleCancelEdit = () => {
-    setEditingId(null);
-  };
-
-  const handleSaveEdit = () => {
-    onUpdateTeacher(editingId, editTitle, editPrice);
-    setEditingId(null);
-  };
-
-  // 💾 儲存個人資料並推送到後端
   const handleSaveProfile = async () => {
+    if (!editName.trim()) {
+      alert("姓名不可為空！");
+      return;
+    }
+
     try {
       const response = await fetch('http://localhost:5000/api/user/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userName: profileName,
-          department: profileDept,
-          bio: profileBio
-        })
+        body: JSON.stringify({ userName: editName, department: editDept, bio: editBio })
       });
-      const data = await response.json();
 
       if (response.ok) {
-        setUserName(data.userName); // 同步更新 App.jsx 的全域變數
-        setIsEditingProfile(false);
-        alert("✅ 個人資料儲存成功！");
+        setUserName(editName); 
+        setIsEditing(false);
+        alert("✅ 個人資料更新成功！");
       } else {
-        alert("❌ 儲存失敗：" + data.error);
+        alert("❌ 更新失敗，請稍後再試。");
       }
     } catch (error) {
-      console.error("更新個人檔案時發生錯誤:", error);
+      console.error("更新個人資料失敗:", error);
+      alert("連線失敗，請檢查後端是否啟動。");
     }
   };
 
   return (
-    <div style={{ padding: '40px 20px', maxWidth: '900px', margin: '0 auto', fontFamily: 'sans-serif' }}>
+    <div style={{ backgroundColor: '#f4f7f6', minHeight: 'calc(100vh - 70px)', padding: '40px 20px', fontFamily: 'sans-serif' }}>
       
-      {/* 頂部個人資料卡片 */}
-      <div style={{ backgroundColor: 'white', padding: '40px', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '30px' }}>
-        <div style={{ width: '120px', height: '120px', borderRadius: '50%', backgroundColor: '#f0f0f0', display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#999', border: '2px dashed #ccc', marginBottom: '20px' }}>
-          照片 (大頭貼)
-        </div>
+      {/* 限制最大寬度並置中，打造出像手機 APP 一樣的精緻卡片感 */}
+      <div style={{ maxWidth: '700px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
         
-        {isEditingProfile ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', maxWidth: '400px', gap: '15px' }}>
-            <input 
-              type="text" 
-              value={profileName}
-              onChange={(e) => setProfileName(e.target.value)}
-              style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ced4da', textAlign: 'center', fontSize: '20px', fontWeight: 'bold' }}
-            />
-            <input 
-              type="text" 
-              value={profileDept}
-              onChange={(e) => setProfileDept(e.target.value)}
-              style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ced4da', textAlign: 'center' }}
-            />
-            <textarea 
-              value={profileBio}
-              onChange={(e) => setProfileBio(e.target.value)}
-              rows="3"
-              style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ced4da', resize: 'vertical', textAlign: 'center' }}
-            />
-            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-              <button onClick={() => setIsEditingProfile(false)} style={{ padding: '10px 20px', borderRadius: '20px', border: '1px solid #bdc3c7', backgroundColor: 'transparent', color: '#7f8c8d', fontWeight: 'bold', cursor: 'pointer' }}>取消</button>
-              <button onClick={handleSaveProfile} style={{ padding: '10px 20px', borderRadius: '20px', border: 'none', backgroundColor: '#2ecc71', color: 'white', fontWeight: 'bold', cursor: 'pointer' }}>儲存</button>
+        {/* ================= 卡片一：封面與個人名片 ================= */}
+        <div style={{ backgroundColor: 'white', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)', overflow: 'hidden' }}>
+          
+          {/* 上半部：波浪/漸層封面背景 */}
+          <div style={{ height: '140px', background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', position: 'relative' }}>
+          </div>
+
+          {/* 下半部：個人資訊 */}
+          <div style={{ padding: '0 30px 30px 30px', position: 'relative' }}>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              {/* 大頭貼 (向上重疊 50px) */}
+              <div style={{ 
+                width: '100px', height: '100px', backgroundColor: '#ecf0f1', borderRadius: '50%', 
+                border: '4px solid white', marginTop: '-50px', 
+                display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '40px',
+                boxShadow: '0 2px 10px rgba(0,0,0,0.1)', zIndex: 1, position: 'relative'
+              }}>
+              </div>
+
+              {/* 編輯按鈕 */}
+              {!isEditing && (
+                <button 
+                  onClick={() => setIsEditing(true)}
+                  style={{ marginTop: '15px', padding: '8px 20px', borderRadius: '20px', border: '1px solid #3498db', backgroundColor: 'transparent', color: '#3498db', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}
+                >
+                  編輯名片
+                </button>
+              )}
+            </div>
+
+            {!isEditing ? (
+              <div style={{ marginTop: '15px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
+                  <h1 style={{ margin: 0, color: '#2c3e50', fontSize: '26px' }}>{userName}</h1>
+                  <span style={{ backgroundColor: '#2c3e50', color: '#f1c40f', padding: '4px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    <span></span> 認證達人
+                  </span>
+                </div>
+                
+                {/* 數據列 */}
+                <div style={{ display: 'flex', gap: '20px', margin: '15px 0', color: '#34495e', fontSize: '15px' }}>
+                  <div><strong style={{ color: '#2c3e50' }}>{myTeachers.length}</strong> 上架技能</div>
+                  <div><strong style={{ color: '#2c3e50' }}>5.0</strong> 平均評價</div>
+                  <div><strong style={{ color: '#2c3e50' }}>100%</strong> 回覆率</div>
+                </div>
+
+                <p style={{ margin: 0, color: '#7f8c8d', lineHeight: '1.6', fontSize: '15px' }}>
+                  “ {editBio} ”
+                </p>
+              </div>
+            ) : (
+              <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                <input type="text" value={editName} onChange={e => setEditName(e.target.value)} placeholder="顯示名稱" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ccc' }} />
+                <textarea value={editBio} onChange={e => setEditBio(e.target.value)} placeholder="一句話介紹自己..." rows="3" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ccc', resize: 'vertical' }} />
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button onClick={() => setIsEditing(false)} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #ccc', background: 'transparent' }}>取消</button>
+                  <button onClick={handleSaveProfile} style={{ flex: 2, padding: '10px', borderRadius: '8px', border: 'none', background: '#3498db', color: 'white', fontWeight: 'bold' }}>儲存變更</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ================= 卡片二：專業身分 (Icon List) ================= */}
+        <div style={{ backgroundColor: 'white', padding: '25px 30px', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
+          <h3 style={{ margin: '0 0 20px 0', color: '#2c3e50', fontSize: '18px' }}>專業身分</h3>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div style={{ display: 'flex', gap: '15px', alignItems: 'flex-start' }}>
+              <div style={{ fontSize: '20px' }}></div>
+              <div>
+                <div style={{ fontWeight: 'bold', color: '#2c3e50', marginBottom: '4px' }}>教育經歷</div>
+                <div style={{ color: '#7f8c8d', fontSize: '14px' }}>
+                  {!isEditing ? editDept : (
+                    <input type="text" value={editDept} onChange={e => setEditDept(e.target.value)} placeholder="例如：資管系 二技" style={{ padding: '6px', width: '100%', borderRadius: '4px', border: '1px solid #ccc' }} />
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '15px', alignItems: 'flex-start' }}>
+              <div style={{ fontSize: '20px' }}></div>
+              <div>
+                <div style={{ fontWeight: 'bold', color: '#2c3e50', marginBottom: '4px' }}>認證身分</div>
+                <div style={{ color: '#7f8c8d', fontSize: '14px' }}>National Yunlin University of Science and Technology 學生</div>
+              </div>
             </div>
           </div>
-        ) : (
-          <>
-            <h2 style={{ margin: '0 0 10px 0', color: '#2c3e50', fontSize: '28px' }}>{profileName}</h2>
-            <p style={{ margin: '0 0 20px 0', color: '#7f8c8d' }}>{profileDept}</p>
-            <p style={{ margin: '0 0 20px 0', color: '#34495e', textAlign: 'center', maxWidth: '500px', lineHeight: '1.5' }}>{profileBio}</p>
-            <button onClick={() => setIsEditingProfile(true)} style={{ padding: '10px 20px', borderRadius: '20px', border: '1px solid #3498db', backgroundColor: 'transparent', color: '#3498db', fontWeight: 'bold', cursor: 'pointer' }}>
-              編輯個人資料
-            </button>
-          </>
-        )}
+        </div>
+
+        {/* ================= 卡片三：我上架的技能 ================= */}
+        <div style={{ backgroundColor: 'white', padding: '25px 30px', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h3 style={{ margin: 0, color: '#2c3e50', fontSize: '18px' }}>我的技能課程 ({myTeachers.length})</h3>
+          </div>
+
+          {myTeachers.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              {myTeachers.map(teacher => (
+                <div key={teacher.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 0', borderBottom: '1px solid #f0f0f0' }}>
+                  <div>
+                    <h4 style={{ margin: '0 0 5px 0', color: '#2c3e50', fontSize: '16px' }}>{teacher.skill}</h4>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ backgroundColor: '#eafaf1', color: '#2ecc71', padding: '2px 6px', borderRadius: '4px', fontSize: '12px' }}>{teacher.category}</span>
+                      <span style={{ color: '#f39c12', fontWeight: 'bold', fontSize: '14px' }}>🪙 {teacher.price.toFixed(1)}</span>
+                    </div>
+                  </div>
+                  
+                  <button 
+                    onClick={() => {
+                      if(window.confirm(`確定要下架「${teacher.skill}」嗎？`)) {
+                        onDeleteTeacher(teacher.id);
+                      }
+                    }}
+                    style={{ padding: '6px 12px', backgroundColor: '#fff', color: '#e74c3c', border: '1px solid #e74c3c', borderRadius: '20px', fontSize: '13px', cursor: 'pointer', transition: 'all 0.2s' }}
+                  >
+                    下架
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '30px 10px', color: '#bdc3c7', fontSize: '14px' }}>
+              目前還沒有上架任何技能。<br/>去「發佈技能」頁面新增一堂課吧！
+            </div>
+          )}
+        </div>
+
       </div>
-
-      {/* 統計數據區塊 */}
-      <div style={{ display: 'flex', gap: '20px', marginBottom: '30px' }}>
-        <div style={{ flex: 1, backgroundColor: '#f9f9f9', padding: '20px', borderRadius: '15px', textAlign: 'center' }}>
-          <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#2c3e50' }}>{mySkills.length}</div>
-          <div style={{ color: '#7f8c8d', fontSize: '14px', marginTop: '5px' }}>上架技能數</div>
-        </div>
-        <div style={{ flex: 1, backgroundColor: '#f9f9f9', padding: '20px', borderRadius: '15px', textAlign: 'center' }}>
-          <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#2c3e50' }}>4.9</div>
-          <div style={{ color: '#7f8c8d', fontSize: '14px', marginTop: '5px' }}>平均評價</div>
-        </div>
-        <div style={{ flex: 1, backgroundColor: '#f9f9f9', padding: '20px', borderRadius: '15px', textAlign: 'center' }}>
-          <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#2c3e50' }}>350</div>
-          <div style={{ color: '#7f8c8d', fontSize: '14px', marginTop: '5px' }}>累計賺取 YTC</div>
-        </div>
-      </div>
-
-      {/* 技能清單表格 */}
-      <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h3 style={{ margin: 0, color: '#2c3e50' }}>我正在販售的技能</h3>
-          <Link to="/publish" style={{ textDecoration: 'none', color: '#3498db', fontWeight: 'bold', fontSize: '14px' }}>
-            + 新增技能
-          </Link>
-        </div>
-
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead style={{ borderBottom: '2px solid #eee' }}>
-            <tr>
-              <th style={{ padding: '15px', textAlign: 'left', color: '#7f8c8d' }}>技能名稱</th>
-              <th style={{ padding: '15px', textAlign: 'left', color: '#7f8c8d' }}>分類</th>
-              <th style={{ padding: '15px', textAlign: 'center', color: '#7f8c8d' }}>定價 (YTC)</th>
-              <th style={{ padding: '15px', textAlign: 'center', color: '#7f8c8d' }}>狀態</th>
-              <th style={{ padding: '15px', textAlign: 'right', color: '#7f8c8d' }}>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {mySkills.length === 0 ? (
-              <tr>
-                <td colSpan="5" style={{ padding: '30px', textAlign: 'center', color: '#95a5a6' }}>
-                  目前還沒有上架任何技能喔！
-                </td>
-              </tr>
-            ) : (
-              mySkills.map(skill => (
-                <tr key={skill.id} style={{ borderBottom: '1px solid #eee' }}>
-                  {editingId === skill.id ? (
-                    <>
-                      <td style={{ padding: '15px' }}>
-                        <input 
-                          type="text" 
-                          value={editTitle} 
-                          onChange={(e) => setEditTitle(e.target.value)}
-                          style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da' }}
-                        />
-                      </td>
-                      <td style={{ padding: '15px', color: '#7f8c8d' }}>{skill.category}</td>
-                      <td style={{ padding: '15px', textAlign: 'center' }}>
-                        <input 
-                          type="number" 
-                          value={editPrice} 
-                          onChange={(e) => setEditPrice(e.target.value)}
-                          step="0.1"
-                          style={{ width: '80px', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', textAlign: 'center' }}
-                        />
-                      </td>
-                      <td style={{ padding: '15px', textAlign: 'center' }}>
-                        <span style={{ backgroundColor: '#fff3cd', color: '#856404', padding: '5px 10px', borderRadius: '15px', fontSize: '12px', fontWeight: 'bold' }}>編輯中</span>
-                      </td>
-                      <td style={{ padding: '15px', textAlign: 'right' }}>
-                        <button onClick={handleCancelEdit} style={{ border: 'none', background: 'none', color: '#95a5a6', cursor: 'pointer', marginRight: '10px' }}>取消</button>
-                        <button onClick={handleSaveEdit} style={{ border: 'none', background: 'none', color: '#2ecc71', cursor: 'pointer', fontWeight: 'bold' }}>儲存</button>
-                      </td>
-                    </>
-                  ) : (
-                    <>
-                      <td style={{ padding: '15px', fontWeight: 'bold', color: '#2c3e50' }}>{skill.skill}</td>
-                      <td style={{ padding: '15px', color: '#7f8c8d' }}>{skill.category}</td>
-                      <td style={{ padding: '15px', textAlign: 'center', fontWeight: 'bold', color: '#f39c12' }}>
-                        🪙 {skill.price.toFixed(1)}
-                      </td>
-                      <td style={{ padding: '15px', textAlign: 'center' }}>
-                        <span style={{ backgroundColor: '#eafaf1', color: '#2ecc71', padding: '5px 10px', borderRadius: '15px', fontSize: '12px', fontWeight: 'bold' }}>販售中</span>
-                      </td>
-                      <td style={{ padding: '15px', textAlign: 'right' }}>
-                        <button onClick={() => handleEditClick(skill)} style={{ border: 'none', background: 'none', color: '#95a5a6', cursor: 'pointer', marginRight: '10px' }}>編輯</button>
-                        <button 
-                          onClick={() => onDeleteTeacher(skill.id)} 
-                          style={{ border: 'none', background: 'none', color: '#e74c3c', cursor: 'pointer' }}
-                        >
-                          刪除
-                        </button>
-                      </td>
-                    </>
-                  )}
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
     </div>
   );
 }

@@ -1,10 +1,25 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-// 這裡多接收了從 App.jsx 傳來的 teachers 陣列
 export default function SearchTeacher({ isLoggedIn, balance, onDeduct, teachers }) {
   const navigate = useNavigate();
 
+  // 1. [新增] 搜尋與分類過濾的狀態
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('全部');
+  const categories = ['全部', '程式', '語言', '音樂', '綜合'];
+
+  // 2. [新增] 過濾邏輯：產生篩選後的課程清單
+  const filteredTeachers = teachers.filter((teacher) => {
+    const matchKeyword = 
+      teacher.skill.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      teacher.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchCategory = selectedCategory === '全部' || teacher.category === selectedCategory;
+    
+    return matchKeyword && matchCategory;
+  });
+
+  // 原本的預約彈出視窗狀態
   const [bookingTeacher, setBookingTeacher] = useState(null);
 
   const handleBookingClick = (teacher) => {
@@ -17,7 +32,6 @@ export default function SearchTeacher({ isLoggedIn, balance, onDeduct, teachers 
   };
 
   const confirmPayment = async () => {
-    // 🛡️ 雙重保險：扣款前再次跟 Props 的最新 balance (或後端) 確認餘額是否足夠
     if (balance < bookingTeacher.price) {
       alert("❌ 餘額不足！請先至錢包儲值 YTC。");
       setBookingTeacher(null);
@@ -25,9 +39,7 @@ export default function SearchTeacher({ isLoggedIn, balance, onDeduct, teachers 
     }
 
     try {
-      // 呼叫 App.jsx 傳遞過來的扣款處理函式 (它會去打後端 /api/wallet/deduct)
       await onDeduct(bookingTeacher.price, bookingTeacher.name, bookingTeacher.skill);
-      
       alert(`✅ 智能合約模擬執行成功！已將 ${bookingTeacher.price.toFixed(1)} YTC 扣款並鎖定，祝您學習愉快！`);
     } catch (error) {
       console.error("交易失敗:", error);
@@ -41,48 +53,90 @@ export default function SearchTeacher({ isLoggedIn, balance, onDeduct, teachers 
     <div style={{ padding: '40px 20px', maxWidth: '1000px', margin: '0 auto', fontFamily: 'sans-serif' }}>
       <h2 style={{ color: '#2c3e50', marginBottom: '30px', textAlign: 'center' }}>尋找您想學習的技能</h2>
 
+      {/* ================= 新增：搜尋與過濾 UI 區塊 ================= */}
+      <div style={{ backgroundColor: 'white', padding: '25px', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', marginBottom: '40px' }}>
+        <div style={{ display: 'flex', gap: '15px', marginBottom: '20px' }}>
+          <input 
+            type="text" 
+            placeholder="搜尋你想學的技能或老師名字..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ flex: 1, padding: '15px', borderRadius: '8px', border: '1px solid #ced4da', fontSize: '16px' }}
+          />
+        </div>
+        
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          {categories.map(category => (
+            <button 
+              key={category}
+              onClick={() => setSelectedCategory(category)}
+              style={{ 
+                padding: '8px 20px', 
+                borderRadius: '20px', 
+                border: 'none', 
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                backgroundColor: selectedCategory === category ? '#3498db' : '#f0f2f5',
+                color: selectedCategory === category ? 'white' : '#7f8c8d',
+                transition: 'all 0.2s'
+              }}
+            >
+              {category}
+            </button>
+          ))}
+        </div>
+      </div>
+      {/* ========================================================= */}
+
       <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', justifyContent: 'center' }}>
-        {teachers.map(teacher => (
-          <div key={teacher.id} style={{ 
-            width: '280px', backgroundColor: 'white', borderRadius: '15px', 
-            boxShadow: '0 4px 15px rgba(0,0,0,0.05)', padding: '20px', 
-            display: 'flex', flexDirection: 'column' 
-          }}>
-            <div style={{
-              width: '100%', height: '140px', backgroundColor: '#f0f0f0', border: '1px dashed #ccc',
-              display: 'flex', justifyContent: 'center', alignItems: 'center', borderRadius: '10px',
-              color: '#999', fontSize: '14px', marginBottom: '15px'
+        {/* 注意：這裡把原本的 teachers.map 換成了 filteredTeachers.map */}
+        {filteredTeachers.length > 0 ? (
+          filteredTeachers.map(teacher => (
+            <div key={teacher.id} style={{ 
+              width: '280px', backgroundColor: 'white', borderRadius: '15px', 
+              boxShadow: '0 4px 15px rgba(0,0,0,0.05)', padding: '20px', 
+              display: 'flex', flexDirection: 'column' 
             }}>
-              照片 ({teacher.name})
-            </div>
-
-            <div style={{ flexGrow: 1 }}>
-              <span style={{ backgroundColor: '#eafaf1', color: '#2ecc71', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' }}>
-                {teacher.category}
-              </span>
-              <h3 style={{ margin: '10px 0', color: '#2c3e50' }}>{teacher.skill}</h3>
-              <p style={{ margin: '0 0 15px 0', color: '#7f8c8d', fontSize: '14px' }}>指導者：{teacher.name}</p>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #eee', paddingTop: '15px' }}>
-              <div style={{ fontWeight: 'bold', color: '#2c3e50', fontSize: '18px' }}>
-                {teacher.price.toFixed(1)} <span style={{ fontSize: '14px', color: '#f39c12' }}>YTC</span>
+              <div style={{
+                width: '100%', height: '140px', backgroundColor: '#f0f0f0', border: '1px dashed #ccc',
+                display: 'flex', justifyContent: 'center', alignItems: 'center', borderRadius: '10px',
+                color: '#999', fontSize: '14px', marginBottom: '15px'
+              }}>
+                照片 ({teacher.name})
               </div>
-              <button 
-                onClick={() => handleBookingClick(teacher)}
-                style={{ 
-                  backgroundColor: '#3498db', color: 'white', border: 'none', 
-                  padding: '8px 16px', borderRadius: '20px', fontWeight: 'bold', cursor: 'pointer' 
-                }}
-              >
-                預約付款
-              </button>
+
+              <div style={{ flexGrow: 1 }}>
+                <span style={{ backgroundColor: '#eafaf1', color: '#2ecc71', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' }}>
+                  {teacher.category}
+                </span>
+                <h3 style={{ margin: '10px 0', color: '#2c3e50' }}>{teacher.skill}</h3>
+                <p style={{ margin: '0 0 15px 0', color: '#7f8c8d', fontSize: '14px' }}>指導者：{teacher.name}</p>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #eee', paddingTop: '15px' }}>
+                <div style={{ fontWeight: 'bold', color: '#2c3e50', fontSize: '18px' }}>
+                  {teacher.price.toFixed(1)} <span style={{ fontSize: '14px', color: '#f39c12' }}>YTC</span>
+                </div>
+                <button 
+                  onClick={() => handleBookingClick(teacher)}
+                  style={{ 
+                    backgroundColor: '#3498db', color: 'white', border: 'none', 
+                    padding: '8px 16px', borderRadius: '20px', fontWeight: 'bold', cursor: 'pointer' 
+                  }}
+                >
+                  預約付款
+                </button>
+              </div>
             </div>
+          ))
+        ) : (
+          <div style={{ width: '100%', textAlign: 'center', padding: '40px', color: '#7f8c8d', fontSize: '18px', backgroundColor: 'white', borderRadius: '15px' }}>
+            找不到符合條件的課程喔！試試看其他關鍵字吧!
           </div>
-        ))}
+        )}
       </div>
 
-      {/* 彈出式確認訂單視窗 (Modal) */}
+      {/* 原本的：彈出式確認訂單視窗 (Modal) 完全保留 */}
       {bookingTeacher && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
           <div style={{ backgroundColor: 'white', padding: '35px', borderRadius: '20px', width: '90%', maxWidth: '400px', boxShadow: '0 10px 30px rgba(0,0,0,0.2)', textAlign: 'center' }}>
