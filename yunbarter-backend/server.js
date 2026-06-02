@@ -34,7 +34,7 @@ let teachers = [
 
 // ==================== API 路由設計 ====================
 
-// 💰 [全新] 處理儲值入金
+// 💰 處理儲值入金
 app.post('/api/wallet/deposit', (req, res) => {
     const { amount } = req.body;
     if (amount === undefined || isNaN(amount) || amount <= 0) {
@@ -55,7 +55,7 @@ app.post('/api/wallet/deposit', (req, res) => {
     res.json({ success: true, balance, newTransaction });
 });
 
-// 💰 [全新] 處理提領出金
+// 💰 處理提領出金
 app.post('/api/wallet/withdraw', (req, res) => {
     const { amount } = req.body;
     if (amount === undefined || isNaN(amount) || amount <= 0) {
@@ -132,19 +132,34 @@ app.post('/api/auth/login', (req, res) => {
     }
 });
 
-// 🔑 處理新帳號註冊
+// 🔑 處理新帳號註冊 (🌟 終極除錯版，包含雷達)
 app.post('/api/auth/register', (req, res) => {
-    const { email, password, schoolId } = req.body;
+    console.log("=====================================");
+    console.log("[後端雷達] 收到一筆新的註冊請求！");
+    console.log("這是前端傳來的完整 req.body:", req.body);
+    
+    // 從 req.body 解構出 userName (並命名為 frontendUserName)
+    const { email, password, userName: frontendUserName, schoolId } = req.body;
+    
     const userExists = registeredUsers.some(u => u.email === email);
-    if (userExists) return res.status(400).json({ error: "該電子郵件已被註冊！" });
+    if (userExists) {
+        console.log("❌ 註冊失敗：信箱已存在");
+        return res.status(400).json({ error: "該電子郵件已被註冊！" });
+    }
 
-    const newUserName = email.split('@')[0];
+    // 優先使用前端傳來的值，否則才用信箱前綴
+    const newUserName = frontendUserName || email.split('@')[0];
+    
+    console.log("✨ 系統最終決定存入的名字是:", newUserName);
+    console.log("=====================================");
+
     const newUser = { email, password, userName: newUserName, schoolId };
     registeredUsers.push(newUser);
 
     userName = newUserName;
     userProfile.userName = newUserName;
     userProfile.department = schoolId ? `學號：${schoolId}` : "尚未填寫系所";
+    
     res.status(201).json({ success: true, userName: newUserName });
 });
 
