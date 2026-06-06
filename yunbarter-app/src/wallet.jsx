@@ -1,177 +1,234 @@
 import { useState } from 'react';
+import { 
+  Wallet as WalletIcon, 
+  ArrowUpRight, 
+  ArrowDownRight, 
+  History, 
+  CreditCard, 
+  Landmark, 
+  ArrowRightLeft, 
+  ShieldCheck, 
+  Loader2, 
+  Coins
+} from 'lucide-react';
 
 export default function Wallet({ balance, setBalance, transactions, setTransactions }) {
-  // 🌟 新增：用來控制彈出視窗 (Modal) 的狀態
-  const [activeModal, setActiveModal] = useState(null); // 'deposit' (儲值) | 'withdraw' (提領) | null (關閉)
-  const [inputAmount, setInputAmount] = useState('');
+  // 切換 儲值 / 提領 面板
+  const [activeTab, setActiveTab] = useState('deposit'); 
+  const [amount, setAmount] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // 統一處理「儲值」與「提領」打 API 的邏輯
-  const submitTransaction = async () => {
-    const num = parseFloat(inputAmount);
-
-    if (!inputAmount || isNaN(num) || num <= 0) {
-      alert("❌ 請輸入大於 0 的正確金額！");
+  // 處理金流請求
+  const handleTransaction = async (e) => {
+    e.preventDefault();
+    const parsedAmount = parseFloat(amount);
+    
+    if (!parsedAmount || parsedAmount <= 0) {
+      alert("請輸入有效的金額！");
       return;
     }
-
-    if (activeModal === 'withdraw' && num > balance) {
-      alert("❌ 餘額不足以提領！您的餘額只有 " + balance.toFixed(1) + " YTC。");
+    if (activeTab === 'withdraw' && parsedAmount > balance) {
+      alert("餘額不足，無法提領喔！");
       return;
     }
 
     setIsProcessing(true);
-    const endpoint = activeModal === 'deposit' ? '/api/wallet/deposit' : '/api/wallet/withdraw';
+    const endpoint = activeTab === 'deposit' ? '/api/wallet/deposit' : '/api/wallet/withdraw';
 
     try {
       const response = await fetch(`http://localhost:5000${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: num })
+        body: JSON.stringify({ amount: parsedAmount })
       });
-
+      
       const data = await response.json();
-
+      
       if (response.ok) {
-        setBalance(data.balance);
-        // 使用 prev 確保抓到最新的陣列狀態
-        setTransactions(prev => [data.newTransaction, ...prev]);
-        
-        alert(activeModal === 'deposit' ? `✅ 儲值成功！已存入 ${num} YTC` : `✅ 提領申請已提交！款項將匯入您的銀行帳戶。`);
-        
-        // 成功後關閉視窗並清空輸入框
-        setActiveModal(null);
-        setInputAmount('');
+        // 為了讓使用者有「真的在處理金流」的高級感，我們故意延遲 0.8 秒
+        setTimeout(() => {
+          setBalance(data.balance);
+          setTransactions(prev => [data.newTransaction, ...prev]);
+          setAmount('');
+          setIsProcessing(false);
+          alert(`✅ ${activeTab === 'deposit' ? '儲值' : '提領'}成功！`);
+        }, 800);
       } else {
         alert(`❌ 交易失敗：${data.error}`);
+        setIsProcessing(false);
       }
     } catch (error) {
-      console.error("交易連線時發生錯誤:", error);
-      alert("無法連線至伺服器，請稍後再試。");
-    } finally {
+      console.error("交易錯誤:", error);
+      alert("無法連線至後端伺服器");
       setIsProcessing(false);
     }
   };
 
-  const closeModal = () => {
-    setActiveModal(null);
-    setInputAmount('');
+  // 判斷交易類型給予對應的顏色與圖示
+  const getTransactionStyle = (type, amount) => {
+    const isIncome = amount > 0;
+    return {
+      color: isIncome ? '#10b981' : '#ef4444', // 綠色收入，紅色支出
+      bgColor: isIncome ? '#ecfdf5' : '#fef2f2',
+      icon: isIncome ? <ArrowDownRight size={18} /> : <ArrowUpRight size={18} />,
+      prefix: isIncome ? '+' : '' // 負數自帶 '-'
+    };
   };
 
   return (
-    <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto', fontFamily: 'sans-serif' }}>
-      <h2 style={{ color: '#2c3e50', marginBottom: '25px' }}>我的錢包</h2>
-
-      {/* 餘額卡片 */}
-      <div style={{
-        background: 'linear-gradient(135deg, #3498db 0%, #8e44ad 100%)',
-        color: 'white', padding: '35px', borderRadius: '20px', marginBottom: '25px',
-        boxShadow: '0 10px 20px rgba(52, 152, 219, 0.2)', position: 'relative'
-      }}>
-        <p style={{ margin: 0, fontSize: '16px', opacity: 0.9 }}>YunBarter 帳戶餘額</p>
-        <div style={{ fontSize: '56px', fontWeight: 'bold', margin: '15px 0' }}>
-          🪙 {balance.toFixed(1)} <span style={{ fontSize: '24px' }}>YTC</span>
-        </div>
-        <div style={{ fontSize: '16px', opacity: 0.8 }}>
-          約等值 NT$ {(balance * 100).toLocaleString()} ( 匯率 1:100 )
-        </div>
-      </div>
-
-      {/* 兩顆大按鈕：點擊後不再跳 prompt，而是打開自訂 Modal */}
-      <div style={{ display: 'flex', gap: '15px', marginBottom: '40px' }}>
-        <button 
-          onClick={() => setActiveModal('deposit')} 
-          style={{ flex: 1, padding: '18px', borderRadius: '15px', border: 'none', backgroundColor: '#2ecc71', color: 'white', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer', boxShadow: '0 4px 10px rgba(46, 204, 113, 0.3)', transition: 'transform 0.2s' }}
-        >
-        儲值入金 (信用卡)
-        </button>
-        <button 
-          onClick={() => setActiveModal('withdraw')} 
-          style={{ flex: 1, padding: '18px', borderRadius: '15px', border: 'none', backgroundColor: '#e67e22', color: 'white', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer', boxShadow: '0 4px 10px rgba(230, 126, 34, 0.3)', transition: 'transform 0.2s' }}
-        >
-        提領出金 (銀行轉帳)
-        </button>
-      </div>
-
-      {/* 交易紀錄表格 */}
-      <h3 style={{ color: '#2c3e50', borderBottom: '2px solid #eee', paddingBottom: '10px' }}>近期交易紀錄</h3>
-      <div style={{ backgroundColor: 'white', borderRadius: '15px', overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead style={{ backgroundColor: '#f8f9fa' }}>
-            <tr>
-              <th style={{ padding: '15px', textAlign: 'left', color: '#7f8c8d' }}>類型</th>
-              <th style={{ padding: '15px', textAlign: 'left', color: '#7f8c8d' }}>詳細內容</th>
-              <th style={{ padding: '15px', textAlign: 'right', color: '#7f8c8d' }}>金額 (YTC)</th>
-              <th style={{ padding: '15px', textAlign: 'right', color: '#7f8c8d' }}>交易日期</th>
-            </tr>
-          </thead>
-          <tbody>
-            {transactions.map(t => (
-              <tr key={t.id} style={{ borderTop: '1px solid #eee' }}>
-                <td style={{ padding: '15px', fontWeight: 'bold' }}>
-                  <span style={{ backgroundColor: t.amount > 0 ? '#eafaf1' : '#fdedec', color: t.amount > 0 ? '#2ecc71' : '#e74c3c', padding: '5px 10px', borderRadius: '8px', fontSize: '12px' }}>
-                    {t.type}
-                  </span>
-                </td>
-                <td style={{ padding: '15px', color: '#34495e' }}>{t.note}</td>
-                <td style={{ padding: '15px', textAlign: 'right', fontWeight: 'bold', color: t.amount > 0 ? '#2ecc71' : '#e74c3c' }}>
-                  {t.amount > 0 ? '+' : ''}{t.amount.toFixed(1)}
-                </td>
-                <td style={{ padding: '15px', textAlign: 'right', color: '#bdc3c7', fontSize: '14px' }}>{t.date}</td>
-              </tr>
-            ))}
-            {transactions.length === 0 && (
-              <tr>
-                <td colSpan="4" style={{ textAlign: 'center', padding: '30px', color: '#bdc3c7' }}>目前還沒有任何交易紀錄喔！</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* 🌟 彈出式視窗 (Modal) */}
-      {activeModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-          <div style={{ backgroundColor: 'white', padding: '35px', borderRadius: '20px', width: '90%', maxWidth: '400px', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
-            <h3 style={{ margin: '0 0 10px 0', color: '#2c3e50', fontSize: '22px', textAlign: 'center' }}>
-              {activeModal === 'deposit' ? '儲值 YTC 代幣' : '提領 YTC 餘額'}
-            </h3>
-            <p style={{ color: '#7f8c8d', marginBottom: '25px', textAlign: 'center', fontSize: '14px' }}>
-              {activeModal === 'deposit' ? '輸入欲儲值的 TWD 金額 (兌換比例 1:1)' : '輸入欲提領的 YTC 金額 (將匯入您的實體帳戶)'}
-            </p>
+    <div style={{ backgroundColor: '#f8fafc', minHeight: 'calc(100vh - 70px)', padding: '50px 20px', fontFamily: 'sans-serif' }}>
+      
+      <div style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', gap: '30px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        
+        {/* ================= 左側：資產卡片與操作區 ================= */}
+        <div style={{ flex: '1', minWidth: '350px', display: 'flex', flexDirection: 'column', gap: '25px' }}>
+          
+          {/* 🌟 頂級黑金數位卡片 (Digital Asset Card) */}
+          <div style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', borderRadius: '24px', padding: '30px', color: 'white', boxShadow: '0 20px 40px -15px rgba(15, 23, 42, 0.4)', position: 'relative', overflow: 'hidden' }}>
+            {/* 背景裝飾光暈 */}
+            <div style={{ position: 'absolute', top: '-20px', right: '-20px', width: '150px', height: '150px', background: 'radial-gradient(circle, rgba(217, 119, 6, 0.2) 0%, rgba(255,255,255,0) 70%)', borderRadius: '50%' }}></div>
             
-            <div style={{ marginBottom: '25px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', border: '2px solid #3498db', borderRadius: '12px', padding: '5px 15px', backgroundColor: '#f9fbfd' }}>
-                <span style={{ fontSize: '24px', marginRight: '10px' }}>🪙</span>
-                <input 
-                  type="number" 
-                  autoFocus
-                  placeholder="0.0" 
-                  value={inputAmount}
-                  onChange={(e) => setInputAmount(e.target.value)}
-                  style={{ width: '100%', padding: '15px 0', border: 'none', background: 'transparent', fontSize: '24px', fontWeight: 'bold', outline: 'none', color: '#2c3e50' }}
-                />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', position: 'relative', zIndex: 1 }}>
+              <span style={{ fontSize: '15px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '8px', letterSpacing: '1px' }}>
+                <WalletIcon size={18} /> YUNBARTER WALLET
+              </span>
+              <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: '4px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold', color: '#fcd34d' }}>
+                Web3 安全認證
+              </span>
+            </div>
+
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <div style={{ fontSize: '14px', color: '#cbd5e1', marginBottom: '5px' }}>目前總資產 (YTC)</div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
+                <span style={{ fontSize: '48px', fontWeight: '900', letterSpacing: '-1px' }}>{balance.toFixed(1)}</span>
+                <span style={{ fontSize: '18px', color: '#d97706', fontWeight: 'bold' }}>Coins</span>
               </div>
             </div>
+          </div>
 
-            <div style={{ display: 'flex', gap: '15px' }}>
+          {/* 🌟 動態操作面板 (Deposit / Withdraw) */}
+          <div style={{ backgroundColor: 'white', borderRadius: '24px', padding: '30px', boxShadow: '0 10px 30px rgba(0,0,0,0.03)' }}>
+            
+            {/* Tab 切換 */}
+            <div style={{ display: 'flex', backgroundColor: '#f1f5f9', borderRadius: '12px', padding: '6px', marginBottom: '25px' }}>
               <button 
-                onClick={closeModal} 
-                style={{ flex: 1, padding: '14px', borderRadius: '12px', border: '1px solid #bdc3c7', backgroundColor: 'transparent', color: '#7f8c8d', fontWeight: 'bold', cursor: 'pointer', fontSize: '16px' }}
+                onClick={() => { setActiveTab('deposit'); setAmount(''); }}
+                style={{ flex: 1, padding: '12px', borderRadius: '8px', border: 'none', backgroundColor: activeTab === 'deposit' ? 'white' : 'transparent', color: activeTab === 'deposit' ? '#0f172a' : '#64748b', fontWeight: 'bold', fontSize: '15px', cursor: 'pointer', transition: 'all 0.2s', boxShadow: activeTab === 'deposit' ? '0 2px 10px rgba(0,0,0,0.05)' : 'none', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px' }}
               >
-                取消
+                <ArrowDownRight size={16} /> 儲值代幣
               </button>
               <button 
-                onClick={submitTransaction} 
-                disabled={isProcessing}
-                style={{ flex: 1, padding: '14px', borderRadius: '12px', border: 'none', backgroundColor: activeModal === 'deposit' ? '#2ecc71' : '#e67e22', color: 'white', fontWeight: 'bold', cursor: isProcessing ? 'not-allowed' : 'pointer', fontSize: '16px', opacity: isProcessing ? 0.7 : 1 }}
+                onClick={() => { setActiveTab('withdraw'); setAmount(''); }}
+                style={{ flex: 1, padding: '12px', borderRadius: '8px', border: 'none', backgroundColor: activeTab === 'withdraw' ? 'white' : 'transparent', color: activeTab === 'withdraw' ? '#0f172a' : '#64748b', fontWeight: 'bold', fontSize: '15px', cursor: 'pointer', transition: 'all 0.2s', boxShadow: activeTab === 'withdraw' ? '0 2px 10px rgba(0,0,0,0.05)' : 'none', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px' }}
               >
-                {isProcessing ? '處理中...' : '確認執行'}
+                <ArrowUpRight size={16} /> 提領收益
               </button>
             </div>
+
+            <form onSubmit={handleTransaction} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              
+              <div>
+                <label style={{ display: 'block', fontSize: '14px', color: '#475569', fontWeight: 'bold', marginBottom: '10px' }}>
+                  {activeTab === 'deposit' ? '請輸入儲值數量' : '請輸入提領數量'}
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <span style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', color: '#d97706' }}>
+                    <Coins size={20} strokeWidth={2} />
+                  </span>
+                  <input 
+                    type="number" 
+                    min="1" 
+                    step="1"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder="0.0"
+                    style={{ width: '100%', padding: '16px 16px 16px 48px', borderRadius: '12px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', fontSize: '20px', fontWeight: 'bold', color: '#0f172a', boxSizing: 'border-box', outlineColor: '#3b82f6', transition: 'all 0.2s' }}
+                    required
+                  />
+                  <span style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontWeight: 'bold' }}>YTC</span>
+                </div>
+              </div>
+
+              {/* 模擬支付管道選擇 */}
+              <div style={{ padding: '16px', border: '1px solid #e2e8f0', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f8fafc' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: '36px', height: '36px', backgroundColor: 'white', borderRadius: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', border: '1px solid #e2e8f0' }}>
+                    {activeTab === 'deposit' ? <CreditCard size={18} color="#3b82f6" /> : <Landmark size={18} color="#10b981" />}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#0f172a' }}>
+                      {activeTab === 'deposit' ? '信用卡支付 (預設)' : '轉入銀行帳戶 (綁定)'}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#64748b' }}>
+                      {activeTab === 'deposit' ? '免手續費，即時入帳' : '台灣銀行 **** 1234'}
+                    </div>
+                  </div>
+                </div>
+                <span style={{ fontSize: '12px', color: '#3b82f6', fontWeight: 'bold', cursor: 'pointer' }}>更改</span>
+              </div>
+
+              <button 
+                type="submit" 
+                disabled={isProcessing}
+                style={{ width: '100%', padding: '16px', backgroundColor: activeTab === 'deposit' ? '#0f172a' : '#1e293b', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', fontSize: '16px', cursor: isProcessing ? 'not-allowed' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', boxShadow: '0 10px 20px -5px rgba(15, 23, 42, 0.3)', transition: 'all 0.2s', marginTop: '10px', opacity: isProcessing ? 0.8 : 1 }}
+              >
+                {isProcessing ? <Loader2 size={20} className="animate-spin" /> : <ShieldCheck size={20} />}
+                {isProcessing ? '安全處理中...' : (activeTab === 'deposit' ? '確認儲值' : '確認提領')}
+              </button>
+
+            </form>
           </div>
         </div>
-      )}
+
+        {/* ================= 右側：歷史交易明細 ================= */}
+        <div style={{ flex: '1.5', minWidth: '400px', backgroundColor: 'white', borderRadius: '24px', padding: '30px', boxShadow: '0 10px 30px rgba(0,0,0,0.03)' }}>
+          
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', paddingBottom: '15px', borderBottom: '1px solid #f1f5f9' }}>
+            <h3 style={{ margin: 0, fontSize: '18px', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <History size={20} color="#475569" /> 交易明細
+            </h3>
+            <span style={{ fontSize: '13px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <ArrowRightLeft size={14} /> 最近 30 天
+            </span>
+          </div>
+
+          {transactions.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {transactions.map(tx => {
+                const style = getTransactionStyle(tx.type, tx.amount);
+                return (
+                  <div key={tx.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', borderRadius: '16px', backgroundColor: '#f8fafc', transition: 'background-color 0.2s', cursor: 'pointer' }} onMouseOver={e => e.currentTarget.style.backgroundColor = '#f1f5f9'} onMouseOut={e => e.currentTarget.style.backgroundColor = '#f8fafc'}>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                      <div style={{ width: '40px', height: '40px', backgroundColor: style.bgColor, borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', color: style.color }}>
+                        {style.icon}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#0f172a', marginBottom: '4px' }}>{tx.type}</div>
+                        <div style={{ fontSize: '13px', color: '#64748b' }}>{tx.date} • {tx.note}</div>
+                      </div>
+                    </div>
+
+                    <div style={{ fontSize: '16px', fontWeight: '900', color: style.color, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      {style.prefix}{Math.abs(tx.amount).toFixed(1)} <span style={{ fontSize: '12px' }}>YTC</span>
+                    </div>
+
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '60px 20px', color: '#94a3b8' }}>
+              <div style={{ marginBottom: '15px', display: 'flex', justifyContent: 'center' }}>
+                <History size={48} strokeWidth={1} color="#cbd5e1" />
+              </div>
+              <p style={{ margin: 0, fontSize: '15px' }}>目前還沒有任何交易紀錄。<br/>去大廳逛逛，或者發佈你的第一堂課吧！</p>
+            </div>
+          )}
+
+        </div>
+
+      </div>
     </div>
   );
 }
