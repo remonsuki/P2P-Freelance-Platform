@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 // 🌟 引入頂級線條圖示
-import { Sparkles, BookOpen, Coins, Tags, AlignLeft, Send, Loader2 } from 'lucide-react';
+import { Sparkles, BookOpen, CircleDollarSign, Tags, AlignLeft, Send, Loader2 } from 'lucide-react';
 
 export default function PublishSkill({ onAddTeacher }) {
   const navigate = useNavigate();
@@ -112,7 +112,7 @@ export default function PublishSkill({ onAddTeacher }) {
                 
                 <div style={{ flex: 1 }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', color: '#334155', fontWeight: 'bold', marginBottom: '10px' }}>
-                    <Coins size={18} color="#d97706" /> 課程定價 (YTC)
+                    <CircleDollarSign size={18} color="#d97706" /> 課程定價 (YTC)
                   </label>
                   <div style={{ position: 'relative' }}>
                     <input 
@@ -126,7 +126,7 @@ export default function PublishSkill({ onAddTeacher }) {
                     />
                     {/* 🌟 替換為 Lucide 線條圖示 */}
                     <span style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center' }}>
-                      <Coins size={16} color="#d97706" />
+                      <CircleDollarSign size={16} color="#d97706" />
                     </span>
                   </div>
                 </div>

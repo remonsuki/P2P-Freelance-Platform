@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
-import { Coins, CircleUser, LogOut } from 'lucide-react';
+// 🌟 引入更多高級圖示
+import { CircleDollarSign, CircleUser, LogOut, Sparkles, GraduationCap } from 'lucide-react';
 import SearchTeacher from './SearchTeacher';
 import PublishSkill from './PublishSkill';
 import Home from './Home';
@@ -64,13 +65,11 @@ function App() {
     }
   };
 
-  // 🌟 修復 Bug：讓這個郵差函式接收第三個參數「newCategory」，並傳給後端
   const handleAddTeacher = async (newSkill, newPrice, newCategory) => {
     try {
       const response = await fetch('http://localhost:5000/api/teachers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // 🌟 把寫死的 '綜合' 替換為傳進來的 newCategory
         body: JSON.stringify({ name: userName, skill: newSkill, price: newPrice, category: newCategory })
       });
       const data = await response.json();
@@ -128,9 +127,17 @@ function App() {
       <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 40px', backgroundColor: 'white', borderBottom: '1px solid #e2e8f0', position: 'sticky', top: 0, zIndex: 1000 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '40px' }}>
           <Link to="/" style={{ textDecoration: 'none', color: '#0f172a', fontSize: '22px', fontWeight: '900', letterSpacing: '-0.5px' }}>YunBarter</Link>
-          <div style={{ display: 'flex', gap: '25px' }}>
-            <Link to="/search" style={{ textDecoration: 'none', color: '#64748b', fontWeight: 'bold', fontSize: '15px' }}>尋找課程</Link>
-            <Link to="/publish" style={{ textDecoration: 'none', color: '#64748b', fontWeight: 'bold', fontSize: '15px' }}>{isLoggedIn ? '發佈技能' : '成為老師'}</Link>
+          <div style={{ display: 'flex', gap: '25px', alignItems: 'center' }}>
+            <Link to="/search" style={{ textDecoration: 'none', color: '#64748b', fontWeight: 'bold', fontSize: '15px', transition: 'color 0.2s' }} onMouseOver={e => e.target.style.color = '#0f172a'} onMouseOut={e => e.target.style.color = '#64748b'}>
+              尋找課程
+            </Link>
+            
+            {/* 🌟 拔除 Emoji，全面改用 Lucide SVG 圖示 */}
+            <Link to="/publish" style={{ textDecoration: 'none' }}>
+              <button style={{ padding: '8px 16px', backgroundColor: '#f1f5f9', color: '#3b82f6', border: 'none', borderRadius: '20px', fontWeight: 'bold', fontSize: '14px', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '6px' }} onMouseOver={e => { e.currentTarget.style.backgroundColor = '#e0e7ff'; e.currentTarget.style.color = '#2563eb'; }} onMouseOut={e => { e.currentTarget.style.backgroundColor = '#f1f5f9'; e.currentTarget.style.color = '#3b82f6'; }}>
+                {isLoggedIn ? <><Sparkles size={16} /> 發佈技能</> : <><GraduationCap size={16} /> 成為老師</>}
+              </button>
+            </Link>
           </div>
         </div>
 
@@ -143,7 +150,7 @@ function App() {
           ) : (
             <>
               <Link to="/wallet" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#fffbeb', border: '1px solid #fde68a', padding: '6px 14px', borderRadius: '20px', color: '#d97706', fontWeight: 'bold', fontSize: '14px' }}>
-                <Coins size={16} color="#d97706" strokeWidth={2} />
+                <CircleDollarSign size={16} color="#d97706" strokeWidth={2} />
                 <span>{balance.toFixed(1)} <span style={{ fontSize: '12px', fontWeight: 'normal' }}>YTC</span></span>
               </Link>
               <Link to="/profile" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer' }}>
@@ -162,8 +169,8 @@ function App() {
       </nav>
 
       <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/search" element={<SearchTeacher isLoggedIn={isLoggedIn} balance={balance} onDeduct={handleDeduct} teachers={teachers} />} />
+        <Route path="/" element={<Home isLoggedIn={isLoggedIn} userName={userName} teachers={teachers} />} />
+        <Route path="/search" element={<SearchTeacher isLoggedIn={isLoggedIn} balance={balance} onDeduct={handleDeduct} teachers={teachers} userName={userName} />} />
         <Route path="/publish" element={<ProtectedRoute isLoggedIn={isLoggedIn}><PublishSkill onAddTeacher={handleAddTeacher} /></ProtectedRoute>} />
         <Route path="/login" element={<Login setIsLoggedIn={setIsLoggedIn} setUserName={setUserName} />} />
         <Route path="/register" element={<Login setIsLoggedIn={setIsLoggedIn} setUserName={setUserName} />} />

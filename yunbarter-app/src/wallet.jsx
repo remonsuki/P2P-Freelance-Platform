@@ -9,7 +9,7 @@ import {
   ArrowRightLeft, 
   ShieldCheck, 
   Loader2, 
-  Coins
+  CircleDollarSign
 } from 'lucide-react';
 
 export default function Wallet({ balance, setBalance, transactions, setTransactions }) {
@@ -117,7 +117,7 @@ export default function Wallet({ balance, setBalance, transactions, setTransacti
               <div style={{ fontSize: '14px', color: '#cbd5e1', marginBottom: '5px' }}>目前總資產 (YTC)</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
                 <span style={{ fontSize: '48px', fontWeight: '900', letterSpacing: '-1px' }}>{balance.toFixed(1)}</span>
-                <span style={{ fontSize: '18px', color: '#d97706', fontWeight: 'bold' }}>Coins</span>
+                <span style={{ fontSize: '18px', color: '#d97706', fontWeight: 'bold' }}>CircleDollarSign</span>
               </div>
             </div>
           </div>
@@ -147,7 +147,7 @@ export default function Wallet({ balance, setBalance, transactions, setTransacti
                 </label>
                 <div style={{ position: 'relative' }}>
                   <span style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', color: '#d97706' }}>
-                    <Coins size={20} strokeWidth={2} />
+                    <CircleDollarSign size={20} strokeWidth={2} />
                   </span>
                   <input 
                     type="number" 
