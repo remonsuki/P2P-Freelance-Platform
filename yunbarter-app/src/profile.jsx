@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, User, Star, GraduationCap, ShieldCheck, BookOpen, Undo2, Calendar, Coins, AlertCircle, CalendarDays } from 'lucide-react';
+import { ArrowLeft, User, Star, GraduationCap, ShieldCheck, BookOpen, Undo2, Calendar, CircleDollarSign, AlertCircle, CalendarDays } from 'lucide-react';
 
 // 🌟 接收來自 App.jsx 的 refreshTeachers 函數
 export default function Profile({ userName, setUserName, teachers, onDeleteTeacher, onUpdateTeacher, refreshTeachers }) {
@@ -175,7 +175,7 @@ export default function Profile({ userName, setUserName, teachers, onDeleteTeach
                     <div style={{ display: 'flex', alignItems: 'center', gap: '15px', color: '#64748b', fontSize: '13px' }}>
                       <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><User size={14} /> {course.teacherName} 老師</span>
                       <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Calendar size={14} /> {course.date}</span>
-                      <span style={{ color: '#d97706', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '2px' }}><Coins size={14} /> {course.price.toFixed(1)}</span>
+                      <span style={{ color: '#d97706', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '2px' }}><CircleDollarSign size={14} /> {course.price.toFixed(1)}</span>
                     </div>
                   </div>
                   <button onClick={() => handleRefundClick(course)} style={{ padding: '8px 16px', backgroundColor: '#fff5f5', color: '#e53e3e', border: '1px solid #fed7d7', borderRadius: '20px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}><Undo2 size={13} /> 申請退款</button>
@@ -198,7 +198,7 @@ export default function Profile({ userName, setUserName, teachers, onDeleteTeach
                     <h4 style={{ margin: '0 0 5px 0', color: '#2c3e50', fontSize: '16px' }}>{teacher.skill}</h4>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <span style={{ backgroundColor: '#f1f5f9', color: '#475569', padding: '2px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' }}>{teacher.category}</span>
-                      <span style={{ color: '#d97706', fontWeight: 'bold', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '2px' }}><Coins size={14} /> {teacher.price.toFixed(1)}</span>
+                      <span style={{ color: '#d97706', fontWeight: 'bold', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '2px' }}><CircleDollarSign size={14} /> {teacher.price.toFixed(1)}</span>
                     </div>
                   </div>
                   <button onClick={() => { if(window.confirm(`確定要下架「${teacher.skill}」嗎？`)) onDeleteTeacher(teacher.id); }} style={{ padding: '6px 14px', backgroundColor: '#fff', color: '#e74c3c', border: '1px solid #e74c3c', borderRadius: '20px', fontSize: '13px', cursor: 'pointer' }}>下架</button>
@@ -220,7 +220,7 @@ export default function Profile({ userName, setUserName, teachers, onDeleteTeach
             <p style={{ margin: '0 0 24px 0', color: '#64748b', fontSize: '15px', lineHeight: '1.6' }}>取消後，這堂課程將從您的預約清單中移除，並全額退回代幣至您的錢包。此動作無法復原。</p>
             <div style={{ width: '100%', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', marginBottom: '30px', textAlign: 'left' }}>
               <div style={{ fontSize: '14px', color: '#475569', fontWeight: 'bold', marginBottom: '6px' }}>{refundingCourse.skill}</div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><span style={{ fontSize: '13px', color: '#64748b' }}>{refundingCourse.teacherName} 老師</span><span style={{ fontSize: '15px', color: '#d97706', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}><Coins size={14} /> +{refundingCourse.price.toFixed(1)} YTC</span></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><span style={{ fontSize: '13px', color: '#64748b' }}>{refundingCourse.teacherName} 老師</span><span style={{ fontSize: '15px', color: '#d97706', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}><CircleDollarSign size={14} /> +{refundingCourse.price.toFixed(1)} YTC</span></div>
             </div>
             <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
               <button onClick={() => setRefundingCourse(null)} style={{ flex: 1, padding: '14px', backgroundColor: 'white', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '12px', fontWeight: 'bold', fontSize: '15px', cursor: 'pointer' }}>保留預約</button>
