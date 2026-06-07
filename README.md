@@ -9,7 +9,7 @@
 1. 開啟終端機
 2. cd yunbarter-app
 3. npm run dev
-4. 啟動成功後，終端機將顯示本地瀏覽網址（通常為 http://localhost:5173），您可以點擊連結或在瀏覽器中打開。
+4. 啟動成功後，終端機將顯示本地瀏覽網址（通常為 http://localhost:5173 ），您可以點擊連結或在瀏覽器中打開。
 
 **後端:**
 1. 開啟終端機
@@ -25,3 +25,4 @@
 1. 開啟終端機
 2. cd yunbarter-app
 3. npm install
+4. npm install lucide-react
