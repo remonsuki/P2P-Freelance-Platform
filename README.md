@@ -26,3 +26,4 @@
 1. 開啟終端機
 2. cd yunbarter-app
 3. npm install
+4. npm install lucide-react
