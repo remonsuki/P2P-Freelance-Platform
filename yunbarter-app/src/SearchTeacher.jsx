@@ -1,9 +1,14 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Code, Music, Languages, Sparkles, User, X, Clock, Calendar, Star, ShieldCheck, AlignLeft, Info, CircleDollarSign } from 'lucide-react';
+import { Search, Code, Music, Languages, Sparkles, User, X, Clock, Calendar, Star, ShieldCheck, AlignLeft, Info, CircleDollarSign, Loader2 } from 'lucide-react';
+import { useWallet } from './context/WalletContext';
+import { useSkillTrade } from './hooks/useSkillTrade';
+import { SKILL_EXCHANGE_ADDRESS } from './config/contracts';
 
-export default function SearchTeacher({ isLoggedIn, balance, onDeduct, teachers, userName, showNotification, showConfirmation }) {
+export default function SearchTeacher({ isLoggedIn, balance, onBookingComplete, teachers, userName, showNotification, showConfirmation }) {
   const navigate = useNavigate();
+  const { isConnected, connectWallet } = useWallet();
+  const { executeSkillTrade, loadingMessage, isTrading } = useSkillTrade();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategories, setSelectedCategories] = useState([]);
@@ -46,7 +51,7 @@ export default function SearchTeacher({ isLoggedIn, balance, onDeduct, teachers,
     setSelectedTimeSlot('');
   };
 
-  const confirmBooking = () => {
+  const confirmBooking = async () => {
     if (!isLoggedIn) {
       showNotification('warning', '權限提示', '請先登入才能預約課程喔！');
       navigate('/login', { state: { from: '/search' } });
@@ -57,25 +62,62 @@ export default function SearchTeacher({ isLoggedIn, balance, onDeduct, teachers,
       showNotification('warning', '操作提示', '請先選擇一個老師有空的授課時段！');
       return;
     }
-    
-    if (balance >= selectedTeacher.price) {
-      onDeduct(selectedTeacher.price, selectedTeacher.name, selectedTeacher.skill)
-        .then(() => {
-          let timeText = selectedTimeSlot;
-          if (timeText.includes('-') || timeText.includes('|')) {
-            timeText = formatTimeSlot(timeText);
-          }
-          showNotification('success', '預約成功', `已經幫您聯絡 ${selectedTeacher.name} 老師。\n約定時間：${timeText}`);
-          setSelectedTeacher(null);
-        })
-        .catch(err => {
-          showNotification('error', '交易失敗', err.message || "未知錯誤");
-          setSelectedTeacher(null);
-        });
-    } else {
-      showNotification('error', '交易失敗', '餘額不足！請先至錢包儲值。');
+
+    // 必須連線 MetaMask
+    if (!isConnected) {
+      try {
+        await connectWallet();
+      } catch (err) {
+        showNotification('error', '錢包連線', err.message);
+        return;
+      }
+    }
+
+    if (balance < selectedTeacher.price) {
+      showNotification('error', '交易失敗', '餘額不足！請先至錢包儲值或確認鏈上 SKILL 代幣餘額。');
       setSelectedTeacher(null);
       navigate('/wallet');
+      return;
+    }
+
+    let txHash = null;
+    const jobId = selectedTeacher.jobId ?? selectedTeacher.classId ?? selectedTeacher.id;
+    const platformDeployed = SKILL_EXCHANGE_ADDRESS !== '0x0000000000000000000000000000000000000000';
+
+    try {
+      // 平台合約已部署：執行 Approve → buySkill 鏈上交易
+      if (platformDeployed) {
+        const { tradeTxHash } = await executeSkillTrade(jobId, selectedTeacher.price);
+        txHash = tradeTxHash;
+      }
+
+      await onBookingComplete({
+        classId: selectedTeacher.classId ?? selectedTeacher.id,
+        timeSlot: selectedTimeSlot,
+        teacherName: selectedTeacher.name,
+        skillName: selectedTeacher.skill,
+        amount: selectedTeacher.price,
+        txHash,
+      });
+
+      let timeText = selectedTimeSlot;
+      if (timeText.includes('-') || timeText.includes('|')) {
+        timeText = formatTimeSlot(timeText);
+      }
+
+      const chainNote = platformDeployed
+        ? `\n鏈上交易：${txHash?.slice(0, 10)}...`
+        : '\n（平台合約尚未部署，已使用後端模擬預約）';
+
+      showNotification(
+        'success',
+        '預約成功',
+        `已經幫您聯絡 ${selectedTeacher.name} 老師。\n約定時間：${timeText}${chainNote}`
+      );
+      setSelectedTeacher(null);
+    } catch (err) {
+      showNotification('error', '交易失敗', err.message || '未知錯誤');
+      setSelectedTeacher(null);
     }
   };
 
@@ -284,14 +326,23 @@ export default function SearchTeacher({ isLoggedIn, balance, onDeduct, teachers,
                 </div>
               </div>
 
+              {isTrading && loadingMessage && (
+                <div style={{ padding: '12px', backgroundColor: '#eff6ff', borderRadius: '10px', color: '#1d4ed8', fontSize: '14px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                  <Loader2 size={18} className="animate-spin" />
+                  {loadingMessage}
+                </div>
+              )}
+
               <div style={{ marginTop: 'auto' }}>
                 <button 
-                  onClick={confirmBooking} 
-                  style={{ width: '100%', padding: '16px', backgroundColor: '#0f172a', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', boxShadow: '0 10px 20px -5px rgba(15, 23, 42, 0.3)', transition: 'background-color 0.2s' }}
-                  onMouseOver={e => e.currentTarget.style.backgroundColor = '#1e293b'}
+                  onClick={confirmBooking}
+                  disabled={isTrading}
+                  style={{ width: '100%', padding: '16px', backgroundColor: '#0f172a', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', fontSize: '16px', cursor: isTrading ? 'not-allowed' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', boxShadow: '0 10px 20px -5px rgba(15, 23, 42, 0.3)', transition: 'background-color 0.2s', opacity: isTrading ? 0.7 : 1 }}
+                  onMouseOver={e => { if (!isTrading) e.currentTarget.style.backgroundColor = '#1e293b'; }}
                   onMouseOut={e => e.currentTarget.style.backgroundColor = '#0f172a'}
                 >
-                  <ShieldCheck size={20} />確認預約並扣款
+                  {isTrading ? <Loader2 size={20} className="animate-spin" /> : <ShieldCheck size={20} />}
+                  {isTrading ? (loadingMessage || '處理中...') : '確認預約並扣款'}
                 </button>
                 <div style={{ textAlign: 'center', marginTop: '15px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px' }}>
                   <span style={{ fontSize: '13px', color: '#64748b' }}>目前錢包餘額：</span>

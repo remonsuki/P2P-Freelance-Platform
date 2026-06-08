@@ -1,8 +1,13 @@
 import { useState } from 'react';
 import { Wallet as WalletIcon, ArrowUpRight, ArrowDownRight, History, CreditCard, Landmark, ArrowRightLeft, ShieldCheck, Loader2, CircleDollarSign } from 'lucide-react';
+import { useWallet } from './context/WalletContext';
+import ConnectWalletButton from './components/ConnectWalletButton';
+import { depositWallet, withdrawWallet } from './services/api';
+import { SKILL_TOKEN_ADDRESS } from './config/contracts';
 
 // 🌟 接收 showNotification
 export default function Wallet({ balance, setBalance, transactions, setTransactions, showNotification }) {
+  const { isConnected, address, chainBalance, refreshChainBalance, signer } = useWallet();
   const [activeTab, setActiveTab] = useState('deposit'); 
   const [amount, setAmount] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -21,34 +26,24 @@ export default function Wallet({ balance, setBalance, transactions, setTransacti
     }
 
     setIsProcessing(true);
-    const endpoint = activeTab === 'deposit' ? '/api/wallet/deposit' : '/api/wallet/withdraw';
 
     try {
-      const response = await fetch(`http://localhost:5000${endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: parsedAmount })
-      });
-      
-      const data = await response.json();
-      
-      if (response.ok) {
-        setTimeout(() => {
-          setBalance(data.balance);
-          setTransactions(prev => [data.newTransaction, ...prev]);
-          setAmount('');
-          setIsProcessing(false);
-          // 🌟 淨化：改用高級通知
-          showNotification('success', '交易完成', `已成功${activeTab === 'deposit' ? '儲值' : '提領'} ${parsedAmount} YTC！`);
-        }, 800);
-      } else {
+      const data = activeTab === 'deposit'
+        ? await depositWallet(parsedAmount)
+        : await withdrawWallet(parsedAmount);
+
+      setTimeout(async () => {
+        setBalance(data.balance);
+        setTransactions(prev => [data.newTransaction, ...prev]);
+        setAmount('');
         setIsProcessing(false);
-        showNotification('error', '交易失敗', data.error || '發生未知錯誤');
-      }
+        if (signer && address) await refreshChainBalance(signer, address);
+        showNotification('success', '交易完成', `已成功${activeTab === 'deposit' ? '儲值' : '提領'} ${parsedAmount} SKILL！`);
+      }, 800);
     } catch (error) {
       console.error("交易錯誤:", error);
       setIsProcessing(false);
-      showNotification('error', '連線異常', '無法連線至後端伺服器，請檢查網路狀態。');
+      showNotification('error', '連線異常', error.message || '無法連線至後端伺服器，請檢查網路狀態。');
     }
   };
 
@@ -87,10 +82,23 @@ export default function Wallet({ balance, setBalance, transactions, setTransacti
               <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: '4px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold', color: '#fcd34d' }}>Web3 安全認證</span>
             </div>
             <div style={{ position: 'relative', zIndex: 1 }}>
-              <div style={{ fontSize: '14px', color: '#cbd5e1', marginBottom: '5px' }}>目前總資產 (YTC)</div>
+              <div style={{ fontSize: '14px', color: '#cbd5e1', marginBottom: '5px' }}>目前總資產 (SKILL)</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
                 <span style={{ fontSize: '48px', fontWeight: '900', letterSpacing: '-1px' }}>{balance.toFixed(1)}</span>
-                <span style={{ fontSize: '18px', color: '#d97706', fontWeight: 'bold' }}>Coins</span>
+                <span style={{ fontSize: '18px', color: '#d97706', fontWeight: 'bold' }}>SKILL</span>
+              </div>
+              {isConnected && chainBalance !== null && (
+                <div style={{ marginTop: '12px', fontSize: '13px', color: '#94a3b8' }}>
+                  鏈上餘額：{chainBalance.toFixed(2)} SKILL
+                </div>
+              )}
+              <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <ConnectWalletButton onError={(msg) => showNotification('error', '錢包連線', msg)} />
+                {isConnected && (
+                  <span style={{ fontSize: '12px', color: '#64748b' }}>
+                    合約：{SKILL_TOKEN_ADDRESS.slice(0, 8)}...
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -157,7 +165,10 @@ export default function Wallet({ balance, setBalance, transactions, setTransacti
                       <div style={{ width: '40px', height: '40px', backgroundColor: style.bgColor, borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', color: style.color }}>{style.icon}</div>
                       <div>
                         <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#0f172a', marginBottom: '4px' }}>{tx.type}</div>
-                        <div style={{ fontSize: '13px', color: '#64748b' }}>{tx.date} • {tx.note}</div>
+                        <div style={{ fontSize: '13px', color: '#64748b' }}>
+                          {tx.date} • {tx.note}
+                          {tx.txHash && <span> • 鏈上 {tx.txHash.slice(0, 8)}...</span>}
+                        </div>
                       </div>
                     </div>
                     <div style={{ fontSize: '16px', fontWeight: '900', color: style.color, display: 'flex', alignItems: 'center', gap: '4px' }}>

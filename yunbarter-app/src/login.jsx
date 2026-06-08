@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useWallet } from './context/WalletContext';
 
 // 🌟 接收 showNotification 和 showConfirmation 作為 Props
 export default function Login({ setIsLoggedIn, setUserName, showNotification, showConfirmation }) {
+  const { connectWallet } = useWallet();
   const location = useLocation(); 
   const navigate = useNavigate();
 
@@ -108,12 +110,17 @@ export default function Login({ setIsLoggedIn, setUserName, showNotification, sh
     }
   };
 
-  const handleWeb3Auth = () => {
-    setIsLoggedIn(true);
-    setUserName('Web3 訪客');
-    // 🌟 將 alert 替換為 showNotification
-    showNotification('success', '連接成功', 'Web3 錢包連接成功！為您導向搜尋頁面...');
-    navigate('/search');
+  const handleWeb3Auth = async () => {
+    try {
+      const address = await connectWallet();
+      const display = address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'Web3 使用者';
+      setIsLoggedIn(true);
+      setUserName(display);
+      showNotification('success', '連接成功', `MetaMask 已連線：${display}\n為您導向搜尋頁面...`);
+      navigate('/search');
+    } catch (err) {
+      showNotification('error', '錢包連線失敗', err.message);
+    }
   };
 
   const CheckIcon = () => (

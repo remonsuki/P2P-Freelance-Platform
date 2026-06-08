@@ -9,6 +9,9 @@ import Login from './Login';
 import Wallet from './Wallet';
 import Profile from './Profile';
 import NotificationCard from './NotificationCard';
+import ConnectWalletButton from './components/ConnectWalletButton';
+import { fetchWallet, fetchTeachers, createBooking } from './services/api';
+import { useWallet } from './context/WalletContext';
 
 function ProtectedRoute({ isLoggedIn, children }) {
   const location = useLocation();
@@ -18,7 +21,8 @@ function ProtectedRoute({ isLoggedIn, children }) {
   return children;
 }
 
-function App() {
+function AppContent() {
+  const { chainBalance, refreshChainBalance, signer, address } = useWallet();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userName, setUserName] = useState('Yun');
   const [balance, setBalance] = useState(0); 
@@ -66,44 +70,51 @@ function App() {
   // ==========================================
   // 資料與 API 處理邏輯
   // ==========================================
-  const fetchTeachers = () => {
-    fetch('http://localhost:5000/api/teachers')
-      .then(res => res.json())
+  const loadTeachers = () => {
+    fetchTeachers()
       .then(data => setTeachers(data))
       .catch(err => console.error("無法獲取老師列表:", err));
   };
 
-  useEffect(() => {
-    fetch('http://localhost:5000/api/user/wallet')
-      .then(res => res.json())
+  const loadWallet = () => {
+    fetchWallet()
       .then(data => {
         setUserName(data.userName);
         setBalance(data.balance);
         setTransactions(data.transactions);
       })
       .catch(err => console.error("無法獲取錢包資料:", err));
+  };
 
-    fetchTeachers(); 
+  useEffect(() => {
+    loadWallet();
+    loadTeachers();
   }, []);
 
-  const handleDeduct = async (amount, teacherName, skillName) => {
-    try {
-      const response = await fetch('http://localhost:5000/api/wallet/deduct', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount, teacherName, skillName })
-      });
-      const data = await response.json();
+  // 鏈上餘額更新時同步顯示（優先顯示鏈上餘額）
+  useEffect(() => {
+    if (chainBalance !== null) {
+      setBalance(chainBalance);
+    }
+  }, [chainBalance]);
 
-      if (response.ok) {
-        setBalance(data.balance);
-        setTransactions(prev => [data.newTransaction, ...prev]);
-      } else {
-        throw new Error(data.error || "未知錯誤");
-      }
+  useEffect(() => {
+    if (signer && address) {
+      refreshChainBalance(signer, address);
+    }
+  }, [signer, address, refreshChainBalance]);
+
+  /** 預約扣款：支援純後端或鏈上交易後同步 */
+  const handleBookingComplete = async (bookingPayload) => {
+    try {
+      const data = await createBooking(bookingPayload);
+      setBalance(data.balance);
+      setTransactions(prev => [data.newTransaction, ...prev]);
+      loadTeachers();
+      return data;
     } catch (error) {
-      console.error("發送交易請求時發生錯誤:", error);
-      throw error; 
+      console.error("預約同步後端失敗:", error);
+      throw error;
     }
   };
 
@@ -167,7 +178,7 @@ function App() {
   };
 
   return (
-    <BrowserRouter>
+    <>
       {/* ==========================================
           導覽列 (一字不漏完整版)
           ========================================== */}
@@ -187,6 +198,7 @@ function App() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <ConnectWalletButton onError={(msg) => showNotification('error', '錢包連線', msg)} />
           {!isLoggedIn ? (
             <>
               <Link to="/login" style={{ textDecoration: 'none' }}><button style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', color: '#334155', fontWeight: 'bold', cursor: 'pointer', fontSize: '14px' }}>登入</button></Link>
@@ -221,7 +233,8 @@ function App() {
           
           <Route path="/search" element={
             <SearchTeacher 
-              isLoggedIn={isLoggedIn} balance={balance} onDeduct={handleDeduct} 
+              isLoggedIn={isLoggedIn} balance={balance}
+              onBookingComplete={handleBookingComplete}
               teachers={teachers} userName={userName} 
               showNotification={showNotification} showConfirmation={showConfirmation}
             />
@@ -243,7 +256,7 @@ function App() {
             <ProtectedRoute isLoggedIn={isLoggedIn}>
               <Profile 
                 userName={userName} setUserName={setUserName} teachers={teachers} 
-                onDeleteTeacher={handleDeleteTeacher} onUpdateTeacher={handleUpdateTeacher} refreshTeachers={fetchTeachers}
+                onDeleteTeacher={handleDeleteTeacher} onUpdateTeacher={handleUpdateTeacher} refreshTeachers={loadTeachers}
                 showNotification={showNotification} showConfirmation={showConfirmation}
               />
             </ProtectedRoute>
@@ -264,6 +277,14 @@ function App() {
         {...notification} 
         onClose={closeNotification} 
       />
+    </>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AppContent />
     </BrowserRouter>
   );
 }
