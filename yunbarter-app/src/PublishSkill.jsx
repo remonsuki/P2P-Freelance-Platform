@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-// 🌟 引入頂級線條圖示
 import { Sparkles, BookOpen, CircleDollarSign, Tags, AlignLeft, Send, Loader2 } from 'lucide-react';
 
-export default function PublishSkill({ onAddTeacher }) {
+// 🌟 接收 showNotification 作為 Props
+export default function PublishSkill({ onAddTeacher, showNotification }) {
   const navigate = useNavigate();
 
   const [skill, setSkill] = useState('');
@@ -17,18 +17,21 @@ export default function PublishSkill({ onAddTeacher }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!skill.trim()) {
-      alert("請輸入技能名稱！");
+      // 🌟 將 alert 替換為 showNotification
+      showNotification('warning', '資料不完整', '請輸入技能名稱！');
       return;
     }
 
     onAddTeacher(skill, price, category);
-    alert(`✅ 成功上架「${skill}」課程！開始賺取 YTC 吧！`);
+    // 🌟 將 alert 替換為 showNotification
+    showNotification('success', '上架成功', `成功上架「${skill}」課程！開始賺取 YTC 吧！`);
     navigate('/profile'); 
   };
 
   const handleAIGenerate = async () => {
     if (!skill.trim()) {
-      alert("💡 請先在上方輸入「課程名稱」（例如：Python 爬蟲），AI 才知道要幫你寫什麼喔！");
+      // 🌟 將 alert 替換為 showNotification
+      showNotification('warning', '操作提示', '請先在上方輸入「課程名稱」（例如：Python 爬蟲），AI 才知道要幫你寫什麼喔！');
       return;
     }
 
@@ -47,11 +50,13 @@ export default function PublishSkill({ onAddTeacher }) {
         setDescription(data.description);
         setPrice(parseFloat(data.price)); 
       } else {
-        alert("AI 生成失敗：" + (data.error || "未知錯誤"));
+        // 🌟 將 alert 替換為 showNotification
+        showNotification('error', '生成失敗', data.error || "未知錯誤");
       }
     } catch (error) {
       console.error("AI 伺服器連線錯誤:", error);
-      alert("無法連線至 AI 伺服器，請確認後端已啟動。");
+      // 🌟 將 alert 替換為 showNotification
+      showNotification('error', '連線異常', '無法連線至 AI 伺服器，請確認後端已啟動。');
     } finally {
       setIsGenerating(false);
     }
@@ -95,7 +100,6 @@ export default function PublishSkill({ onAddTeacher }) {
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', color: '#334155', fontWeight: 'bold', marginBottom: '10px' }}>
                     <Tags size={18} color="#9b59b6" /> 技能類別
                   </label>
-                  {/* 🌟 拔除 Emoji，保持純文字的乾淨專業感 */}
                   <select 
                     value={category} 
                     onChange={(e) => setCategory(e.target.value)} 
@@ -124,7 +128,6 @@ export default function PublishSkill({ onAddTeacher }) {
                       style={{ width: '100%', padding: '14px 16px 14px 45px', borderRadius: '12px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', fontSize: '16px', color: '#0f172a', boxSizing: 'border-box', outlineColor: '#3498db' }} 
                       required 
                     />
-                    {/* 🌟 替換為 Lucide 線條圖示 */}
                     <span style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center' }}>
                       <CircleDollarSign size={16} color="#d97706" />
                     </span>
@@ -161,7 +164,7 @@ export default function PublishSkill({ onAddTeacher }) {
             </form>
           </div>
 
-          {/* 右側：✨ 專題亮點 AI 輔助面板 */}
+          {/* 右側：專題亮點 AI 輔助面板 */}
           <div style={{ flex: '0.6', minWidth: '250px', background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)', borderRadius: '20px', padding: '30px', color: 'white', display: 'flex', flexDirection: 'column', gap: '20px', boxShadow: '0 15px 35px rgba(0,0,0,0.1)' }}>
             
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingBottom: '20px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
@@ -176,7 +179,6 @@ export default function PublishSkill({ onAddTeacher }) {
 
             <div>
               <label style={{ display: 'block', fontSize: '13px', color: '#cbd5e1', marginBottom: '8px' }}>選擇文案風格</label>
-              {/* 🌟 拔除 Emoji，保持純文字的乾淨專業感 */}
               <select 
                 value={aiStyle} 
                 onChange={(e) => setAiStyle(e.target.value)} 

@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-export default function Login({ setIsLoggedIn, setUserName }) {
+// 🌟 接收 showNotification 和 showConfirmation 作為 Props
+export default function Login({ setIsLoggedIn, setUserName, showNotification, showConfirmation }) {
   const location = useLocation(); 
   const navigate = useNavigate();
 
@@ -39,17 +40,20 @@ export default function Login({ setIsLoggedIn, setUserName }) {
   const handleAuth = async () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      alert("❌ 請輸入有效的電子郵件格式 (例如：example@gmail.com)");
+      // 🌟 將 alert 替換為 showNotification
+      showNotification('warning', '格式錯誤', '請輸入有效的電子郵件格式\n(例如：example@gmail.com)');
       return;
     }
 
     if (!email || !password || (!isLoginView && (!inputName || !confirmPassword))) {
-      alert("❌ 請填寫所有必填欄位");
+      // 🌟 將 alert 替換為 showNotification
+      showNotification('warning', '資料不完整', '請填寫所有必填欄位');
       return;
     }
 
     if (!isLoginView && password !== confirmPassword) {
-      alert("❌ 兩次輸入的密碼不一致，請重新確認！");
+      // 🌟 將 alert 替換為 showNotification
+      showNotification('error', '密碼錯誤', '兩次輸入的密碼不一致，請重新確認！');
       return;
     }
 
@@ -75,33 +79,40 @@ export default function Login({ setIsLoggedIn, setUserName }) {
         if (data.userName) {
             setUserName(data.userName); 
         }
-        alert(`✅ ${isLoginView ? '登入' : '註冊'}成功！歡迎，${data.userName || inputName}。`);
+        // 🌟 將 alert 替換為 showNotification
+        showNotification('success', `${isLoginView ? '登入' : '註冊'}成功`, `歡迎，${data.userName || inputName}。`);
         
         const intendedDestination = location.state?.from || '/search';
         navigate(intendedDestination);
       } else {
         if (isLoginView) {
-          const wantToRegister = window.confirm(`❌ 登入失敗：${data.error}\n\n您是不是還沒建立過帳號？需要為您切換到「註冊」畫面嗎？`);
-          if (wantToRegister) {
-            switchView('/register');
-          }
+          // 🌟 將 window.confirm 替換為 showConfirmation
+          showConfirmation(
+            '登入失敗', 
+            `${data.error}\n\n您是不是還沒建立過帳號？需要為您切換到「註冊」畫面嗎？`, 
+            () => switchView('/register')
+          );
         } else {
-          const wantToLogin = window.confirm(`❌ 註冊失敗：${data.error}\n\n該信箱可能已經註冊過了，要切換到「登入」畫面試試看嗎？`);
-          if (wantToLogin) {
-            switchView('/login');
-          }
+          // 🌟 將 window.confirm 替換為 showConfirmation
+          showConfirmation(
+            '註冊失敗', 
+            `${data.error}\n\n該信箱可能已經註冊過了，要切換到「登入」畫面試試看嗎？`, 
+            () => switchView('/login')
+          );
         }
       }
     } catch (error) {
       console.error("驗證時發生錯誤:", error);
-      alert("無法連線至後端伺服器");
+      // 🌟 將 alert 替換為 showNotification
+      showNotification('error', '連線異常', '無法連線至後端伺服器');
     }
   };
 
   const handleWeb3Auth = () => {
     setIsLoggedIn(true);
     setUserName('Web3 訪客');
-    alert("✅ Web3 錢包連接成功！為您導向搜尋頁面...");
+    // 🌟 將 alert 替換為 showNotification
+    showNotification('success', '連接成功', 'Web3 錢包連接成功！為您導向搜尋頁面...');
     navigate('/search');
   };
 
@@ -300,16 +311,14 @@ export default function Login({ setIsLoggedIn, setUserName }) {
           </button>
         </div>
 
-        {/* ================= 🌟 優化版右側：視覺品牌區塊 ================= */}
+        {/* ================= 優化版右側：視覺品牌區塊 ================= */}
         <div style={{ flex: '1', background: 'linear-gradient(135deg, #3498db 0%, #9b59b6 100%)', padding: '50px 60px', display: 'flex', flexDirection: 'column', justifyContent: 'center', color: 'white' }}>
           
           <div style={{ maxWidth: '420px', margin: '0 auto' }}>
-            {/* 🌟 只有大標題加上 textAlign: 'center' 置中，並微調下方間距 */}
             <h2 style={{ textAlign: 'center', fontSize: '40px', margin: '0 0 25px 0', lineHeight: '1.3', fontWeight: '900', letterSpacing: '1px' }}>
               知識不應該<br/>被金錢限制
             </h2>
             
-            {/* 🌟 段落與清單保持預設靠左對齊，共用完美的左側邊界 */}
             <p style={{ fontSize: '17px', margin: '0 0 45px 0', opacity: 0.9, lineHeight: '1.8', letterSpacing: '0.5px' }}>
               在這裡，你可以用自己擅長的技能，換取你想學習的新知識。加入我們，成為最大的技能交換社群！
             </p>

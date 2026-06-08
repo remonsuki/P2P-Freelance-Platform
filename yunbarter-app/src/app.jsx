@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
-// 🌟 引入更多高級圖示
 import { CircleDollarSign, CircleUser, LogOut, Sparkles, GraduationCap } from 'lucide-react';
+
 import SearchTeacher from './SearchTeacher';
 import PublishSkill from './PublishSkill';
 import Home from './Home';
 import Login from './Login';
 import Wallet from './Wallet';
 import Profile from './Profile';
+import NotificationCard from './NotificationCard';
 
 function ProtectedRoute({ isLoggedIn, children }) {
   const location = useLocation();
@@ -24,6 +25,47 @@ function App() {
   const [transactions, setTransactions] = useState([]); 
   const [teachers, setTeachers] = useState([]); 
 
+  // ==========================================
+  // 🌟 全局通知系統的狀態管理
+  // ==========================================
+  const [notification, setNotification] = useState({
+    isVisible: false,
+    type: 'success',
+    title: '',
+    message: '',
+    onConfirm: null
+  });
+
+  const showNotification = (type, title, message) => {
+    setNotification({
+      isVisible: true,
+      type,
+      title,
+      message,
+      onConfirm: null
+    });
+  };
+
+  const showConfirmation = (title, message, onConfirmAction) => {
+    setNotification({
+      isVisible: true,
+      type: 'confirm',
+      title,
+      message,
+      onConfirm: () => {
+        onConfirmAction(); 
+        closeNotification(); 
+      }
+    });
+  };
+
+  const closeNotification = () => {
+    setNotification(prev => ({ ...prev, isVisible: false }));
+  };
+
+  // ==========================================
+  // 資料與 API 處理邏輯
+  // ==========================================
   const fetchTeachers = () => {
     fetch('http://localhost:5000/api/teachers')
       .then(res => res.json())
@@ -57,11 +99,11 @@ function App() {
         setBalance(data.balance);
         setTransactions(prev => [data.newTransaction, ...prev]);
       } else {
-        alert("交易失敗：" + (data.error || "未知錯誤"));
+        throw new Error(data.error || "未知錯誤");
       }
     } catch (error) {
       console.error("發送交易請求時發生錯誤:", error);
-      alert("無法連線至後端伺服器");
+      throw error; 
     }
   };
 
@@ -76,11 +118,13 @@ function App() {
 
       if (response.ok) {
         setTeachers(prev => [data, ...prev]);
+        showNotification('success', '上架成功', `已成功上架「${newSkill}」課程，開始賺取 YTC 吧！`);
       } else {
-        alert("發佈失敗：" + (data.error || "未知錯誤"));
+        showNotification('error', '上架失敗', data.error || "未知錯誤");
       }
     } catch (error) {
       console.error("發佈技能時發生錯誤:", error);
+      showNotification('error', '連線錯誤', "無法連線至伺服器。");
     }
   };
 
@@ -124,6 +168,9 @@ function App() {
 
   return (
     <BrowserRouter>
+      {/* ==========================================
+          導覽列 (一字不漏完整版)
+          ========================================== */}
       <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 40px', backgroundColor: 'white', borderBottom: '1px solid #e2e8f0', position: 'sticky', top: 0, zIndex: 1000 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '40px' }}>
           <Link to="/" style={{ textDecoration: 'none', color: '#0f172a', fontSize: '22px', fontWeight: '900', letterSpacing: '-0.5px' }}>YunBarter</Link>
@@ -131,8 +178,6 @@ function App() {
             <Link to="/search" style={{ textDecoration: 'none', color: '#64748b', fontWeight: 'bold', fontSize: '15px', transition: 'color 0.2s' }} onMouseOver={e => e.target.style.color = '#0f172a'} onMouseOut={e => e.target.style.color = '#64748b'}>
               尋找課程
             </Link>
-            
-            {/* 🌟 拔除 Emoji，全面改用 Lucide SVG 圖示 */}
             <Link to="/publish" style={{ textDecoration: 'none' }}>
               <button style={{ padding: '8px 16px', backgroundColor: '#f1f5f9', color: '#3b82f6', border: 'none', borderRadius: '20px', fontWeight: 'bold', fontSize: '14px', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '6px' }} onMouseOver={e => { e.currentTarget.style.backgroundColor = '#e0e7ff'; e.currentTarget.style.color = '#2563eb'; }} onMouseOut={e => { e.currentTarget.style.backgroundColor = '#f1f5f9'; e.currentTarget.style.color = '#3b82f6'; }}>
                 {isLoggedIn ? <><Sparkles size={16} /> 發佈技能</> : <><GraduationCap size={16} /> 成為老師</>}
@@ -145,7 +190,7 @@ function App() {
           {!isLoggedIn ? (
             <>
               <Link to="/login" style={{ textDecoration: 'none' }}><button style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', color: '#334155', fontWeight: 'bold', cursor: 'pointer', fontSize: '14px' }}>登入</button></Link>
-              <Link to="/register" style={{ textDecoration: 'none' }}><button style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', backgroundColor: '#0f172a', color: 'white', fontWeight: 'bold', cursor: 'pointer', fontSize: '14px' }}>註冊</button></Link>
+              <Link to="/register" state={{ isRegister: true }} style={{ textDecoration: 'none' }}><button style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', backgroundColor: '#0f172a', color: 'white', fontWeight: 'bold', cursor: 'pointer', fontSize: '14px' }}>註冊</button></Link>
             </>
           ) : (
             <>
@@ -158,7 +203,7 @@ function App() {
                 <span style={{ color: '#334155', fontWeight: 'bold', fontSize: '14px' }}>{userName}</span>
               </Link>
               <button 
-                onClick={() => { if(window.confirm('確定要登出系統嗎？')) setIsLoggedIn(false); }} 
+                onClick={() => showConfirmation('確定登出', '您確定要登出系統嗎？', () => setIsLoggedIn(false))} 
                 style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold', padding: '6px' }}
               >
                 <LogOut size={14} strokeWidth={2.2} /><span>登出</span>
@@ -168,28 +213,57 @@ function App() {
         </div>
       </nav>
 
-      <Routes>
-        <Route path="/" element={<Home isLoggedIn={isLoggedIn} userName={userName} teachers={teachers} />} />
-        <Route path="/search" element={<SearchTeacher isLoggedIn={isLoggedIn} balance={balance} onDeduct={handleDeduct} teachers={teachers} userName={userName} />} />
-        <Route path="/publish" element={<ProtectedRoute isLoggedIn={isLoggedIn}><PublishSkill onAddTeacher={handleAddTeacher} /></ProtectedRoute>} />
-        <Route path="/login" element={<Login setIsLoggedIn={setIsLoggedIn} setUserName={setUserName} />} />
-        <Route path="/register" element={<Login setIsLoggedIn={setIsLoggedIn} setUserName={setUserName} />} />
-        
-        <Route path="/profile" element={
-          <ProtectedRoute isLoggedIn={isLoggedIn}>
-            <Profile 
-              userName={userName} 
-              setUserName={setUserName}
-              teachers={teachers} 
-              onDeleteTeacher={handleDeleteTeacher}
-              onUpdateTeacher={handleUpdateTeacher}
-              refreshTeachers={fetchTeachers}
+      {/* ==========================================
+          路由設定 (所有路由全數回歸)
+          ========================================== */}
+        <Routes>
+          <Route path="/" element={<Home isLoggedIn={isLoggedIn} userName={userName} teachers={teachers} />} />
+          
+          <Route path="/search" element={
+            <SearchTeacher 
+              isLoggedIn={isLoggedIn} balance={balance} onDeduct={handleDeduct} 
+              teachers={teachers} userName={userName} 
+              showNotification={showNotification} showConfirmation={showConfirmation}
             />
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/wallet" element={<ProtectedRoute isLoggedIn={isLoggedIn}><Wallet balance={balance} setBalance={setBalance} transactions={transactions} setTransactions={setTransactions} /></ProtectedRoute>} />
-      </Routes>
+          } />
+          
+          {/* 🌟 把通知功能傳給發佈技能 */}
+          <Route path="/publish" element={
+            <ProtectedRoute isLoggedIn={isLoggedIn}>
+              <PublishSkill onAddTeacher={handleAddTeacher} showNotification={showNotification} />
+            </ProtectedRoute>
+          } />
+          
+          {/* 🌟 把通知功能傳給登入與註冊 */}
+          <Route path="/login" element={<Login setIsLoggedIn={setIsLoggedIn} setUserName={setUserName} showNotification={showNotification} />} />
+          <Route path="/register" element={<Login setIsLoggedIn={setIsLoggedIn} setUserName={setUserName} showNotification={showNotification} />} />
+          
+          {/* 🌟 把通知與確認功能傳給個人主頁 */}
+          <Route path="/profile" element={
+            <ProtectedRoute isLoggedIn={isLoggedIn}>
+              <Profile 
+                userName={userName} setUserName={setUserName} teachers={teachers} 
+                onDeleteTeacher={handleDeleteTeacher} onUpdateTeacher={handleUpdateTeacher} refreshTeachers={fetchTeachers}
+                showNotification={showNotification} showConfirmation={showConfirmation}
+              />
+            </ProtectedRoute>
+          } />
+          
+          {/* 🌟 把通知功能傳給錢包 */}
+          <Route path="/wallet" element={
+            <ProtectedRoute isLoggedIn={isLoggedIn}>
+              <Wallet balance={balance} setBalance={setBalance} transactions={transactions} setTransactions={setTransactions} showNotification={showNotification} />
+            </ProtectedRoute>
+          } />
+        </Routes>
+
+      {/* ==========================================
+          渲染全局通知元件
+          ========================================== */}
+      <NotificationCard 
+        {...notification} 
+        onClose={closeNotification} 
+      />
     </BrowserRouter>
   );
 }

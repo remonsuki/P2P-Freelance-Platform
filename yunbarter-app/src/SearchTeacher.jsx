@@ -1,22 +1,15 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Code, Music, Languages, Sparkles, User, X, Clock, Calendar, Star, ShieldCheck, AlignLeft, Info } from 'lucide-react';
+import { Search, Code, Music, Languages, Sparkles, User, X, Clock, Calendar, Star, ShieldCheck, AlignLeft, Info, CircleDollarSign } from 'lucide-react';
 
-export default function SearchTeacher({ isLoggedIn, balance, onDeduct, teachers, userName }) {
+export default function SearchTeacher({ isLoggedIn, balance, onDeduct, teachers, userName, showNotification, showConfirmation }) {
   const navigate = useNavigate();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [sortBy, setSortBy] = useState('new'); 
   const [selectedTeacher, setSelectedTeacher] = useState(null);
-  
-  // 🌟 新增：用來記錄使用者在 Modal 裡面選了哪個時段
   const [selectedTimeSlot, setSelectedTimeSlot] = useState('');
-
-  const timeTranslation = {
-    'Mon': '星期一', 'Tue': '星期二', 'Wed': '星期三', 'Thu': '星期四', 'Fri': '星期五', 'Sat': '星期六', 'Sun': '星期日',
-    'Morning': '早上', 'Afternoon': '下午', 'Night': '晚上'
-  };
 
   const availableCategories = useMemo(() => {
     const categories = teachers.map(t => t.category);
@@ -50,36 +43,37 @@ export default function SearchTeacher({ isLoggedIn, balance, onDeduct, teachers,
 
   const openBookingModal = (teacher) => {
     setSelectedTeacher(teacher);
-    // 🌟 每次打開 Modal 時，把時段重置為空白，確保使用者一定得重選
     setSelectedTimeSlot('');
   };
 
   const confirmBooking = () => {
     if (!isLoggedIn) {
-      alert("🔒 請先登入才能預約課程喔！");
+      showNotification('warning', '權限提示', '請先登入才能預約課程喔！');
       navigate('/login', { state: { from: '/search' } });
       return;
     }
 
-    // 🌟 核心防呆：如果使用者沒有選時間，直接擋下來！
     if (!selectedTimeSlot) {
-      alert("⚠️ 請先選擇一個老師有空的授課時段！");
+      showNotification('warning', '操作提示', '請先選擇一個老師有空的授課時段！');
       return;
     }
     
     if (balance >= selectedTeacher.price) {
-      onDeduct(selectedTeacher.price, selectedTeacher.name, selectedTeacher.skill);
-      
-      // 🌟 優化提示：告訴他預約了哪個時間
-      let timeText = selectedTimeSlot;
-      if (timeText.includes('-')) {
-        timeText = formatTimeSlot(timeText);
-      }
-      alert(`✅ 預約成功！已經幫您聯絡 ${selectedTeacher.name} 老師。\n約定時間：${timeText}`);
-      
-      setSelectedTeacher(null);
+      onDeduct(selectedTeacher.price, selectedTeacher.name, selectedTeacher.skill)
+        .then(() => {
+          let timeText = selectedTimeSlot;
+          if (timeText.includes('-') || timeText.includes('|')) {
+            timeText = formatTimeSlot(timeText);
+          }
+          showNotification('success', '預約成功', `已經幫您聯絡 ${selectedTeacher.name} 老師。\n約定時間：${timeText}`);
+          setSelectedTeacher(null);
+        })
+        .catch(err => {
+          showNotification('error', '交易失敗', err.message || "未知錯誤");
+          setSelectedTeacher(null);
+        });
     } else {
-      alert("❌ 餘額不足！請先至錢包儲值。");
+      showNotification('error', '交易失敗', '餘額不足！請先至錢包儲值。');
       setSelectedTeacher(null);
       navigate('/wallet');
     }
@@ -87,9 +81,24 @@ export default function SearchTeacher({ isLoggedIn, balance, onDeduct, teachers,
 
   const formatTimeSlot = (timeKey) => {
     if (!timeKey) return '';
-    const [day, slot] = timeKey.split('-');
-    if (!day || !slot) return timeKey;
-    return `${timeTranslation[day]} ${timeTranslation[slot]}`;
+    
+    const timeTranslation = {
+      'Mon': '星期一', 'Tue': '星期二', 'Wed': '星期三', 'Thu': '星期四', 'Fri': '星期五', 'Sat': '星期六', 'Sun': '星期日',
+      'Morning': '早上', 'Afternoon': '下午', 'Night': '晚上'
+    };
+
+    if (timeKey.includes('|')) {
+      const [datePart, slotPart] = timeKey.split('|');
+      return `${datePart} ${timeTranslation[slotPart] || slotPart}`;
+    }
+    
+    if (timeKey.includes('-')) {
+      const [day, slot] = timeKey.split('-');
+      if (!day || !slot) return timeKey;
+      return `${timeTranslation[day]} ${timeTranslation[slot]}`;
+    }
+
+    return timeKey;
   };
 
   const getGradientForCategory = (category) => {
@@ -153,7 +162,11 @@ export default function SearchTeacher({ isLoggedIn, balance, onDeduct, teachers,
                   <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
                       <span style={{ backgroundColor: '#f1f5f9', color: '#475569', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: 'bold' }}>{teacher.category}</span>
-                      <span style={{ color: '#d97706', fontWeight: '900', fontSize: '18px' }}>🪙 {teacher.price.toFixed(1)}</span>
+                      
+                      {/* 🌟 已更新：這裡不再使用 Emoji，全部替換為圖示 */}
+                      <span style={{ color: '#d97706', fontWeight: '900', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <CircleDollarSign size={18} strokeWidth={2.5} /> {teacher.price.toFixed(1)}
+                      </span>
                     </div>
                     <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', color: '#0f172a', flexGrow: 1 }}>{teacher.skill}</h3>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b', fontSize: '14px', marginBottom: '20px' }}>
@@ -176,6 +189,7 @@ export default function SearchTeacher({ isLoggedIn, balance, onDeduct, teachers,
         </div>
       </div>
 
+      {/* Modal 內容... (已保留先前優化邏輯) */}
       {selectedTeacher && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(6px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000, padding: '20px', boxSizing: 'border-box' }}>
           
@@ -230,7 +244,9 @@ export default function SearchTeacher({ isLoggedIn, balance, onDeduct, teachers,
 
               <div style={{ backgroundColor: 'white', borderRadius: '16px', padding: '24px', border: '1px solid #e2e8f0', marginBottom: '30px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '10px' }}>
-                  <span style={{ fontSize: '36px', color: '#0f172a', fontWeight: '900' }}>🪙 {selectedTeacher.price.toFixed(1)}</span>
+                  <span style={{ fontSize: '36px', color: '#0f172a', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <CircleDollarSign size={32} strokeWidth={2.5} color="#0f172a" /> {selectedTeacher.price.toFixed(1)}
+                  </span>
                   <span style={{ fontSize: '16px', color: '#64748b', fontWeight: 'bold' }}>YTC / 堂</span>
                 </div>
                 <div style={{ fontSize: '13px', color: '#94a3b8' }}>免收平台手續費，100% 價值回歸</div>
@@ -241,24 +257,20 @@ export default function SearchTeacher({ isLoggedIn, balance, onDeduct, teachers,
                   <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', color: '#475569', fontWeight: 'bold', marginBottom: '8px' }}>
                     <Calendar size={16} /> 選擇老師有空時段
                   </label>
-                  
-                  {/* 🌟 核心修改：綁定 selectedTimeSlot 狀態，並把預設的 option 設為空字串 value="" */}
                   <select 
                     value={selectedTimeSlot} 
                     onChange={(e) => setSelectedTimeSlot(e.target.value)}
                     style={{ width: '100%', padding: '14px', borderRadius: '10px', border: '1px solid #cbd5e1', backgroundColor: 'white', color: '#0f172a', fontSize: '15px', outlineColor: '#3b82f6', cursor: 'pointer' }}
                   >
                     <option value="">請選擇時段</option>
-                    
                     {selectedTeacher.availableTimes && selectedTeacher.availableTimes.length > 0 ? (
                       selectedTeacher.availableTimes.map(timeKey => (
                         <option key={timeKey} value={timeKey}>{formatTimeSlot(timeKey)}</option>
                       ))
                     ) : (
-                      <><option value="Mon-Night">{selectedTeacher.name === '阿弦' ? '星期一 晚上' : '星期六 早上'}</option><option value="Sun-Afternoon">{selectedTeacher.name === '阿弦' ? '星期三 晚上' : '星期日 下午'}</option></>
+                      <><option value="2026-06-20|Morning">{selectedTeacher.name === '阿弦' ? '2026-06-20 早上' : '2026-06-25 早上'}</option><option value="2026-06-21|Afternoon">{selectedTeacher.name === '阿弦' ? '2026-06-21 下午' : '2026-06-26 下午'}</option></>
                     )}
                   </select>
-
                 </div>
                 
                 <div>
@@ -281,9 +293,11 @@ export default function SearchTeacher({ isLoggedIn, balance, onDeduct, teachers,
                 >
                   <ShieldCheck size={20} />確認預約並扣款
                 </button>
-                <div style={{ textAlign: 'center', marginTop: '15px' }}>
+                <div style={{ textAlign: 'center', marginTop: '15px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px' }}>
                   <span style={{ fontSize: '13px', color: '#64748b' }}>目前錢包餘額：</span>
-                  <span style={{ fontSize: '14px', color: '#d97706', fontWeight: 'bold' }}>🪙 {balance.toFixed(1)} YTC</span>
+                  <span style={{ fontSize: '14px', color: '#d97706', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <CircleDollarSign size={14} strokeWidth={2.5} /> {balance.toFixed(1)} YTC
+                  </span>
                 </div>
               </div>
 
