@@ -1,0 +1,37 @@
+創造你自己的虛擬貨幣 (發行 ERC-20 代幣)
+在 Ethereum 或 Polygon 等相容區塊鏈上，虛擬貨幣通常遵循 ERC-20 標準。我們不需要從頭寫，使用 OpenZeppelin 的官方安全範本即可。
+
+1. 撰寫智能合約
+你可以直接打開瀏覽器，進入 Remix Ethereum IDE，建立一個名為 SkillToken.sol 的檔案，並貼上以下程式碼：
+
+Solidity
+
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+// 引入 OpenZeppelin 的標準 ERC-20 合約
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract SkillToken is ERC20, Ownable {
+    // 建構子：設定代幣名稱為 SkillToken，代號為 SKILL，並指定合約擁有者
+    constructor(address initialOwner) ERC20("SkillToken", "SKILL") Ownable(initialOwner) {
+        // 初始發行 100 萬顆代幣給建立者 (ERC20 預設有 18 位小數)
+        _mint(msg.sender, 1000000 * 10**decimals());
+    }
+
+    // 允許平台（擁有者）未來可以增發代幣（例如使用者完成任務給予獎勵）
+    function mint(address to, uint256 amount) public onlyOwner {
+        _mint(to, amount);
+    }
+}
+2. 編譯與部署
+在 Remix 左側選單選擇 Solidity Compiler，點擊 Compile SkillToken.sol。
+
+切換到 Deploy & Run Transactions 頁面。
+
+將 Environment 切換為 Injected Provider - MetaMask（此時 MetaMask 會跳出視窗，請將網路切換至測試網，例如 Arbitrum Sepolia 或 Polygon Amoy，以免花費真實金錢）。
+
+在 Deploy 按鈕旁輸入你的錢包地址作為 initialOwner，點擊 Deploy 並在 MetaMask 簽章同意。
+
+重要留存資訊： 部署成功後，記錄下合約地址（Contract Address），並複製合約的 ABI (Application Binary Interface) json 檔案。

@@ -15,3 +15,12 @@ body {
 input, textarea, select {
   color: #2c3e50;
 }
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
