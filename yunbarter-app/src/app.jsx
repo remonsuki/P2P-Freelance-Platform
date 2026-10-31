@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
-import { CircleDollarSign, CircleUser, LogOut, Sparkles, GraduationCap } from 'lucide-react';
+import { CircleDollarSign, CircleUser, LogOut, Sparkles, GraduationCap, ShieldCheck } from 'lucide-react';
 
 import SearchTeacher from './SearchTeacher';
 import PublishSkill from './PublishSkill';
@@ -10,6 +10,7 @@ import Wallet from './Wallet';
 import Profile from './Profile';
 import NotificationCard from './NotificationCard';
 import ConnectWalletButton from './components/ConnectWalletButton';
+import BookingEscrow from './BookingEscrow';
 import { fetchWallet, fetchTeachers, createBooking } from './services/api';
 import { useWallet } from './context/WalletContext';
 
@@ -180,7 +181,7 @@ function AppContent() {
   return (
     <>
       {/* ==========================================
-          導覽列 (一字不漏完整版)
+          導覽列 (新增「合約託管」入口)
           ========================================== */}
       <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 40px', backgroundColor: 'white', borderBottom: '1px solid #e2e8f0', position: 'sticky', top: 0, zIndex: 1000 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '40px' }}>
@@ -188,6 +189,10 @@ function AppContent() {
           <div style={{ display: 'flex', gap: '25px', alignItems: 'center' }}>
             <Link to="/search" style={{ textDecoration: 'none', color: '#64748b', fontWeight: 'bold', fontSize: '15px', transition: 'color 0.2s' }} onMouseOver={e => e.target.style.color = '#0f172a'} onMouseOut={e => e.target.style.color = '#64748b'}>
               尋找課程
+            </Link>
+            <Link to="/bookings" style={{ textDecoration: 'none', color: '#64748b', fontWeight: 'bold', fontSize: '15px', transition: 'color 0.2s', display: 'flex', alignItems: 'center', gap: '5px' }} onMouseOver={e => e.currentTarget.style.color = '#0f172a'} onMouseOut={e => e.currentTarget.style.color = '#64748b'}>
+              <ShieldCheck size={16} color="#4f46e5" />
+              合約託管
             </Link>
             <Link to="/publish" style={{ textDecoration: 'none' }}>
               <button style={{ padding: '8px 16px', backgroundColor: '#f1f5f9', color: '#3b82f6', border: 'none', borderRadius: '20px', fontWeight: 'bold', fontSize: '14px', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '6px' }} onMouseOver={e => { e.currentTarget.style.backgroundColor = '#e0e7ff'; e.currentTarget.style.color = '#2563eb'; }} onMouseOut={e => { e.currentTarget.style.backgroundColor = '#f1f5f9'; e.currentTarget.style.color = '#3b82f6'; }}>
@@ -226,49 +231,56 @@ function AppContent() {
       </nav>
 
       {/* ==========================================
-          路由設定 (所有路由全數回歸)
+          路由設定
           ========================================== */}
-        <Routes>
-          <Route path="/" element={<Home isLoggedIn={isLoggedIn} userName={userName} teachers={teachers} />} />
-          
-          <Route path="/search" element={
-            <SearchTeacher 
-              isLoggedIn={isLoggedIn} balance={balance}
-              onBookingComplete={handleBookingComplete}
-              teachers={teachers} userName={userName} 
+      <Routes>
+        <Route path="/" element={<Home isLoggedIn={isLoggedIn} userName={userName} teachers={teachers} />} />
+        
+        <Route path="/search" element={
+          <SearchTeacher 
+            isLoggedIn={isLoggedIn} balance={balance}
+            onBookingComplete={handleBookingComplete}
+            teachers={teachers} userName={userName} 
+            showNotification={showNotification} showConfirmation={showConfirmation}
+          />
+        } />
+        
+        <Route path="/publish" element={
+          <ProtectedRoute isLoggedIn={isLoggedIn}>
+            <PublishSkill onAddTeacher={handleAddTeacher} showNotification={showNotification} />
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/login" element={<Login setIsLoggedIn={setIsLoggedIn} setUserName={setUserName} showNotification={showNotification} />} />
+        <Route path="/register" element={<Login setIsLoggedIn={setIsLoggedIn} setUserName={setUserName} showNotification={showNotification} />} />
+        
+        <Route path="/profile" element={
+          <ProtectedRoute isLoggedIn={isLoggedIn}>
+            <Profile 
+              userName={userName} setUserName={setUserName} teachers={teachers} 
+              onDeleteTeacher={handleDeleteTeacher} onUpdateTeacher={handleUpdateTeacher} refreshTeachers={loadTeachers}
               showNotification={showNotification} showConfirmation={showConfirmation}
             />
-          } />
-          
-          {/* 🌟 把通知功能傳給發佈技能 */}
-          <Route path="/publish" element={
-            <ProtectedRoute isLoggedIn={isLoggedIn}>
-              <PublishSkill onAddTeacher={handleAddTeacher} showNotification={showNotification} />
-            </ProtectedRoute>
-          } />
-          
-          {/* 🌟 把通知功能傳給登入與註冊 */}
-          <Route path="/login" element={<Login setIsLoggedIn={setIsLoggedIn} setUserName={setUserName} showNotification={showNotification} />} />
-          <Route path="/register" element={<Login setIsLoggedIn={setIsLoggedIn} setUserName={setUserName} showNotification={showNotification} />} />
-          
-          {/* 🌟 把通知與確認功能傳給個人主頁 */}
-          <Route path="/profile" element={
-            <ProtectedRoute isLoggedIn={isLoggedIn}>
-              <Profile 
-                userName={userName} setUserName={setUserName} teachers={teachers} 
-                onDeleteTeacher={handleDeleteTeacher} onUpdateTeacher={handleUpdateTeacher} refreshTeachers={loadTeachers}
-                showNotification={showNotification} showConfirmation={showConfirmation}
-              />
-            </ProtectedRoute>
-          } />
-          
-          {/* 🌟 把通知功能傳給錢包 */}
-          <Route path="/wallet" element={
-            <ProtectedRoute isLoggedIn={isLoggedIn}>
-              <Wallet balance={balance} setBalance={setBalance} transactions={transactions} setTransactions={setTransactions} showNotification={showNotification} />
-            </ProtectedRoute>
-          } />
-        </Routes>
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/wallet" element={
+          <ProtectedRoute isLoggedIn={isLoggedIn}>
+            <Wallet balance={balance} setBalance={setBalance} transactions={transactions} setTransactions={setTransactions} showNotification={showNotification} />
+          </ProtectedRoute>
+        } />
+
+        {/* 🌟 合約爭議託管 (串接全局通知、錢包餘額與交易紀錄) */}
+        <Route path="/bookings" element={
+          <BookingEscrow 
+            userName={userName}
+            balance={balance}
+            setBalance={setBalance}
+            setTransactions={setTransactions}
+            showNotification={showNotification}
+          />
+        } />
+      </Routes>
 
       {/* ==========================================
           渲染全局通知元件
