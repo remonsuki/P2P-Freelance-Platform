@@ -2,18 +2,19 @@
   "name": "yunbarter-backend",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "db:init": "node init-db.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "db:migrate": "node scripts/migrate.js",
+    "db:seed": "node scripts/seed.js",
+    "test": "node --test test/*.test.js",
+    "test:integration": "node --test test/integration/*.test.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^18.0.7",
     "express": "^5.2.1",

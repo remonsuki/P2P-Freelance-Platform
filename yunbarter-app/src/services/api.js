@@ -3,16 +3,25 @@
  * 所有前端與 yunbarter-backend 的 HTTP 請求由此發出
  */
 
-const API_BASE = 'http://localhost:5000';
+const API_BASE = (import.meta.env.VITE_API_BASE_URL
+  || (import.meta.env.DEV ? `${window.location.protocol}//${window.location.hostname}:5000` : '')).replace(/\/$/, '');
+
+/** Include the HttpOnly login cookie for every backend request. */
+export function apiFetch(path, options = {}) {
+  return fetch(`${API_BASE}${path}`, {
+    ...options,
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', ...options.headers },
+  });
+}
 
 async function request(path, options = {}) {
-  const response = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...options.headers },
-    ...options,
-  });
+  const response = await apiFetch(path, options);
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(data.error || `請求失敗 (${response.status})`);
+    const error = new Error(data.error || `請求失敗 (${response.status})`);
+    error.status = response.status;
+    throw error;
   }
   return data;
 }
@@ -57,6 +66,9 @@ export const login = (email, password) =>
     method: 'POST',
     body: JSON.stringify({ email, password }),
   });
+
+/** Revoke this browser's session without affecting other users. */
+export const logout = () => request('/api/auth/logout', { method: 'POST' });
 
 /** 註冊 */
 export const register = (payload) =>

@@ -1,21 +1,45 @@
-// 資料庫連線設定（第 2 步新增）
-// 連線資訊放在 .env，不要直接寫在程式裡，密碼才不會被上傳
-require('dotenv').config();
-const { Pool, types } = require('pg');
+const path = require('node:path');
+require('dotenv').config({ path: path.join(__dirname, '.env'), quiet: true });
+const { Pool } = require('pg');
 
-// pg 預設把 BIGINT / NUMERIC 回傳成字串、DATE 轉成 JS Date（會有時區偏移）
-// 這裡統一轉成前端好用的格式：數字就是數字，日期維持 'YYYY-MM-DD'
-types.setTypeParser(20, Number);              // BIGINT（各表的 id）
-types.setTypeParser(1700, parseFloat);        // NUMERIC（評分）
-types.setTypeParser(1082, (value) => value);  // DATE
+function connectionOptions(env = process.env) {
+  const common = { connectionTimeoutMillis: 5000, idleTimeoutMillis: 30000, max: 10 };
+  if (env.DATABASE_URL) return { ...common, connectionString: env.DATABASE_URL };
+  return {
+    ...common,
+    host: env.PGHOST || 'localhost',
+    port: Number(env.PGPORT || 5432),
+    user: env.PGUSER,
+    password: env.PGPASSWORD,
+    database: env.PGDATABASE,
+  };
+}
 
-// Pool（連線池）：先開好幾條連線重複使用，不用每次查詢都重新連線
-const pool = new Pool({
-  host: process.env.PGHOST,
-  port: Number(process.env.PGPORT),
-  user: process.env.PGUSER,
-  password: process.env.PGPASSWORD,
-  database: process.env.PGDATABASE,
-});
+function assertConfigured(env = process.env) {
+  if (!env.DATABASE_URL && (!env.PGUSER || !env.PGDATABASE)) {
+    throw new Error('請先依 .env.example 設定 yunbarter-backend/.env 的 PostgreSQL 連線資訊。');
+  }
+}
+
+const pool = new Pool(connectionOptions());
+pool.on('error', (error) => console.error('PostgreSQL 連線池錯誤:', error.code || 'CONNECTION_ERROR'));
+
+async function transaction(db, work) {
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await work(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
 
 module.exports = pool;
+module.exports.connectionOptions = connectionOptions;
+module.exports.assertConfigured = assertConfigured;
+module.exports.transaction = transaction;

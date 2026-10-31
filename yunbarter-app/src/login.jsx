@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useWallet } from './context/WalletContext';
+import { apiFetch } from './services/api';
 
 // 🌟 接收 showNotification 和 showConfirmation 作為 Props
-export default function Login({ setIsLoggedIn, setUserName, showNotification, showConfirmation }) {
+export default function Login({ setIsLoggedIn, setUserId, setUserName, showNotification, showConfirmation }) {
   const { connectWallet } = useWallet();
   const location = useLocation(); 
   const navigate = useNavigate();
@@ -60,15 +61,15 @@ export default function Login({ setIsLoggedIn, setUserName, showNotification, sh
     }
 
     const apiUrl = isLoginView 
-      ? 'http://localhost:5000/api/auth/login' 
-      : 'http://localhost:5000/api/auth/register';
+      ? '/api/auth/login'
+      : '/api/auth/register';
 
     const payload = isLoginView 
       ? { email, password } 
       : { email, password, userName: inputName }; 
 
     try {
-      const response = await fetch(apiUrl, {
+      const response = await apiFetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -78,6 +79,7 @@ export default function Login({ setIsLoggedIn, setUserName, showNotification, sh
 
       if (response.ok) {
         setIsLoggedIn(true);
+        setUserId(data.userId);
         if (data.userName) {
             setUserName(data.userName); 
         }
@@ -112,12 +114,8 @@ export default function Login({ setIsLoggedIn, setUserName, showNotification, sh
 
   const handleWeb3Auth = async () => {
     try {
-      const address = await connectWallet();
-      const display = address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'Web3 使用者';
-      setIsLoggedIn(true);
-      setUserName(display);
-      showNotification('success', '連接成功', `MetaMask 已連線：${display}\n為您導向搜尋頁面...`);
-      navigate('/search');
+      await connectWallet();
+      showNotification('success', '錢包已連線', '請使用電子郵件與密碼登入帳號。錢包連線不會建立會員登入狀態。');
     } catch (err) {
       showNotification('error', '錢包連線失敗', err.message);
     }
