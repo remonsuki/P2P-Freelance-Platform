@@ -1,684 +1,393 @@
 const express = require('express');
 const cors = require('cors');
+const pool = require('./db');
+const { transaction, assertConfigured } = require('./db');
+const { createAuth } = require('./auth');
+const { hashPassword, verifyPassword } = require('./passwords');
 
-const app = express();
-const PORT = 5000;
-
-app.use(cors());
-app.use(express.json());
-
-// ==================== 模擬資料庫（依 file/sql.io ERD） ====================
-
-let nextId = {
-  user: 4,
-  transaction: 4,
-  skill: 4,
-  entitySkill: 4,
-  class: 5,
-  booking: 3,
-  review: 1,
-};
-
-/** @type {Array} users 使用者表 */
-let users = [
-  {
-    user_id: 1,
-    email: 'test@email.com',
-    password_hash: '123456',
-    username: '大帥哥',
-    avatar_url: null,
-    role: 'student',
-    category: null,
-    hourly_points: null,
-    student_rating: 5.0,
-    teacher_rating: 5.0,
-    wallet_address: null,
-    cached_points: 94,
-  },
-  {
-    user_id: 2,
-    email: 'axian@email.com',
-    password_hash: '123456',
-    username: '阿弦',
-    avatar_url: null,
-    role: 'teacher',
-    category: '音樂',
-    hourly_points: 2,
-    student_rating: 5.0,
-    teacher_rating: 4.8,
-    wallet_address: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0',
-    cached_points: 50,
-  },
-  {
-    user_id: 3,
-    email: 'link@email.com',
-    password_hash: '123456',
-    username: '林克',
-    avatar_url: null,
-    role: 'teacher',
-    category: '程式',
-    hourly_points: 4,
-    student_rating: 5.0,
-    teacher_rating: 4.9,
-    wallet_address: '0x8626f6940E2eb28930eFb4CeF49B2d1F2C9C1199',
-    cached_points: 80,
-  },
-];
-
-/** @type {Array} skills 技能科目表 */
-let skills = [
-  { skill_id: 1, category: '音樂', name: '吉他指彈教學' },
-  { skill_id: 2, category: '程式', name: '網頁開發實戰' },
-  { skill_id: 3, category: '程式', name: 'Java 基礎入門' },
-];
-
-/** @type {Array} entity_skills 使用者與技能關聯 */
-let entitySkills = [
-  { entity_skill_id: 1, owner_type: 'user', owner_id: 2, skill_id: 1, skill_level: '高級' },
-  { entity_skill_id: 2, owner_type: 'user', owner_id: 3, skill_id: 2, skill_level: '高級' },
-  { entity_skill_id: 3, owner_type: 'user', owner_id: 3, skill_id: 3, skill_level: '中級' },
-];
-
-/** @type {Array} classes 可預約課程時段 */
-let classes = [
-  {
-    class_id: 1,
-    teacher_id: 2,
-    skill_id: 1,
-    class_date: '2026-06-20',
-    slot_type: 'morning',
-    start_time: '09:00',
-    end_time: '10:00',
-    is_booked: true,
-  },
-  {
-    class_id: 2,
-    teacher_id: 2,
-    skill_id: 1,
-    class_date: '2026-06-21',
-    slot_type: 'afternoon',
-    start_time: '14:00',
-    end_time: '15:00',
-    is_booked: false,
-  },
-  {
-    class_id: 3,
-    teacher_id: 3,
-    skill_id: 2,
-    class_date: '2026-06-25',
-    slot_type: 'morning',
-    start_time: '09:00',
-    end_time: '10:00',
-    is_booked: true,
-  },
-  {
-    class_id: 4,
-    teacher_id: 3,
-    skill_id: 2,
-    class_date: '2026-06-26',
-    slot_type: 'afternoon',
-    start_time: '14:00',
-    end_time: '15:00',
-    is_booked: false,
-  },
-];
-
-/** @type {Array} bookings 預約紀錄 */
-let bookings = [
-  {
-    booking_id: 1,
-    student_id: 1,
-    class_id: 1,
-    points_spent: 2,
-    status: 'confirmed',
-    payment_status: 'escrowed',
-    tx_hash: null,
-  },
-  {
-    booking_id: 2,
-    student_id: 1,
-    class_id: 3,
-    points_spent: 4,
-    status: 'confirmed',
-    payment_status: 'escrowed',
-    tx_hash: null,
-  },
-];
-
-/** @type {Array} reviews 雙向評價 */
-let reviews = [];
-
-/** @type {Array} point_transactions 點數流水帳 */
-let pointTransactions = [
-  {
-    transaction_id: 1,
-    user_id: 1,
-    amount: 100,
-    transaction_type: 'charge',
-    description: '初始儲值',
-    created_at: '2026-06-01T10:00:00.000Z',
-    tx_hash: null,
-    tx_status: 'success',
-  },
-  {
-    transaction_id: 2,
-    user_id: 1,
-    amount: -2,
-    transaction_type: 'consume',
-    description: '阿弦老師 - 吉他指彈教學',
-    created_at: '2026-06-05T14:30:00.000Z',
-    tx_hash: null,
-    tx_status: 'success',
-  },
-  {
-    transaction_id: 3,
-    user_id: 1,
-    amount: -4,
-    transaction_type: 'consume',
-    description: '林克老師 - 網頁開發實戰',
-    created_at: '2026-06-08T09:00:00.000Z',
-    tx_hash: null,
-    tx_status: 'success',
-  },
-];
-
-// 目前登入的使用者 ID（模擬 Session）
-let currentUserId = 1;
-
-// ==================== 輔助函式 ====================
-
-function getCurrentUser() {
-  return users.find((u) => u.user_id === currentUserId);
+class HttpError extends Error {
+  constructor(status, message) {
+    super(message);
+    this.status = status;
+  }
 }
 
-function getSkillById(skillId) {
-  return skills.find((s) => s.skill_id === skillId);
+const SLOT_LABEL = { morning: 'Morning', afternoon: 'Afternoon', evening: 'Night' };
+const TRANSACTION_LABEL = { charge: '儲值', consume: '上課支出', refund: '退款', withdraw: '提領' };
+// A missing account still performs the same password derivation as a failed login.
+const DUMMY_HASH = `scrypt$131072$8$1$${'0'.repeat(32)}$${'0'.repeat(128)}`;
+
+function text(value, name, maxLength, required = true) {
+  if (value === undefined && !required) return undefined;
+  if (typeof value !== 'string' || (required && !value.trim()) || value.trim().length > maxLength) {
+    throw new HttpError(400, `${name}格式不正確`);
+  }
+  return value.trim();
 }
 
-function getUserById(userId) {
-  return users.find((u) => u.user_id === userId);
+function positiveAmount(value) {
+  if (!['number', 'string'].includes(typeof value) || !/^\d+(\.\d{1,6})?$/.test(String(value))
+      || !Number.isFinite(Number(value)) || Number(value) <= 0 || Number(value) > 1000000000) {
+    throw new HttpError(400, '金額必須是大於零、最多六位小數的有效數值');
+  }
+  return String(value);
 }
 
-/** 將 classes + users + skills 聚合為前端 teachers 格式 */
-function buildTeachersList() {
-  const slotLabel = { morning: 'Morning', afternoon: 'Afternoon', evening: 'Night' };
-
-  return classes.map((cls) => {
-    const teacher = getUserById(cls.teacher_id);
-    const skill = getSkillById(cls.skill_id);
-    if (!teacher || !skill) return null;
-
-    const teacherClasses = classes.filter(
-      (c) => c.teacher_id === cls.teacher_id && c.skill_id === cls.skill_id && !c.is_booked
-    );
-    const availableTimes = [...new Set(
-      teacherClasses.map((c) => `${c.class_date}|${slotLabel[c.slot_type] || c.slot_type}`)
-    )];
-
-    return {
-      id: cls.class_id,
-      classId: cls.class_id,
-      jobId: cls.class_id,
-      teacherId: teacher.user_id,
-      name: teacher.username,
-      skill: skill.name,
-      price: teacher.hourly_points,
-      category: skill.category,
-      description: getCourseDescription(skill.name, teacher.username),
-      availableTimes,
-      isBooked: cls.is_booked,
-    };
-  }).filter(Boolean);
+function id(value) {
+  if (!/^\d+$/.test(String(value)) || !Number.isSafeInteger(Number(value)) || Number(value) < 1) {
+    throw new HttpError(400, '課程編號不正確');
+  }
+  return String(value);
 }
 
-/** 去重：同一老師同一技能只保留一筆卡片 */
-function getUniqueTeacherCards() {
-  const list = buildTeachersList();
-  const seen = new Set();
-  return list.filter((t) => {
-    const key = `${t.teacherId}-${t.skill}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+function transactionHash(value) {
+  if (value === undefined || value === null || value === '') return null;
+  if (typeof value !== 'string' || !/^0x[a-fA-F0-9]{64}$/.test(value)) throw new HttpError(400, '交易雜湊格式不正確');
+  return value.toLowerCase();
 }
 
-function getCourseDescription(skillName, teacherName) {
-  const map = {
-    '吉他指彈教學': `${teacherName} 老師擁有十年吉他演奏經驗，專精指彈技巧。課程從基礎和弦到進階編曲，適合各程度學員。`,
-    '網頁開發實戰': `跟著 ${teacherName} 老師從零打造完整 Web 應用，涵蓋 React、Node.js 與區塊鏈整合實作。`,
-    'Java 基礎入門': `${teacherName} 老師以淺顯易懂的方式講解 Java 核心概念，搭配實作練習快速上手。`,
+function formatTransaction(row) {
+  return {
+    id: Number(row.transaction_id),
+    type: TRANSACTION_LABEL[row.transaction_type] || row.transaction_type,
+    amount: Number(row.amount),
+    date: new Date(row.created_at).toISOString().slice(0, 10),
+    note: row.description,
+    txHash: row.tx_hash,
+    txStatus: row.tx_status,
   };
-  return map[skillName] || '歡迎預約體驗這堂精彩課程！';
 }
 
-/** 將 point_transactions 轉為前端交易明細格式 */
-function formatTransactionsForFrontend(userId) {
-  const typeMap = {
-    charge: '儲值',
-    consume: '上課支出',
-    refund: '退款',
-    withdraw: '提領',
-  };
-
-  return pointTransactions
-    .filter((tx) => tx.user_id === userId)
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-    .map((tx) => ({
-      id: tx.transaction_id,
-      type: typeMap[tx.transaction_type] || tx.transaction_type,
-      amount: tx.amount,
-      date: tx.created_at.split('T')[0],
-      note: tx.description,
-      txHash: tx.tx_hash,
-      txStatus: tx.tx_status,
-    }));
+async function teacherRows(db) {
+  const { rows } = await db.query(`
+    SELECT c.class_id, c.teacher_id, c.skill_id, c.class_date::text, c.slot_type,
+           c.is_booked, COALESCE(c.price, u.hourly_points, 0) AS price,
+           c.description, u.username, s.name AS skill, s.category
+      FROM classes c JOIN users u ON u.user_id = c.teacher_id
+      JOIN skills s ON s.skill_id = c.skill_id
+     ORDER BY c.class_id DESC`);
+  return rows;
 }
 
-function parseTimeSlot(timeKey) {
-  if (!timeKey || !timeKey.includes('|')) return null;
-  const [date, slot] = timeKey.split('|');
-  const slotMap = { Morning: 'morning', Afternoon: 'afternoon', Night: 'evening', evening: 'evening' };
-  return { class_date: date, slot_type: slotMap[slot] || slot.toLowerCase() };
+function teacherCard(row, rows) {
+  return {
+    id: Number(row.class_id), classId: Number(row.class_id), jobId: Number(row.class_id),
+    teacherId: Number(row.teacher_id), name: row.username, skill: row.skill,
+    price: Number(row.price), category: row.category,
+    description: row.description || '歡迎預約體驗這堂精彩課程！',
+    availableTimes: [...new Set(rows.filter((other) => other.teacher_id === row.teacher_id
+      && other.skill_id === row.skill_id && !other.is_booked)
+      .map((other) => `${other.class_date}|${SLOT_LABEL[other.slot_type] || other.slot_type}`))],
+    isBooked: row.is_booked,
+  };
 }
 
-// ==================== API 路由 ====================
+async function getTeacherCard(db, classId) {
+  const rows = await teacherRows(db);
+  const row = rows.find((item) => String(item.class_id) === String(classId));
+  return row ? teacherCard(row, rows) : null;
+}
 
-// 🔑 登入
-app.post('/api/auth/login', (req, res) => {
-  const { email, password } = req.body;
-  const user = users.find((u) => u.email === email && u.password_hash === password);
-  if (!user) {
-    return res.status(401).json({ error: '電子郵件或密碼錯誤！' });
+function parseTimeSlot(value) {
+  if (typeof value !== 'string') throw new HttpError(400, '授課時段格式不正確');
+  const match = /^(\d{4}-\d{2}-\d{2})\|(Morning|Afternoon|Night)$/.exec(value);
+  if (!match || !Number.isFinite(Date.parse(match[1])) || new Date(match[1]).toISOString().slice(0, 10) !== match[1]) {
+    throw new HttpError(400, '授課時段格式不正確');
   }
-  currentUserId = user.user_id;
-  res.json({ success: true, userName: user.username, userId: user.user_id });
-});
+  return { date: match[1], slot: { Morning: 'morning', Afternoon: 'afternoon', Night: 'evening' }[match[2]] };
+}
 
-// 🔑 註冊
-app.post('/api/auth/register', (req, res) => {
-  const { email, password, userName: frontendUserName, schoolId } = req.body;
-
-  if (users.some((u) => u.email === email)) {
-    return res.status(400).json({ error: '該電子郵件已被註冊！' });
-  }
-
-  const newUserName = frontendUserName || email.split('@')[0];
-  const newUser = {
-    user_id: nextId.user++,
-    email,
-    password_hash: password,
-    username: newUserName,
-    avatar_url: null,
-    role: 'student',
-    category: null,
-    hourly_points: null,
-    student_rating: 5.0,
-    teacher_rating: 5.0,
-    wallet_address: null,
-    cached_points: 0,
-  };
-  users.push(newUser);
-  currentUserId = newUser.user_id;
-
-  res.status(201).json({ success: true, userName: newUserName, userId: newUser.user_id });
-});
-
-// 👤 個人檔案
-app.get('/api/user/profile', (req, res) => {
-  const user = getCurrentUser();
-  if (!user) return res.status(404).json({ error: '找不到使用者' });
-
-  const myClasses = classes.filter((c) => c.teacher_id === user.user_id && !c.is_booked);
-  const slotLabel = { morning: 'Morning', afternoon: 'Afternoon', evening: 'Night' };
-  const availableTimes = myClasses.map((c) => `${c.class_date}|${slotLabel[c.slot_type]}`);
-
-  res.json({
-    userName: user.username,
-    department: user.category ? `專長：${user.category}` : '尚未填寫系所',
-    bio: user.role === 'teacher' ? `我是 ${user.username}，歡迎預約我的課程！` : '熱愛學習新技能的大學生。',
-    role: user.role,
-    walletAddress: user.wallet_address,
-    availableTimes,
+function createApp({ db = pool, allowedOrigins, secureCookies = process.env.NODE_ENV === 'production',
+  sessionHours = Number(process.env.SESSION_TTL_HOURS || 168),
+  demoPayments = process.env.NODE_ENV !== 'production' && process.env.ENABLE_DEMO_PAYMENTS !== 'false' } = {}) {
+  if (!Number.isFinite(sessionHours) || sessionHours <= 0 || sessionHours > 720) throw new Error('SESSION_TTL_HOURS 必須介於 0 與 720 之間');
+  const origins = new Set(allowedOrigins || (process.env.FRONTEND_ORIGINS
+    || 'http://localhost:5173,http://127.0.0.1:5173').split(',').map((origin) => origin.trim()).filter(Boolean));
+  const app = express();
+  const auth = createAuth(db, { secureCookies, sessionHours });
+  app.disable('x-powered-by');
+  app.use(cors({ origin: (origin, callback) => callback(null, !origin || origins.has(origin)), credentials: true }));
+  app.use('/api', (req, res, next) => {
+    res.set('Cache-Control', 'no-store');
+    // Credentials are accepted only from the configured frontend origins.
+    if (req.headers.origin && !origins.has(req.headers.origin)) return res.status(403).json({ error: '不允許的請求來源' });
+    return next();
   });
-});
+  app.use(express.json({ limit: '64kb' }));
 
-app.put('/api/user/profile', (req, res) => {
-  const { userName: newName, department, bio } = req.body;
-  const user = getCurrentUser();
-  if (!user) return res.status(404).json({ error: '找不到使用者' });
-  if (!newName) return res.status(400).json({ error: '姓名不可為空！' });
-
-  user.username = newName;
-  res.json({
-    userName: user.username,
-    department: department || user.category,
-    bio: bio || '',
-  });
-});
-
-// 💰 錢包資訊
-app.get('/api/user/wallet', (req, res) => {
-  const user = getCurrentUser();
-  if (!user) return res.status(404).json({ error: '找不到使用者' });
-
-  res.json({
-    userName: user.username,
-    balance: user.cached_points,
-    walletAddress: user.wallet_address,
-    transactions: formatTransactionsForFrontend(user.user_id),
-  });
-});
-
-// 🔗 同步鏈上錢包地址與餘額快取
-app.post('/api/user/wallet/sync', (req, res) => {
-  const { walletAddress, cachedPoints } = req.body;
-  const user = getCurrentUser();
-  if (!user) return res.status(404).json({ error: '找不到使用者' });
-
-  if (walletAddress) user.wallet_address = walletAddress;
-  if (cachedPoints !== undefined && !isNaN(cachedPoints)) {
-    user.cached_points = parseFloat(cachedPoints);
-  }
-
-  res.json({
-    success: true,
-    walletAddress: user.wallet_address,
-    balance: user.cached_points,
-  });
-});
-
-// 💰 儲值
-app.post('/api/wallet/deposit', (req, res) => {
-  const { amount, txHash } = req.body;
-  const user = getCurrentUser();
-  if (!user) return res.status(404).json({ error: '找不到使用者' });
-
-  if (amount === undefined || isNaN(amount) || amount <= 0) {
-    return res.status(400).json({ error: '無效的儲值金額' });
-  }
-
-  const parsed = parseFloat(amount);
-  user.cached_points += parsed;
-
-  const newTx = {
-    transaction_id: nextId.transaction++,
-    user_id: user.user_id,
-    amount: parsed,
-    transaction_type: 'charge',
-    description: txHash ? `鏈上儲值 (${txHash.slice(0, 10)}...)` : '信用卡支付成功',
-    created_at: new Date().toISOString(),
-    tx_hash: txHash || null,
-    tx_status: 'success',
-  };
-  pointTransactions.unshift(newTx);
-
-  res.json({
-    success: true,
-    balance: user.cached_points,
-    newTransaction: formatTransactionsForFrontend(user.user_id)[0],
-  });
-});
-
-// 💰 提領
-app.post('/api/wallet/withdraw', (req, res) => {
-  const { amount } = req.body;
-  const user = getCurrentUser();
-  if (!user) return res.status(404).json({ error: '找不到使用者' });
-
-  if (amount === undefined || isNaN(amount) || amount <= 0) {
-    return res.status(400).json({ error: '無效的提領金額' });
-  }
-  if (user.cached_points < amount) {
-    return res.status(400).json({ error: '餘額不足以進行提領' });
-  }
-
-  const parsed = parseFloat(amount);
-  user.cached_points -= parsed;
-
-  const newTx = {
-    transaction_id: nextId.transaction++,
-    user_id: user.user_id,
-    amount: -parsed,
-    transaction_type: 'withdraw',
-    description: '提領至台灣銀行 (帳號 ****1234)',
-    created_at: new Date().toISOString(),
-    tx_hash: null,
-    tx_status: 'success',
-  };
-  pointTransactions.unshift(newTx);
-
-  res.json({
-    success: true,
-    balance: user.cached_points,
-    newTransaction: formatTransactionsForFrontend(user.user_id)[0],
-  });
-});
-
-// 📚 教師／課程列表
-app.get('/api/teachers', (req, res) => {
-  res.json(getUniqueTeacherCards());
-});
-
-// 📚 新增技能課程（老師上架）
-app.post('/api/teachers', (req, res) => {
-  const { name, skill, price, category } = req.body;
-  const user = getCurrentUser();
-  if (!skill || price === undefined) {
-    return res.status(400).json({ error: '技能名稱與價格為必填' });
-  }
-
-  // 升級為老師身分
-  if (user.role === 'student') {
-    user.role = 'teacher';
-    user.category = category || '綜合';
-    user.hourly_points = parseFloat(price);
-  }
-
-  let skillRecord = skills.find((s) => s.name === skill);
-  if (!skillRecord) {
-    skillRecord = {
-      skill_id: nextId.skill++,
-      category: category || '綜合',
-      name: skill,
-    };
-    skills.push(skillRecord);
-  }
-
-  entitySkills.push({
-    entity_skill_id: nextId.entitySkill++,
-    owner_type: 'user',
-    owner_id: user.user_id,
-    skill_id: skillRecord.skill_id,
-    skill_level: '中級',
+  app.get('/api/health', async (req, res) => {
+    await db.query('SELECT 1');
+    res.json({ status: 'ok', database: 'postgresql' });
   });
 
-  const newClass = {
-    class_id: nextId.class++,
-    teacher_id: user.user_id,
-    skill_id: skillRecord.skill_id,
-    class_date: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
-    slot_type: 'morning',
-    start_time: '09:00',
-    end_time: '10:00',
-    is_booked: false,
-  };
-  classes.unshift(newClass);
-
-  const card = buildTeachersList().find((t) => t.classId === newClass.class_id);
-  res.status(201).json(card || {
-    id: newClass.class_id,
-    classId: newClass.class_id,
-    jobId: newClass.class_id,
-    teacherId: user.user_id,
-    name: name || user.username,
-    skill,
-    price: parseFloat(price),
-    category: category || '綜合',
-    availableTimes: [`${newClass.class_date}|Morning`],
-  });
-});
-
-app.delete('/api/teachers/:id', (req, res) => {
-  const deleteId = parseInt(req.params.id, 10);
-  const initialLength = classes.length;
-  classes = classes.filter((c) => c.class_id !== deleteId);
-
-  if (classes.length === initialLength) {
-    return res.status(404).json({ error: '找不到該課程資料' });
-  }
-  res.json({ success: true, message: '課程已成功刪除' });
-});
-
-app.put('/api/teachers/:id', (req, res) => {
-  const updateId = parseInt(req.params.id, 10);
-  const { skill, price } = req.body;
-  const cls = classes.find((c) => c.class_id === updateId);
-  if (!cls) return res.status(404).json({ error: '找不到該課程資料更新' });
-
-  const teacher = getUserById(cls.teacher_id);
-  const skillRecord = getSkillById(cls.skill_id);
-
-  if (skill && skillRecord) skillRecord.name = skill;
-  if (price !== undefined && teacher) teacher.hourly_points = parseFloat(price);
-
-  const updated = buildTeachersList().find((t) => t.classId === updateId);
-  res.json(updated);
-});
-
-// 🎯 建立預約（鏈上交易完成後由前端呼叫）
-app.post('/api/bookings', (req, res) => {
-  const { classId, timeSlot, teacherName, skillName, amount, txHash } = req.body;
-  const student = getCurrentUser();
-  if (!student) return res.status(404).json({ error: '找不到使用者' });
-
-  let targetClass = classes.find((c) => c.class_id === classId && !c.is_booked);
-
-  // 若未指定 classId，依時段尋找
-  if (!targetClass && timeSlot) {
-    const parsed = parseTimeSlot(timeSlot);
-    if (parsed) {
-      targetClass = classes.find(
-        (c) =>
-          !c.is_booked &&
-          c.class_date === parsed.class_date &&
-          c.slot_type === parsed.slot_type
-      );
+  app.post('/api/auth/register', async (req, res) => {
+    const body = req.body || {};
+    const email = text(body.email, '電子郵件', 255).toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new HttpError(400, '電子郵件格式不正確');
+    const userName = text(body.userName || email.split('@')[0], '名稱', 100);
+    if (typeof body.password !== 'string' || body.password.length < 8 || Buffer.byteLength(body.password) > 1024) {
+      throw new HttpError(400, '密碼至少需要 8 個字元，且不可超過 1024 bytes');
     }
-  }
-
-  if (!targetClass) {
-    return res.status(404).json({ error: '找不到可預約的課程時段' });
-  }
-
-  const teacher = getUserById(targetClass.teacher_id);
-  const skill = getSkillById(targetClass.skill_id);
-  const points = amount ?? teacher?.hourly_points ?? 0;
-
-  if (student.cached_points < points) {
-    return res.status(400).json({ error: '餘額不足' });
-  }
-
-  student.cached_points -= points;
-  targetClass.is_booked = true;
-
-  const newBooking = {
-    booking_id: nextId.booking++,
-    student_id: student.user_id,
-    class_id: targetClass.class_id,
-    points_spent: points,
-    status: 'confirmed',
-    payment_status: 'escrowed',
-    tx_hash: txHash || null,
-  };
-  bookings.push(newBooking);
-
-  const newTx = {
-    transaction_id: nextId.transaction++,
-    user_id: student.user_id,
-    amount: -points,
-    transaction_type: 'consume',
-    description: `${teacherName || teacher?.username}老師 - ${skillName || skill?.name}`,
-    created_at: new Date().toISOString(),
-    tx_hash: txHash || null,
-    tx_status: txHash ? 'success' : 'pending',
-  };
-  pointTransactions.unshift(newTx);
-
-  res.status(201).json({
-    success: true,
-    balance: student.cached_points,
-    booking: newBooking,
-    newTransaction: formatTransactionsForFrontend(student.user_id)[0],
+    const passwordHash = await hashPassword(body.password);
+    const user = await transaction(db, async (client) => {
+      const { rows: [created] } = await client.query(
+        'INSERT INTO users (email, password_hash, username) VALUES ($1, $2, $3) RETURNING user_id, username',
+        [email, passwordHash, userName],
+      );
+      await auth.issueSession(req, res, created.user_id, client);
+      return created;
+    });
+    res.status(201).json({ success: true, userName: user.username, userId: Number(user.user_id) });
   });
-});
 
-// 舊版扣款 API（向後相容）
-app.post('/api/wallet/deduct', (req, res) => {
-  const { amount, teacherName, skillName, classId, txHash } = req.body;
-
-  req.body.amount = amount;
-  req.body.teacherName = teacherName;
-  req.body.skillName = skillName;
-  req.body.classId = classId;
-  req.body.txHash = txHash;
-
-  // 轉發至 bookings 邏輯
-  const student = getCurrentUser();
-  if (!student) return res.status(404).json({ error: '找不到使用者' });
-
-  const parsed = parseFloat(amount);
-  if (isNaN(parsed) || parsed <= 0) {
-    return res.status(400).json({ error: '無效金額' });
-  }
-  if (student.cached_points < parsed) {
-    return res.status(400).json({ error: '伺服器端驗證失敗：餘額不足' });
-  }
-
-  student.cached_points -= parsed;
-
-  const newTx = {
-    transaction_id: nextId.transaction++,
-    user_id: student.user_id,
-    amount: -parsed,
-    transaction_type: 'consume',
-    description: `${teacherName}老師 - ${skillName}`,
-    created_at: new Date().toISOString(),
-    tx_hash: txHash || null,
-    tx_status: txHash ? 'success' : 'success',
-  };
-  pointTransactions.unshift(newTx);
-
-  res.json({
-    success: true,
-    balance: student.cached_points,
-    newTransaction: formatTransactionsForFrontend(student.user_id)[0],
+  app.post('/api/auth/login', async (req, res) => {
+    const body = req.body || {};
+    const email = text(body.email, '電子郵件', 255).toLowerCase();
+    if (typeof body.password !== 'string' || !body.password.length || Buffer.byteLength(body.password) > 1024) {
+      throw new HttpError(400, '密碼格式不正確');
+    }
+    const { rows: [user] } = await db.query('SELECT user_id, username, password_hash FROM users WHERE email = $1', [email]);
+    const valid = await verifyPassword(body.password, user?.password_hash || DUMMY_HASH);
+    if (!user || !valid) throw new HttpError(401, '電子郵件或密碼錯誤！');
+    await transaction(db, (client) => auth.issueSession(req, res, user.user_id, client));
+    res.json({ success: true, userName: user.username, userId: Number(user.user_id) });
   });
-});
 
-// 🤖 AI 文案生成
-app.post('/api/ai/generate', (req, res) => {
-  const { skill, style } = req.body;
-  if (!skill) return res.status(400).json({ error: '缺少技能名稱' });
+  app.post('/api/auth/logout', auth.logout);
 
-  let title = '';
-  let description = '';
-  const price = (Math.random() * 3 + 1).toFixed(1);
+  app.get('/api/teachers', async (req, res) => {
+    const rows = await teacherRows(db);
+    const seen = new Set();
+    res.json(rows.filter((row) => {
+      const key = `${row.teacher_id}-${row.skill_id}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).map((row) => teacherCard(row, rows)));
+  });
 
-  if (style === '幽默風趣') {
-    title = `保證不打瞌睡的${skill}大師班`;
-    description = `想學${skill}卻總是半途而廢嗎？別擔心，跟著我學，保證讓你笑著學會！`;
-  } else if (style === '熱血推銷') {
-    title = `【極速上手】${skill}特訓營，突破你的極限！`;
-    description = `給自己一個改變的機會！這堂${skill}課程專為渴望進步的你設計。`;
-  } else {
-    title = `基礎與進階：${skill}全方位解析`;
-    description = `本課程致力於提供系統化的${skill}教學，適合希望建立紮實基礎的學習者。`;
+  // Everything below this point requires a database-backed session.
+  app.use('/api', auth.requireUser);
+
+  app.get('/api/user/profile', async (req, res) => {
+    const user = req.user;
+    const { rows } = await db.query(
+      'SELECT class_date::text, slot_type FROM classes WHERE teacher_id = $1 AND NOT is_booked ORDER BY class_date, start_time',
+      [user.user_id],
+    );
+    res.json({
+      userId: Number(user.user_id), userName: user.username,
+      department: user.department || (user.category ? `專長：${user.category}` : '尚未填寫系所'),
+      bio: user.bio || (user.role === 'teacher' ? `我是 ${user.username}，歡迎預約我的課程！` : '熱愛學習新技能的大學生。'),
+      role: user.role, walletAddress: user.wallet_address,
+      availableTimes: [...new Set(rows.map((row) => `${row.class_date}|${SLOT_LABEL[row.slot_type]}`))],
+    });
+  });
+
+  app.put('/api/user/profile', async (req, res) => {
+    const body = req.body || {};
+    const userName = text(body.userName, '姓名', 100);
+    const department = text(body.department, '系所', 255, false);
+    const bio = text(body.bio, '自我介紹', 10000, false);
+    const { rows: [user] } = await db.query(
+      `UPDATE users SET username = $1, department = COALESCE($2, department), bio = COALESCE($3, bio)
+        WHERE user_id = $4 RETURNING username, department, bio`,
+      [userName, department, bio, req.user.user_id],
+    );
+    res.json({ userName: user.username, department: user.department, bio: user.bio });
+  });
+
+  app.get('/api/user/wallet', async (req, res) => {
+    const { rows } = await db.query(
+      'SELECT * FROM point_transactions WHERE user_id = $1 ORDER BY created_at DESC, transaction_id DESC', [req.user.user_id],
+    );
+    res.json({ userId: Number(req.user.user_id), userName: req.user.username, balance: Number(req.user.cached_points),
+      walletAddress: req.user.wallet_address, transactions: rows.map(formatTransaction) });
+  });
+
+  app.post('/api/user/wallet/sync', async (req, res) => {
+    const walletAddress = req.body?.walletAddress;
+    if (typeof walletAddress !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) throw new HttpError(400, '錢包地址格式不正確');
+    // The browser's cachedPoints is deliberately not used as an accounting balance.
+    const { rows: [user] } = await db.query(
+      'UPDATE users SET wallet_address = $1 WHERE user_id = $2 RETURNING wallet_address, cached_points',
+      [walletAddress.toLowerCase(), req.user.user_id],
+    );
+    res.json({ success: true, walletAddress: user.wallet_address, balance: Number(user.cached_points) });
+  });
+
+  async function changeWallet(req, res, withdraw) {
+    if (!demoPayments) throw new HttpError(501, '尚未串接實際金流；如需測試點數帳務，請由管理者開啟 ENABLE_DEMO_PAYMENTS');
+    const amount = positiveAmount(req.body?.amount);
+    const txHash = transactionHash(req.body?.txHash);
+    const result = await transaction(db, async (client) => {
+      const { rows: [user] } = await client.query(
+        `UPDATE users SET cached_points = cached_points ${withdraw ? '-' : '+'} $1::numeric
+          WHERE user_id = $2 ${withdraw ? 'AND cached_points >= $1::numeric' : ''} RETURNING cached_points`,
+        [amount, req.user.user_id],
+      );
+      if (!user) throw new HttpError(400, '餘額不足以進行提領');
+      const { rows: [entry] } = await client.query(
+        `INSERT INTO point_transactions (user_id, amount, transaction_type, description, tx_hash, tx_status)
+         VALUES ($1, ${withdraw ? '-' : ''}$2::numeric, $3, $4, $5, 'success') RETURNING *`,
+        [req.user.user_id, amount, withdraw ? 'withdraw' : 'charge', withdraw ? '測試點數提領（未轉入銀行）' : '測試點數儲值（未收取款項）', txHash],
+      );
+      return { success: true, balance: Number(user.cached_points), newTransaction: formatTransaction(entry) };
+    });
+    res.json(result);
   }
-  res.json({ title, price, description });
-});
+  app.post('/api/wallet/deposit', (req, res) => changeWallet(req, res, false));
+  app.post('/api/wallet/withdraw', (req, res) => changeWallet(req, res, true));
 
-// ==================== 啟動 ====================
-app.listen(PORT, () => {
-  console.log(`🚀 YunBarter 後端已安全啟動在 http://localhost:${PORT}`);
-});
+  app.post('/api/teachers', async (req, res) => {
+    const body = req.body || {};
+    const skill = text(body.skill, '技能名稱', 100);
+    const category = text(body.category || '綜合', '分類', 50);
+    const price = positiveAmount(body.price);
+    const description = text(body.description, '課程說明', 10000, false);
+    const classId = await transaction(db, async (client) => {
+      await client.query("UPDATE users SET role = 'teacher', category = COALESCE(category, $1), hourly_points = COALESCE(hourly_points, $2) WHERE user_id = $3",
+        [category, price, req.user.user_id]);
+      const { rows: [newSkill] } = await client.query('INSERT INTO skills (category, name) VALUES ($1, $2) RETURNING skill_id', [category, skill]);
+      await client.query("INSERT INTO entity_skills (owner_type, owner_id, skill_id, skill_level) VALUES ('user', $1, $2, '中級')",
+        [req.user.user_id, newSkill.skill_id]);
+      const { rows: [created] } = await client.query(
+        `INSERT INTO classes (teacher_id, skill_id, class_date, slot_type, start_time, end_time, price, description)
+         VALUES ($1, $2, CURRENT_DATE + 7, 'morning', '09:00', '10:00', $3, $4) RETURNING class_id`,
+        [req.user.user_id, newSkill.skill_id, price, description],
+      );
+      return created.class_id;
+    });
+    res.status(201).json(await getTeacherCard(db, classId));
+  });
+
+  app.put('/api/teachers/:id', async (req, res) => {
+    const classId = id(req.params.id);
+    const body = req.body || {};
+    const skill = body.skill === undefined ? undefined : text(body.skill, '技能名稱', 100);
+    const price = body.price === undefined ? undefined : positiveAmount(body.price);
+    await transaction(db, async (client) => {
+      const { rows: [cls] } = await client.query('SELECT * FROM classes WHERE class_id = $1 FOR UPDATE', [classId]);
+      if (!cls) throw new HttpError(404, '找不到該課程');
+      if (String(cls.teacher_id) !== String(req.user.user_id)) throw new HttpError(403, '只能修改自己上架的課程');
+      const booked = await client.query('SELECT 1 FROM bookings WHERE class_id = $1 LIMIT 1', [classId]);
+      if (cls.is_booked || booked.rowCount) throw new HttpError(409, '已有預約紀錄的課程不可修改');
+      let skillId = cls.skill_id;
+      if (skill !== undefined) {
+        const { rows: [previous] } = await client.query('SELECT name, category FROM skills WHERE skill_id = $1', [skillId]);
+        if (skill !== previous.name) {
+          // Copy the skill instead of editing a shared row owned by other teachers too.
+          const { rows: [created] } = await client.query('INSERT INTO skills (category, name) VALUES ($1, $2) RETURNING skill_id', [previous.category, skill]);
+          skillId = created.skill_id;
+          await client.query("INSERT INTO entity_skills (owner_type, owner_id, skill_id, skill_level) VALUES ('user', $1, $2, '中級')", [req.user.user_id, skillId]);
+        }
+      }
+      await client.query('UPDATE classes SET skill_id = $1, price = COALESCE($2, price) WHERE class_id = $3 AND teacher_id = $4',
+        [skillId, price, classId, req.user.user_id]);
+    });
+    res.json(await getTeacherCard(db, classId));
+  });
+
+  app.delete('/api/teachers/:id', async (req, res) => {
+    const classId = id(req.params.id);
+    await transaction(db, async (client) => {
+      const { rows: [cls] } = await client.query('SELECT teacher_id, is_booked FROM classes WHERE class_id = $1 FOR UPDATE', [classId]);
+      if (!cls) throw new HttpError(404, '找不到該課程');
+      if (String(cls.teacher_id) !== String(req.user.user_id)) throw new HttpError(403, '只能刪除自己上架的課程');
+      const booked = await client.query('SELECT 1 FROM bookings WHERE class_id = $1 LIMIT 1', [classId]);
+      if (cls.is_booked || booked.rowCount) throw new HttpError(409, '已有預約紀錄的課程不可刪除');
+      await client.query('DELETE FROM classes WHERE class_id = $1 AND teacher_id = $2', [classId, req.user.user_id]);
+    });
+    res.json({ success: true, message: '課程已成功刪除' });
+  });
+
+  async function createBooking(req, res) {
+    const body = req.body || {};
+    const classId = id(body.classId);
+    const timeSlot = body.timeSlot ? parseTimeSlot(body.timeSlot) : null;
+    const txHash = transactionHash(body.txHash);
+    const result = await transaction(db, async (client) => {
+      const { rows: [reference] } = await client.query('SELECT teacher_id, skill_id FROM classes WHERE class_id = $1', [classId]);
+      if (!reference) throw new HttpError(404, '找不到該課程');
+      const parameters = timeSlot ? [reference.teacher_id, reference.skill_id, timeSlot.date, timeSlot.slot] : [classId];
+      const { rows: [cls] } = await client.query(
+        `SELECT c.*, c.class_date < CURRENT_DATE AS expired, u.username, s.name AS skill,
+                COALESCE(c.price, u.hourly_points, 0) AS actual_price
+           FROM classes c JOIN users u ON u.user_id = c.teacher_id JOIN skills s ON s.skill_id = c.skill_id
+          WHERE ${timeSlot ? 'c.teacher_id = $1 AND c.skill_id = $2 AND c.class_date = $3 AND c.slot_type = $4' : 'c.class_id = $1'}
+            AND NOT c.is_booked ORDER BY c.class_id LIMIT 1 FOR UPDATE OF c`, parameters,
+      );
+      if (!cls) throw new HttpError(409, '該課程時段已無法預約');
+      if (cls.expired) throw new HttpError(400, '無法預約已過期的課程');
+      if (String(cls.teacher_id) === String(req.user.user_id)) throw new HttpError(400, '不能預約自己的課程');
+      const points = positiveAmount(cls.actual_price);
+      const { rows: [student] } = await client.query(
+        'UPDATE users SET cached_points = cached_points - $1::numeric WHERE user_id = $2 AND cached_points >= $1::numeric RETURNING cached_points',
+        [points, req.user.user_id],
+      );
+      if (!student) throw new HttpError(400, '餘額不足');
+      await client.query('UPDATE classes SET is_booked = TRUE WHERE class_id = $1', [cls.class_id]);
+      const { rows: [booking] } = await client.query(
+        'INSERT INTO bookings (student_id, class_id, points_spent, tx_hash) VALUES ($1, $2, $3, $4) RETURNING *',
+        [req.user.user_id, cls.class_id, points, txHash],
+      );
+      const { rows: [entry] } = await client.query(
+        `INSERT INTO point_transactions (user_id, amount, transaction_type, description, tx_hash, tx_status)
+         VALUES ($1, -$2::numeric, 'consume', $3, $4, 'pending') RETURNING *`,
+        [req.user.user_id, points, `${cls.username}老師 - ${cls.skill}`, txHash],
+      );
+      return { success: true, balance: Number(student.cached_points), booking: {
+        ...booking, booking_id: Number(booking.booking_id), student_id: Number(booking.student_id),
+        class_id: Number(booking.class_id), points_spent: Number(booking.points_spent),
+      }, newTransaction: formatTransaction(entry) };
+    });
+    res.status(201).json(result);
+  }
+  app.post(['/api/bookings', '/api/wallet/deduct'], createBooking);
+
+  app.post('/api/ai/generate', (req, res) => {
+    const skill = text(req.body?.skill, '技能名稱', 100);
+    const style = req.body?.style;
+    const price = (Math.random() * 3 + 1).toFixed(1);
+    if (style === '幽默風趣') return res.json({ title: `保證不打瞌睡的${skill}大師班`, price, description: `想學${skill}卻總是半途而廢嗎？別擔心，跟著我學，保證讓你笑著學會！` });
+    if (style === '熱血推銷') return res.json({ title: `【極速上手】${skill}特訓營，突破你的極限！`, price, description: `給自己一個改變的機會！這堂${skill}課程專為渴望進步的你設計。` });
+    return res.json({ title: `基礎與進階：${skill}全方位解析`, price, description: `本課程致力於提供系統化的${skill}教學，適合希望建立紮實基礎的學習者。` });
+  });
+
+  app.use((req, res) => res.status(404).json({ error: '找不到此 API' }));
+  app.use((error, req, res, next) => {
+    if (res.headersSent) return next(error);
+    if (error instanceof HttpError) return res.status(error.status).json({ error: error.message });
+    if (error.type === 'entity.parse.failed') return res.status(400).json({ error: 'JSON 格式不正確' });
+    if (error.type === 'entity.too.large') return res.status(413).json({ error: '請求資料過大' });
+    if (error.code === '23505') return res.status(409).json({ error: '電子郵件、錢包地址或交易紀錄已存在' });
+    if (error.code === '23503') return res.status(409).json({ error: '資料仍有其他紀錄使用，無法刪除或修改' });
+    if (['22P02', '22003', '22007', '22008'].includes(error.code)) return res.status(400).json({ error: '資料格式或數值不正確' });
+    console.error('API 執行失敗:', error.code || error.name);
+    return res.status(500).json({ error: '伺服器暫時無法完成請求' });
+  });
+  return app;
+}
+
+async function start() {
+  assertConfigured();
+  await pool.query('SELECT token_hash FROM user_sessions LIMIT 0');
+  const port = Number(process.env.PORT || 5000);
+  const server = createApp().listen(port, () => console.log(`YunBarter API 已連線 PostgreSQL：http://localhost:${port}`));
+  server.on('error', async (error) => {
+    console.error('後端啟動失敗:', error.code);
+    await pool.end();
+    process.exitCode = 1;
+  });
+  return server;
+}
+
+if (require.main === module) {
+  start().catch(async (error) => {
+    console.error('後端啟動失敗，請確認 .env 並先執行 npm run db:migrate。', error.code || error.message);
+    await pool.end();
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { createApp, start };

@@ -10,11 +10,12 @@ import Wallet from './Wallet';
 import Profile from './Profile';
 import NotificationCard from './NotificationCard';
 import ConnectWalletButton from './components/ConnectWalletButton';
-import { fetchWallet, fetchTeachers, createBooking } from './services/api';
+import { apiFetch, fetchWallet, fetchTeachers, createBooking, logout } from './services/api';
 import { useWallet } from './context/WalletContext';
 
-function ProtectedRoute({ isLoggedIn, children }) {
+function ProtectedRoute({ isLoggedIn, isAuthLoading, children }) {
   const location = useLocation();
+  if (isAuthLoading) return <div style={{ padding: '40px' }}>正在確認登入狀態...</div>;
   if (!isLoggedIn) {
     return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
@@ -22,8 +23,10 @@ function ProtectedRoute({ isLoggedIn, children }) {
 }
 
 function AppContent() {
-  const { chainBalance, refreshChainBalance, signer, address } = useWallet();
+  const { refreshChainBalance, signer, address } = useWallet();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [userId, setUserId] = useState(null);
   const [userName, setUserName] = useState('Yun');
   const [balance, setBalance] = useState(0); 
   const [transactions, setTransactions] = useState([]); 
@@ -76,27 +79,36 @@ function AppContent() {
       .catch(err => console.error("無法獲取老師列表:", err));
   };
 
-  const loadWallet = () => {
+  useEffect(() => {
+    let active = true;
     fetchWallet()
       .then(data => {
+        if (!active) return;
+        setIsLoggedIn(true);
+        setUserId(data.userId);
         setUserName(data.userName);
         setBalance(data.balance);
         setTransactions(data.transactions);
       })
-      .catch(err => console.error("無法獲取錢包資料:", err));
-  };
+      .catch(err => {
+        if (!active) return;
+        if (err.status === 401) {
+          setIsLoggedIn(false);
+          setUserId(null);
+          setUserName('Yun');
+          setBalance(0);
+          setTransactions([]);
+        } else {
+          console.error('無法獲取錢包資料:', err);
+        }
+      })
+      .finally(() => { if (active) setIsAuthLoading(false); });
+    return () => { active = false; };
+  }, [isLoggedIn, userId]);
 
   useEffect(() => {
-    loadWallet();
     loadTeachers();
   }, []);
-
-  // 鏈上餘額更新時同步顯示（優先顯示鏈上餘額）
-  useEffect(() => {
-    if (chainBalance !== null) {
-      setBalance(chainBalance);
-    }
-  }, [chainBalance]);
 
   useEffect(() => {
     if (signer && address) {
@@ -120,7 +132,7 @@ function AppContent() {
 
   const handleAddTeacher = async (newSkill, newPrice, newCategory) => {
     try {
-      const response = await fetch('http://localhost:5000/api/teachers', {
+      const response = await apiFetch('/api/teachers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: userName, skill: newSkill, price: newPrice, category: newCategory })
@@ -141,7 +153,7 @@ function AppContent() {
 
   const handleDeleteTeacher = async (deleteId) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/teachers/${deleteId}`, {
+      const response = await apiFetch(`/api/teachers/${deleteId}`, {
         method: 'DELETE'
       });
 
@@ -158,7 +170,7 @@ function AppContent() {
 
   const handleUpdateTeacher = async (updateId, newSkill, newPrice) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/teachers/${updateId}`, {
+      const response = await apiFetch(`/api/teachers/${updateId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ skill: newSkill, price: newPrice })
@@ -215,7 +227,18 @@ function AppContent() {
                 <span style={{ color: '#334155', fontWeight: 'bold', fontSize: '14px' }}>{userName}</span>
               </Link>
               <button 
-                onClick={() => showConfirmation('確定登出', '您確定要登出系統嗎？', () => setIsLoggedIn(false))} 
+                onClick={() => showConfirmation('確定登出', '您確定要登出系統嗎？', async () => {
+                  try {
+                    await logout();
+                    setIsLoggedIn(false);
+                    setUserId(null);
+                    setUserName('Yun');
+                    setBalance(0);
+                    setTransactions([]);
+                  } catch (error) {
+                    showNotification('error', '登出失敗', error.message);
+                  }
+                })}
                 style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold', padding: '6px' }}
               >
                 <LogOut size={14} strokeWidth={2.2} /><span>登出</span>
@@ -235,27 +258,27 @@ function AppContent() {
             <SearchTeacher 
               isLoggedIn={isLoggedIn} balance={balance}
               onBookingComplete={handleBookingComplete}
-              teachers={teachers} userName={userName} 
+              teachers={teachers} userId={userId}
               showNotification={showNotification} showConfirmation={showConfirmation}
             />
           } />
           
           {/* 🌟 把通知功能傳給發佈技能 */}
           <Route path="/publish" element={
-            <ProtectedRoute isLoggedIn={isLoggedIn}>
+            <ProtectedRoute isLoggedIn={isLoggedIn} isAuthLoading={isAuthLoading}>
               <PublishSkill onAddTeacher={handleAddTeacher} showNotification={showNotification} />
             </ProtectedRoute>
           } />
           
           {/* 🌟 把通知功能傳給登入與註冊 */}
-          <Route path="/login" element={<Login setIsLoggedIn={setIsLoggedIn} setUserName={setUserName} showNotification={showNotification} />} />
-          <Route path="/register" element={<Login setIsLoggedIn={setIsLoggedIn} setUserName={setUserName} showNotification={showNotification} />} />
+          <Route path="/login" element={<Login setIsLoggedIn={setIsLoggedIn} setUserId={setUserId} setUserName={setUserName} showNotification={showNotification} showConfirmation={showConfirmation} />} />
+          <Route path="/register" element={<Login setIsLoggedIn={setIsLoggedIn} setUserId={setUserId} setUserName={setUserName} showNotification={showNotification} showConfirmation={showConfirmation} />} />
           
           {/* 🌟 把通知與確認功能傳給個人主頁 */}
           <Route path="/profile" element={
-            <ProtectedRoute isLoggedIn={isLoggedIn}>
+            <ProtectedRoute isLoggedIn={isLoggedIn} isAuthLoading={isAuthLoading}>
               <Profile 
-                userName={userName} setUserName={setUserName} teachers={teachers} 
+                userName={userName} userId={userId} setUserName={setUserName} teachers={teachers}
                 onDeleteTeacher={handleDeleteTeacher} onUpdateTeacher={handleUpdateTeacher} refreshTeachers={loadTeachers}
                 showNotification={showNotification} showConfirmation={showConfirmation}
               />
@@ -264,7 +287,7 @@ function AppContent() {
           
           {/* 🌟 把通知功能傳給錢包 */}
           <Route path="/wallet" element={
-            <ProtectedRoute isLoggedIn={isLoggedIn}>
+            <ProtectedRoute isLoggedIn={isLoggedIn} isAuthLoading={isAuthLoading}>
               <Wallet balance={balance} setBalance={setBalance} transactions={transactions} setTransactions={setTransactions} showNotification={showNotification} />
             </ProtectedRoute>
           } />

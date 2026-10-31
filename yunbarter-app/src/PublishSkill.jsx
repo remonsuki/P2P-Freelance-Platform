@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, BookOpen, CircleDollarSign, Tags, AlignLeft, Send, Loader2 } from 'lucide-react';
+import { apiFetch } from './services/api';
 
 // 🌟 接收來自 App.jsx 的 showNotification
 export default function PublishSkill({ onAddTeacher, showNotification }) {
@@ -37,7 +38,7 @@ export default function PublishSkill({ onAddTeacher, showNotification }) {
 
     setIsGenerating(true);
     try {
-      const response = await fetch('http://localhost:5000/api/ai/generate', {
+      const response = await apiFetch('/api/ai/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ skill, style: aiStyle })

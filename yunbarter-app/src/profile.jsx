@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, User, Star, GraduationCap, ShieldCheck, BookOpen, Undo2, Calendar, CircleDollarSign, AlertCircle, CalendarDays, Plus, X } from 'lucide-react';
+import { apiFetch } from './services/api';
 
-export default function Profile({ userName, setUserName, teachers, onDeleteTeacher, onUpdateTeacher, refreshTeachers, showNotification, showConfirmation }) {
+export default function Profile({ userName, userId, setUserName, teachers, onDeleteTeacher, onUpdateTeacher, refreshTeachers, showNotification, showConfirmation }) {
   const [isEditing, setIsEditing] = useState(false);
   
   const [editName, setEditName] = useState(userName);
@@ -32,7 +33,7 @@ export default function Profile({ userName, setUserName, teachers, onDeleteTeach
   const [refundingCourse, setRefundingCourse] = useState(null);
 
   useEffect(() => {
-    fetch('http://localhost:5000/api/user/profile')
+    apiFetch('/api/user/profile')
       .then(res => res.json())
       .then(data => {
         if (data.userName) {
@@ -46,7 +47,7 @@ export default function Profile({ userName, setUserName, teachers, onDeleteTeach
       .catch(err => console.error("無法獲取個人資料:", err));
   }, []);
 
-  const myTeachers = teachers.filter(teacher => teacher.name === userName);
+  const myTeachers = teachers.filter(teacher => teacher.teacherId === userId);
 
   const handleAddSpecificTime = () => {
     if (!newDate) {
@@ -81,7 +82,7 @@ export default function Profile({ userName, setUserName, teachers, onDeleteTeach
     }
 
     try {
-      const response = await fetch('http://localhost:5000/api/user/profile', {
+      const response = await apiFetch('/api/user/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userName: editName, department: editDept, bio: editBio, availableTimes })

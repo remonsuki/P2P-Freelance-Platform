@@ -5,7 +5,7 @@ import { useWallet } from './context/WalletContext';
 import { useSkillTrade } from './hooks/useSkillTrade';
 import { SKILL_EXCHANGE_ADDRESS } from './config/contracts';
 
-export default function SearchTeacher({ isLoggedIn, balance, onBookingComplete, teachers, userName, showNotification, showConfirmation }) {
+export default function SearchTeacher({ isLoggedIn, balance, onBookingComplete, teachers, userId, showNotification }) {
   const navigate = useNavigate();
   const { isConnected, connectWallet } = useWallet();
   const { executeSkillTrade, loadingMessage, isTrading } = useSkillTrade();
@@ -196,7 +196,7 @@ export default function SearchTeacher({ isLoggedIn, balance, onBookingComplete, 
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '25px', marginTop: '10px' }}>
             {filteredAndSortedTeachers.map(teacher => {
-              const isMyOwnCourse = isLoggedIn && teacher.name === userName;
+              const isMyOwnCourse = isLoggedIn && teacher.teacherId === userId;
 
               return (
                 <div key={teacher.id} style={{ backgroundColor: 'white', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 4px 15px rgba(0,0,0,0.04)', transition: 'transform 0.2s', display: 'flex', flexDirection: 'column' }} onMouseOver={e => e.currentTarget.style.transform = 'translateY(-5px)'} onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}>
