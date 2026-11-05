@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, User, Star, GraduationCap, ShieldCheck, BookOpen, Undo2, Calendar, CircleDollarSign, AlertCircle, CalendarDays, Plus, X } from 'lucide-react';
-import { apiFetch } from './services/api';
+import { ArrowLeft, User, Star, GraduationCap, ShieldCheck, BookOpen, Calendar, CircleDollarSign, AlertCircle, CalendarDays, Plus, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { fetchProfile, updateProfile, fetchBookings, cancelBooking } from './services/api';
+import { useLiveData } from './hooks/useLiveData';
 
 export default function Profile({ userName, userId, setUserName, teachers, onDeleteTeacher, onUpdateTeacher, refreshTeachers, showNotification, showConfirmation }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -24,28 +26,39 @@ export default function Profile({ userName, userId, setUserName, teachers, onDel
   const [availableTimes, setAvailableTimes] = useState([]);
   const [newDate, setNewDate] = useState('');
   const [newSlot, setNewSlot] = useState('Morning');
+  const [lockedTimes, setLockedTimes] = useState([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [profileLoaded, setProfileLoaded] = useState(false);
+  const [profileError, setProfileError] = useState('');
+  const [teacherRating, setTeacherRating] = useState(null);
+  const [editingCourse, setEditingCourse] = useState(null);
+  const { data: bookingData, error: bookingError, refresh: refreshBookings } = useLiveData(fetchBookings);
 
-  const [bookedCourses, setBookedCourses] = useState([
-    { id: 101, teacherName: '阿弦', skill: '吉他指彈教學', price: 2.0, date: '2026-06-10', category: '音樂' },
-    { id: 102, teacherName: '林克', skill: '網頁開發實戰', price: 3.5, date: '2026-06-15', category: '程式' }
-  ]);
+  const bookedCourses = (bookingData || []).filter(b => b.role === 'student').map(b => ({
+    ...b, skill: b.courseTitle, price: b.amount, date: b.scheduledTime,
+  }));
 
   const [refundingCourse, setRefundingCourse] = useState(null);
 
   useEffect(() => {
-    apiFetch('/api/user/profile')
-      .then(res => res.json())
+    let active = true;
+    fetchProfile()
       .then(data => {
+        if (!active) return;
         if (data.userName) {
           setEditName(data.userName);
           setUserName(data.userName); 
         }
-        if (data.department) setEditDept(data.department);
-        if (data.bio) setEditBio(data.bio);
+        setEditDept(data.department || '');
+        setEditBio(data.bio || '');
+        setTeacherRating(data.teacherRating);
         if (data.availableTimes) setAvailableTimes(data.availableTimes);
+        setLockedTimes(data.lockedTimes || []);
+        setProfileLoaded(true);
       })
-      .catch(err => console.error("無法獲取個人資料:", err));
-  }, []);
+      .catch(err => { if (active) setProfileError(err.message); });
+    return () => { active = false; };
+  }, [setUserName, userId]);
 
   const myTeachers = teachers.filter(teacher => teacher.teacherId === userId);
 
@@ -63,6 +76,7 @@ export default function Profile({ userName, userId, setUserName, teachers, onDel
   };
 
   const handleRemoveTime = (timeKeyToRemove) => {
+    if (lockedTimes.includes(timeKeyToRemove)) return;
     setAvailableTimes(prev => prev.filter(time => time !== timeKeyToRemove));
   };
 
@@ -76,38 +90,55 @@ export default function Profile({ userName, userId, setUserName, teachers, onDel
   };
 
   const handleSaveProfile = async () => {
+    if (!profileLoaded) { showNotification('error', '資料尚未載入', '請重新整理後再儲存。'); return; }
     if (!editName.trim()) {
       showNotification('warning', '資料不完整', '名稱不可為空！');
       return;
     }
 
+    if (isSaving) return;
+    setIsSaving(true);
     try {
-      const response = await apiFetch('/api/user/profile', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userName: editName, department: editDept, bio: editBio, availableTimes })
-      });
-
-      if (response.ok) {
-        setUserName(editName); 
-        setIsEditing(false);
-        refreshTeachers();
-        showNotification('success', '成功', '資料更新成功！');
-      } else {
-        showNotification('error', '失敗', '更新失敗，請檢查後端連線。');
-      }
+      const data = await updateProfile({ userName: editName, department: editDept, bio: editBio, availableTimes, expectedUserId: userId });
+      setUserName(data.userName);
+      setAvailableTimes(data.availableTimes);
+      setLockedTimes(data.lockedTimes);
+      setIsEditing(false);
+      void refreshTeachers().catch(error => console.error('重新載入課程失敗:', error));
+      showNotification('success', '成功', '個人資料與授課時段已儲存。');
     } catch (error) {
-      showNotification('error', '連線失敗', '無法連線至後端伺服器');
+      showNotification('error', '儲存失敗', error.message);
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleRefundClick = (course) => setRefundingCourse(course);
 
-  const executeRefund = () => {
-    if (!refundingCourse) return;
-    setBookedCourses(prev => prev.filter(c => c.id !== refundingCourse.id));
-    showNotification('success', '退款成功', `已退款 ${refundingCourse.price.toFixed(1)} YTC`);
-    setRefundingCourse(null);
+  const executeRefund = async () => {
+    if (!refundingCourse || isSaving) return;
+    setIsSaving(true);
+    try {
+      await cancelBooking(refundingCourse.id);
+      await refreshBookings();
+      setRefundingCourse(null);
+      showNotification('success', '取消成功', '點數已退回帳戶，預約紀錄會保留。');
+    } catch (error) {
+      showNotification('error', '取消失敗', error.message);
+      await refreshBookings();
+    } finally { setIsSaving(false); }
+  };
+
+  const saveCourse = async (event) => {
+    event.preventDefault();
+    if (isSaving) return;
+    setIsSaving(true);
+    try {
+      await onUpdateTeacher(editingCourse.id, editingCourse.skill, editingCourse.price, editingCourse.description);
+      setEditingCourse(null);
+      showNotification('success', '儲存成功', '課程已更新；既有預約保留原名稱與成交金額。');
+    } catch (error) { showNotification('error', '更新失敗', error.message); }
+    finally { setIsSaving(false); }
   };
 
   const confirmDeleteTeacher = (teacher) => {
@@ -117,6 +148,7 @@ export default function Profile({ userName, userId, setUserName, teachers, onDel
   return (
     <div style={{ backgroundColor: '#f4f7f6', minHeight: 'calc(100vh - 70px)', padding: '40px 20px', fontFamily: 'sans-serif' }}>
       <div style={{ maxWidth: '700px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        {profileError && <p role="alert">載入個人資料失敗：{profileError}。請重新整理後再編輯。</p>}
         
         {/* 卡片一：封面與個人名片 */}
         <div style={{ backgroundColor: 'white', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)', overflow: 'hidden' }}>
@@ -140,7 +172,7 @@ export default function Profile({ userName, userId, setUserName, teachers, onDel
               </div>
               <div style={{ display: 'flex', gap: '20px', margin: '15px 0', color: '#34495e', fontSize: '15px' }}>
                 <div><strong style={{ color: '#2c3e50' }}>{myTeachers.length}</strong> 上架技能</div>
-                <div><strong style={{ color: '#2c3e50' }}>5.0</strong> 平均評價</div>
+                <div><strong style={{ color: '#2c3e50' }}>{teacherRating == null ? '尚無' : teacherRating.toFixed(1)}</strong> 平均評價</div>
                 <div><strong style={{ color: '#2c3e50' }}>100%</strong> 回覆率</div>
               </div>
               <p style={{ margin: 0, color: '#7f8c8d', lineHeight: '1.6', fontSize: '15px', fontStyle: 'italic' }}>“ {editBio} ”</p>
@@ -189,19 +221,21 @@ export default function Profile({ userName, userId, setUserName, teachers, onDel
                 {availableTimes.map(timeKey => (
                     <div key={timeKey} style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#eff6ff', color: '#1d4ed8', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: 'bold' }}>
                         <Calendar size={14} />{formatDisplayTime(timeKey)}
-                        <button onClick={() => handleRemoveTime(timeKey)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}><X size={14} /></button>
+                        <button disabled={lockedTimes.includes(timeKey)} title={lockedTimes.includes(timeKey) ? "已有預約，不能移除此時段" : "移除此時段"} onClick={() => handleRemoveTime(timeKey)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}><X size={14} /></button>
                     </div>
                 ))}
             </div>
 
             <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end' }}>
-                <button onClick={handleSaveProfile} style={{ padding: '10px 24px', backgroundColor: '#0f172a', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>儲存排班設定</button>
+                <button disabled={isSaving || !profileLoaded} onClick={handleSaveProfile} style={{ padding: '10px 24px', backgroundColor: '#0f172a', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>儲存排班設定</button>
             </div>
         </div>
 
         {/* 卡片四：預約課程 */}
         <div style={{ backgroundColor: 'white', padding: '25px 30px', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
           <h3 style={{ margin: '0 0 20px 0', color: '#2c3e50', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><BookOpen size={20} color="#0f172a" />我預約的課程 ({bookedCourses.length})</h3>
+          {bookingError && <p role="alert">載入失敗：{bookingError}</p>}
+          <Link to="/bookings">查看預約、完課與爭議處理</Link>
           {bookedCourses.map(course => (
               <div key={course.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '15px 0', borderBottom: '1px solid #f0f0f0' }}>
                   <div>
@@ -211,7 +245,7 @@ export default function Profile({ userName, userId, setUserName, teachers, onDel
                         <span style={{ display: 'flex', alignItems: 'center', gap: '2px' }}><CircleDollarSign size={13} /> {course.price.toFixed(1)}</span>
                     </div>
                   </div>
-                  <button onClick={() => handleRefundClick(course)} style={{ padding: '8px 16px', backgroundColor: '#fff5f5', color: '#e53e3e', border: '1px solid #fed7d7', borderRadius: '20px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}>申請退款</button>
+                  {course.status === 'IN_ESCROW' && course.canCancel ? <button disabled={isSaving} onClick={() => handleRefundClick(course)} style={{ padding: '8px 16px', backgroundColor: '#fff5f5', color: '#e53e3e', border: '1px solid #fed7d7', borderRadius: '20px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}>申請退款</button> : <span>{{IN_ESCROW:'已預約',DISPUTED:'爭議處理中',COMPLETED:'已完課',REFUNDED:'已退款'}[course.status]}</span>}
               </div>
           ))}
         </div>
@@ -222,26 +256,37 @@ export default function Profile({ userName, userId, setUserName, teachers, onDel
           {myTeachers.map(teacher => (
               <div key={teacher.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '15px 0', borderBottom: '1px solid #f0f0f0' }}>
                   <span>{teacher.skill}</span>
+                  <button onClick={() => setEditingCourse({...teacher})} style={{cursor:'pointer',background:'none',border:'none',color:'#2563eb'}}>編輯課程</button>
                   <button onClick={() => confirmDeleteTeacher(teacher)} style={{ color: 'red', cursor: 'pointer', background: 'none', border: 'none' }}>下架</button>
               </div>
           ))}
         </div>
       </div>
       
+      {editingCourse && <div style={{position:'fixed',inset:0,background:'rgba(15,23,42,.6)',display:'flex',alignItems:'center',justifyContent:'center',padding:'20px',zIndex:2200}}>
+        <form onSubmit={saveCourse} style={{background:'white',padding:'28px',borderRadius:'18px',width:'100%',maxWidth:'500px',display:'flex',flexDirection:'column',gap:'16px'}}>
+          <h3>編輯課程內容</h3>
+          <label>課程名稱<input required maxLength={200} value={editingCourse.skill} onChange={e=>setEditingCourse({...editingCourse,skill:e.target.value})} style={{width:'100%',padding:'10px',boxSizing:'border-box'}}/></label>
+          <label>定價<input required type="number" min="0.1" step="0.1" value={editingCourse.price} onChange={e=>setEditingCourse({...editingCourse,price:e.target.value})} style={{width:'100%',padding:'10px',boxSizing:'border-box'}}/></label>
+          <label>課程說明<textarea maxLength={10000} rows={6} value={editingCourse.description || ''} onChange={e=>setEditingCourse({...editingCourse,description:e.target.value})} style={{width:'100%',padding:'10px',boxSizing:'border-box'}}/></label>
+          <button disabled={isSaving} type="submit">{isSaving?'儲存中...':'儲存課程'}</button>
+          <button disabled={isSaving} type="button" onClick={()=>setEditingCourse(null)}>取消</button>
+        </form>
+      </div>}
       {/* 🌟 復活的 Modal 區域：退款視窗 */}
       {refundingCourse && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2500, padding: '20px', boxSizing: 'border-box' }}>
           <div style={{ backgroundColor: 'white', width: '100%', maxWidth: '420px', borderRadius: '24px', padding: '32px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
             <div style={{ width: '60px', height: '60px', backgroundColor: '#fef2f2', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '20px' }}><AlertCircle size={32} color="#ef4444" strokeWidth={2} /></div>
             <h2 style={{ margin: '0 0 12px 0', fontSize: '22px', color: '#0f172a', fontWeight: 'bold' }}>確定要取消預約嗎？</h2>
-            <p style={{ margin: '0 0 24px 0', color: '#64748b', fontSize: '15px', lineHeight: '1.6' }}>取消後，這堂課程將從您的預約清單中移除，並全額退回代幣至您的錢包。此動作無法復原。</p>
+            <p style={{ margin: '0 0 24px 0', color: '#64748b', fontSize: '15px', lineHeight: '1.6' }}>課前取消會退回全部點數，並保留預約與退款紀錄。</p>
             <div style={{ width: '100%', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', marginBottom: '30px', textAlign: 'left' }}>
               <div style={{ fontSize: '14px', color: '#475569', fontWeight: 'bold', marginBottom: '6px' }}>{refundingCourse.skill}</div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><span style={{ fontSize: '13px', color: '#64748b' }}>{refundingCourse.teacherName} 老師</span><span style={{ fontSize: '15px', color: '#d97706', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}><CircleDollarSign size={14} /> +{refundingCourse.price.toFixed(1)} YTC</span></div>
             </div>
             <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
               <button onClick={() => setRefundingCourse(null)} style={{ flex: 1, padding: '14px', backgroundColor: 'white', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '12px', fontWeight: 'bold', fontSize: '15px', cursor: 'pointer' }}>保留預約</button>
-              <button onClick={executeRefund} style={{ flex: 1, padding: '14px', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', fontSize: '15px', cursor: 'pointer' }}>確認退款</button>
+              <button disabled={isSaving} onClick={executeRefund} style={{ flex: 1, padding: '14px', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', fontSize: '15px', cursor: 'pointer' }}>確認退款</button>
             </div>
           </div>
         </div>
@@ -289,7 +334,7 @@ export default function Profile({ userName, userId, setUserName, teachers, onDel
               </div>
             </div>
             <div style={{ padding: '20px 25px', borderTop: '1px solid #f1f5f9', backgroundColor: 'white' }}>
-              <button onClick={handleSaveProfile} style={{ width: '100%', padding: '14px', borderRadius: '25px', border: 'none', backgroundColor: '#0f172a', color: 'white', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer' }}>儲存</button>
+              <button disabled={isSaving || !profileLoaded} onClick={handleSaveProfile} style={{ width: '100%', padding: '14px', borderRadius: '25px', border: 'none', backgroundColor: '#0f172a', color: 'white', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer' }}>儲存</button>
             </div>
           </div>
         </div>

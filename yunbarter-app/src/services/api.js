@@ -19,17 +19,19 @@ async function request(path, options = {}) {
   const response = await apiFetch(path, options);
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
+    if (response.status === 401) window.dispatchEvent(new Event('yunbarter:unauthorized'));
     const error = new Error(data.error || `請求失敗 (${response.status})`);
     error.status = response.status;
     throw error;
   }
+  if (options.method && options.method !== 'GET') window.dispatchEvent(new Event('yunbarter:data-changed'));
   return data;
 }
 
 /** 取得錢包與交易紀錄 */
 export const fetchWallet = () => request('/api/user/wallet');
 
-/** 同步鏈上錢包地址與餘額快取 */
+/** 同步錢包地址；點數帳務餘額由後端維護 */
 export const syncWalletAddress = (walletAddress, cachedPoints) =>
   request('/api/user/wallet/sync', {
     method: 'POST',
@@ -39,7 +41,7 @@ export const syncWalletAddress = (walletAddress, cachedPoints) =>
 /** 取得教師／課程列表 */
 export const fetchTeachers = () => request('/api/teachers');
 
-/** 建立預約（鏈上交易成功後呼叫） */
+/** 建立預約與平台點數託管 */
 export const createBooking = (payload) =>
   request('/api/bookings', {
     method: 'POST',
@@ -104,3 +106,9 @@ export const updateTeacher = (id, payload) =>
     method: 'PUT',
     body: JSON.stringify(payload),
   });
+
+export const fetchBookings = () => request('/api/bookings');
+export const cancelBooking = (id) => request(`/api/bookings/${id}/cancel`, { method: 'POST' });
+export const completeBooking = (id, payload) => request(`/api/bookings/${id}/complete`, { method: 'POST', body: JSON.stringify(payload) });
+export const disputeBooking = (id, reason) => request(`/api/bookings/${id}/dispute`, { method: 'POST', body: JSON.stringify({ reason }) });
+export const refundBooking = (id) => request(`/api/bookings/${id}/refund`, { method: 'POST' });

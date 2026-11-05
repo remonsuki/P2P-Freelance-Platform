@@ -21,16 +21,23 @@ INSERT INTO entity_skills (owner_type, owner_id, skill_id, skill_level) VALUES
   ('user', 3, 3, '中級');
 
 -- 4. 課程時段（class_id 1~4），is_booked = TRUE 代表已被預約
-INSERT INTO classes (teacher_id, skill_id, class_date, slot_type, start_time, end_time, is_booked, price) VALUES
-  (2, 1, CURRENT_DATE + 7, 'morning',   '09:00', '10:00', TRUE, 2),
-  (2, 1, CURRENT_DATE + 8, 'afternoon', '14:00', '15:00', FALSE, 2),
-  (3, 2, CURRENT_DATE + 9, 'morning',   '09:00', '10:00', TRUE, 4),
-  (3, 2, CURRENT_DATE + 10, 'afternoon', '14:00', '15:00', FALSE, 4);
+INSERT INTO courses (teacher_id,skill_id,title,price,description) VALUES
+  (2,1,'吉他指彈教學',2,'從基礎和弦到指彈技巧。'),
+  (3,2,'網頁開發實戰',4,'以實作學習網頁開發。');
+INSERT INTO classes (teacher_id, skill_id, class_date, slot_type, start_time, end_time, is_booked, price, course_id) VALUES
+  (2, 1, CURRENT_DATE + 7, 'morning',   '09:00', '10:00', FALSE, 2, 1),
+  (2, 1, CURRENT_DATE + 8, 'afternoon', '14:00', '15:00', FALSE, 2, 1),
+  (3, 2, CURRENT_DATE + 9, 'morning',   '09:00', '10:00', FALSE, 4, 2),
+  (3, 2, CURRENT_DATE + 10, 'afternoon', '14:00', '15:00', FALSE, 4, 2);
+INSERT INTO teacher_availability
+SELECT DISTINCT teacher_id,class_date,slot_type,start_time,end_time FROM classes;
+UPDATE users SET schedule_configured=TRUE WHERE EXISTS (SELECT 1 FROM teacher_availability a WHERE a.teacher_id=users.user_id);
 
 -- 5. 預約紀錄：大帥哥(1) 預約了 class 1 和 class 3
-INSERT INTO bookings (student_id, class_id, points_spent, status, payment_status) VALUES
-  (1, 1, 2, 'confirmed', 'escrowed'),
-  (1, 3, 4, 'confirmed', 'escrowed');
+INSERT INTO bookings (student_id,class_id,points_spent,course_title,teacher_name,student_name,scheduled_date,slot_type,teacher_id)
+SELECT 1,c.class_id,c.price,o.title,u.username,'大帥哥',c.class_date,c.slot_type,c.teacher_id
+FROM classes c JOIN courses o ON o.course_id=c.course_id JOIN users u ON u.user_id=c.teacher_id
+WHERE c.class_id IN (1,3);
 
 -- 6. 大帥哥的點數流水帳：儲值 100，上課花掉 2 + 4，剩 94
 INSERT INTO point_transactions (user_id, amount, transaction_type, description, created_at, tx_status) VALUES

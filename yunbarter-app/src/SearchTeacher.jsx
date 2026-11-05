@@ -15,6 +15,7 @@ export default function SearchTeacher({ isLoggedIn, balance, onBookingComplete, 
   const [sortBy, setSortBy] = useState('new'); 
   const [selectedTeacher, setSelectedTeacher] = useState(null);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState('');
+  const [isBooking, setIsBooking] = useState(false);
 
   const availableCategories = useMemo(() => {
     const categories = teachers.map(t => t.category);
@@ -52,6 +53,7 @@ export default function SearchTeacher({ isLoggedIn, balance, onBookingComplete, 
   };
 
   const confirmBooking = async () => {
+    if (isBooking || isTrading) return;
     if (!isLoggedIn) {
       showNotification('warning', '權限提示', '請先登入才能預約課程喔！');
       navigate('/login', { state: { from: '/search' } });
@@ -63,8 +65,8 @@ export default function SearchTeacher({ isLoggedIn, balance, onBookingComplete, 
       return;
     }
 
-    // 必須連線 MetaMask
-    if (!isConnected) {
+    const platformDeployed = SKILL_EXCHANGE_ADDRESS !== '0x0000000000000000000000000000000000000000';
+    if (platformDeployed && !isConnected) {
       try {
         await connectWallet();
       } catch (err) {
@@ -82,8 +84,7 @@ export default function SearchTeacher({ isLoggedIn, balance, onBookingComplete, 
 
     let txHash = null;
     const jobId = selectedTeacher.jobId ?? selectedTeacher.classId ?? selectedTeacher.id;
-    const platformDeployed = SKILL_EXCHANGE_ADDRESS !== '0x0000000000000000000000000000000000000000';
-
+    setIsBooking(true);
     try {
       // 平台合約已部署：執行 Approve → buySkill 鏈上交易
       if (platformDeployed) {
@@ -92,6 +93,7 @@ export default function SearchTeacher({ isLoggedIn, balance, onBookingComplete, 
       }
 
       await onBookingComplete({
+        courseId: selectedTeacher.courseId,
         classId: selectedTeacher.classId ?? selectedTeacher.id,
         timeSlot: selectedTimeSlot,
         teacherName: selectedTeacher.name,
@@ -107,17 +109,19 @@ export default function SearchTeacher({ isLoggedIn, balance, onBookingComplete, 
 
       const chainNote = platformDeployed
         ? `\n鏈上交易：${txHash?.slice(0, 10)}...`
-        : '\n（平台合約尚未部署，已使用後端模擬預約）';
+        : '\n預約與點數託管已儲存，可至預約管理查看。';
 
       showNotification(
         'success',
         '預約成功',
-        `已經幫您聯絡 ${selectedTeacher.name} 老師。\n約定時間：${timeText}${chainNote}`
+        `已預約 ${selectedTeacher.name} 老師的課程。\n約定時間：${timeText}${chainNote}`
       );
       setSelectedTeacher(null);
     } catch (err) {
       showNotification('error', '交易失敗', err.message || '未知錯誤');
       setSelectedTeacher(null);
+    } finally {
+      setIsBooking(false);
     }
   };
 
@@ -265,7 +269,7 @@ export default function SearchTeacher({ isLoggedIn, balance, onBookingComplete, 
                     {selectedTeacher.name} 老師
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#d97706', fontSize: '15px', fontWeight: 'bold' }}>
-                    <Star size={18} fill="#d97706" color="#d97706" /> 5.0 (12 則評價)
+                    <Star size={18} fill="#d97706" color="#d97706" /> {selectedTeacher.rating == null ? '尚無評價' : selectedTeacher.rating.toFixed(1)} ({selectedTeacher.reviewCount || 0} 則評價)
                   </div>
                 </div>
 
@@ -310,7 +314,7 @@ export default function SearchTeacher({ isLoggedIn, balance, onBookingComplete, 
                         <option key={timeKey} value={timeKey}>{formatTimeSlot(timeKey)}</option>
                       ))
                     ) : (
-                      <><option value="2026-06-20|Morning">{selectedTeacher.name === '阿弦' ? '2026-06-20 早上' : '2026-06-25 早上'}</option><option value="2026-06-21|Afternoon">{selectedTeacher.name === '阿弦' ? '2026-06-21 下午' : '2026-06-26 下午'}</option></>
+                      <option disabled value="">目前沒有可預約時段</option>
                     )}
                   </select>
                 </div>
@@ -321,7 +325,6 @@ export default function SearchTeacher({ isLoggedIn, balance, onBookingComplete, 
                   </label>
                   <select style={{ width: '100%', padding: '14px', borderRadius: '10px', border: '1px solid #cbd5e1', backgroundColor: 'white', color: '#0f172a', fontSize: '15px', outlineColor: '#3b82f6', cursor: 'pointer' }}>
                     <option>1 小時 (標準)</option>
-                    <option>2 小時</option>
                   </select>
                 </div>
               </div>
@@ -336,13 +339,13 @@ export default function SearchTeacher({ isLoggedIn, balance, onBookingComplete, 
               <div style={{ marginTop: 'auto' }}>
                 <button 
                   onClick={confirmBooking}
-                  disabled={isTrading}
+                  disabled={isTrading || isBooking || !selectedTeacher.availableTimes?.length}
                   style={{ width: '100%', padding: '16px', backgroundColor: '#0f172a', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', fontSize: '16px', cursor: isTrading ? 'not-allowed' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', boxShadow: '0 10px 20px -5px rgba(15, 23, 42, 0.3)', transition: 'background-color 0.2s', opacity: isTrading ? 0.7 : 1 }}
                   onMouseOver={e => { if (!isTrading) e.currentTarget.style.backgroundColor = '#1e293b'; }}
                   onMouseOut={e => e.currentTarget.style.backgroundColor = '#0f172a'}
                 >
                   {isTrading ? <Loader2 size={20} className="animate-spin" /> : <ShieldCheck size={20} />}
-                  {isTrading ? (loadingMessage || '處理中...') : '確認預約並扣款'}
+                  {isTrading || isBooking ? (loadingMessage || '處理中...') : '確認預約並扣款'}
                 </button>
                 <div style={{ textAlign: 'center', marginTop: '15px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px' }}>
                   <span style={{ fontSize: '13px', color: '#64748b' }}>目前錢包餘額：</span>

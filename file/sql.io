@@ -1,3 +1,4 @@
+// 歷史 ERD 草稿。最新 11 張表與限制請參考 db/migrations/002、003 及 docs/資料庫結構檢查與同步.md。
 Table users {
   user_id bigserial [primary key] // 使用者 ID (流水號)
   email varchar(255) [unique, not null] // 登入帳號

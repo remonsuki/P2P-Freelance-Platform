@@ -15,6 +15,8 @@ test('private APIs reject missing, forged and expired sessions', async (t) => {
     ['POST', '/api/teachers'], ['PUT', '/api/teachers/1'], ['DELETE', '/api/teachers/1'],
     ['POST', '/api/bookings'], ['POST', '/api/wallet/deduct'], ['POST', '/api/wallet/deposit'],
     ['POST', '/api/wallet/withdraw'], ['POST', '/api/user/wallet/sync'], ['POST', '/api/ai/generate'],
+    ['GET','/api/bookings'], ['POST','/api/bookings/1/cancel'], ['POST','/api/bookings/1/complete'],
+    ['POST','/api/bookings/1/dispute'], ['POST','/api/bookings/1/refund'],
   ];
   for (const [method, route] of routes) {
     const response = await fetch(base + route, { method, headers: { 'x-user-id': '1', Cookie: 'yunbarter_session=1' } });

@@ -13,9 +13,10 @@ export default function PublishSkill({ onAddTeacher, showNotification }) {
   const [description, setDescription] = useState('');
   
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [aiStyle, setAiStyle] = useState('幽默風趣'); 
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!skill.trim()) {
       // 🌟 替換為高級通知
@@ -23,10 +24,17 @@ export default function PublishSkill({ onAddTeacher, showNotification }) {
       return;
     }
 
-    onAddTeacher(skill, price, category);
-    // 🌟 替換為高級通知
-    showNotification('success', '上架成功', `成功上架「${skill}」課程！開始賺取 YTC 吧！`);
-    navigate('/profile'); 
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      await onAddTeacher(skill, price, category, description);
+      showNotification('success', '上架成功', `成功上架「${skill}」課程！`);
+      navigate('/profile');
+    } catch (error) {
+      showNotification('error', '上架失敗', error.message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleAIGenerate = async () => {
@@ -177,12 +185,13 @@ export default function PublishSkill({ onAddTeacher, showNotification }) {
             <div style={{ marginTop: '12px' }}>
               <button 
                 type="submit" 
+                disabled={isSubmitting || isGenerating}
                 style={{ width: '100%', padding: '16px', backgroundColor: '#0f172a', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', boxShadow: '0 10px 20px -5px rgba(15, 23, 42, 0.25)', transition: 'background-color 0.2s' }}
                 onMouseOver={e => e.currentTarget.style.backgroundColor = '#1e293b'}
                 onMouseOut={e => e.currentTarget.style.backgroundColor = '#0f172a'}
               >
                 <Send size={18} />
-                發佈課程上架
+                {isSubmitting ? '正在儲存課程...' : '發佈課程上架'}
               </button>
             </div>
 

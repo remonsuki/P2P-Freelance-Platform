@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
 import { CircleDollarSign, CircleUser, LogOut, Sparkles, GraduationCap, ShieldCheck } from 'lucide-react';
 
@@ -11,7 +11,7 @@ import Profile from './Profile';
 import NotificationCard from './NotificationCard';
 import ConnectWalletButton from './components/ConnectWalletButton';
 import BookingEscrow from './BookingEscrow';
-import { apiFetch, fetchWallet, fetchTeachers, createBooking, logout } from './services/api';
+import { fetchWallet, fetchTeachers, createBooking, logout, addTeacher, deleteTeacher, updateTeacher } from './services/api';
 import { useWallet } from './context/WalletContext';
 
 function ProtectedRoute({ isLoggedIn, isAuthLoading, children }) {
@@ -32,6 +32,8 @@ function AppContent() {
   const [balance, setBalance] = useState(0); 
   const [transactions, setTransactions] = useState([]); 
   const [teachers, setTeachers] = useState([]); 
+  const teachersRequest = useRef(0);
+  const walletRequest = useRef(0);
 
   // ==========================================
   // 🌟 全局通知系統的狀態管理
@@ -74,11 +76,40 @@ function AppContent() {
   // ==========================================
   // 資料與 API 處理邏輯
   // ==========================================
-  const loadTeachers = () => {
-    fetchTeachers()
-      .then(data => setTeachers(data))
-      .catch(err => console.error("無法獲取老師列表:", err));
-  };
+  const loadTeachers = useCallback(async () => {
+    const request = ++teachersRequest.current;
+    const data = await fetchTeachers();
+    if (request === teachersRequest.current) setTeachers(data);
+    return data;
+  }, []);
+
+  const refreshWallet = useCallback(async () => {
+    const request = ++walletRequest.current;
+    const data = await fetchWallet();
+    if (request === walletRequest.current) {
+      setIsLoggedIn(true);
+      setUserId(data.userId);
+      setUserName(data.userName);
+      setBalance(data.balance);
+      setTransactions(data.transactions);
+    }
+    return data;
+  }, []);
+
+  useEffect(() => { walletRequest.current += 1; }, [userId]);
+
+  useEffect(() => {
+    const clearSession = () => {
+      walletRequest.current += 1;
+      setIsLoggedIn(false);
+      setUserId(null);
+      setUserName('Yun');
+      setBalance(0);
+      setTransactions([]);
+    };
+    window.addEventListener('yunbarter:unauthorized', clearSession);
+    return () => window.removeEventListener('yunbarter:unauthorized', clearSession);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -108,8 +139,22 @@ function AppContent() {
   }, [isLoggedIn, userId]);
 
   useEffect(() => {
-    loadTeachers();
-  }, []);
+    const refresh = () => {
+      if (document.hidden) return;
+      const jobs = [loadTeachers()];
+      if (isLoggedIn) jobs.push(refreshWallet());
+      void Promise.all(jobs).catch(error => console.error('同步資料失敗:', error));
+    };
+    refresh();
+    window.addEventListener('yunbarter:data-changed', refresh);
+    window.addEventListener('focus', refresh);
+    const timer = setInterval(refresh, 15000);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('yunbarter:data-changed', refresh);
+      window.removeEventListener('focus', refresh);
+    };
+  }, [isLoggedIn, loadTeachers, refreshWallet]);
 
   useEffect(() => {
     if (signer && address) {
@@ -117,77 +162,34 @@ function AppContent() {
     }
   }, [signer, address, refreshChainBalance]);
 
-  /** 預約扣款：支援純後端或鏈上交易後同步 */
-  const handleBookingComplete = async (bookingPayload) => {
+  const handleBookingComplete = async (payload) => {
+    const data = await createBooking({ ...payload, expectedUserId: userId });
+    await Promise.allSettled([refreshWallet(), loadTeachers()]);
+    return data;
+  };
+
+  const handleAddTeacher = async (skill, price, category, description) => {
+    const data = await addTeacher({ skill, price, category, description, expectedUserId: userId });
+    teachersRequest.current += 1;
+    setTeachers(prev => [data, ...prev.filter(course => course.id !== data.id)]);
+    return data;
+  };
+
+  const handleDeleteTeacher = async (courseId) => {
     try {
-      const data = await createBooking(bookingPayload);
-      setBalance(data.balance);
-      setTransactions(prev => [data.newTransaction, ...prev]);
-      loadTeachers();
-      return data;
+      await deleteTeacher(courseId);
+      await loadTeachers();
+      showNotification('success', '已下架', '課程已下架，歷史預約仍會保留。');
     } catch (error) {
-      console.error("預約同步後端失敗:", error);
-      throw error;
+      showNotification('error', '下架失敗', error.message);
     }
   };
 
-  const handleAddTeacher = async (newSkill, newPrice, newCategory) => {
-    try {
-      const response = await apiFetch('/api/teachers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: userName, skill: newSkill, price: newPrice, category: newCategory })
-      });
-      const data = await response.json();
-
-      if (response.ok) {
-        setTeachers(prev => [data, ...prev]);
-        showNotification('success', '上架成功', `已成功上架「${newSkill}」課程，開始賺取 YTC 吧！`);
-      } else {
-        showNotification('error', '上架失敗', data.error || "未知錯誤");
-      }
-    } catch (error) {
-      console.error("發佈技能時發生錯誤:", error);
-      showNotification('error', '連線錯誤', "無法連線至伺服器。");
-    }
-  };
-
-  const handleDeleteTeacher = async (deleteId) => {
-    try {
-      const response = await apiFetch(`/api/teachers/${deleteId}`, {
-        method: 'DELETE'
-      });
-
-      if (response.ok) {
-        setTeachers(prev => prev.filter(teacher => teacher.id !== deleteId));
-      } else {
-        const data = await response.json();
-        alert("刪除失敗：" + (data.error || "未知錯誤"));
-      }
-    } catch (error) {
-      console.error("刪除課程時發生錯誤:", error);
-    }
-  };
-
-  const handleUpdateTeacher = async (updateId, newSkill, newPrice) => {
-    try {
-      const response = await apiFetch(`/api/teachers/${updateId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ skill: newSkill, price: newPrice })
-      });
-      const data = await response.json();
-
-      if (response.ok) {
-        setTeachers(prev => prev.map(teacher => 
-          teacher.id === updateId ? data : teacher
-        ));
-      } else {
-        alert("更新失敗：" + (data.error || "未知錯誤"));
-      }
-    } catch (error) {
-      console.error("更新課程時發生錯誤:", error);
-    }
+  const handleUpdateTeacher = async (courseId, skill, price, description) => {
+    const data = await updateTeacher(courseId, { skill, price, description });
+    teachersRequest.current += 1;
+    setTeachers(prev => prev.map(course => course.id === data.id ? data : course));
+    return data;
   };
 
   return (
@@ -283,7 +285,7 @@ function AppContent() {
           <Route path="/profile" element={
             <ProtectedRoute isLoggedIn={isLoggedIn} isAuthLoading={isAuthLoading}>
               <Profile 
-                userName={userName} userId={userId} setUserName={setUserName} teachers={teachers}
+                key={userId} userName={userName} userId={userId} setUserName={setUserName} teachers={teachers}
                 onDeleteTeacher={handleDeleteTeacher} onUpdateTeacher={handleUpdateTeacher} refreshTeachers={loadTeachers}
                 showNotification={showNotification} showConfirmation={showConfirmation}
               />
@@ -299,13 +301,9 @@ function AppContent() {
 
           {/* 🌟 合約爭議託管 (串接全局通知、錢包餘額與交易紀錄) */}
           <Route path="/bookings" element={
-            <BookingEscrow
-              userName={userName}
-              balance={balance}
-              setBalance={setBalance}
-              setTransactions={setTransactions}
-              showNotification={showNotification}
-            />
+            <ProtectedRoute isLoggedIn={isLoggedIn} isAuthLoading={isAuthLoading}>
+              <BookingEscrow key={userId} showNotification={showNotification} />
+            </ProtectedRoute>
           } />
         </Routes>
 
