@@ -4,14 +4,14 @@ import { CircleDollarSign, CircleUser, LogOut, Sparkles, GraduationCap, ShieldCh
 
 import SearchTeacher from './SearchTeacher';
 import PublishSkill from './PublishSkill';
-import Home from './Home';
-import Login from './Login';
-import Wallet from './Wallet';
-import Profile from './Profile';
+import Home from './home';
+import Login from './login';
+import Wallet from './wallet';
+import Profile from './profile';
 import NotificationCard from './NotificationCard';
 import ConnectWalletButton from './components/ConnectWalletButton';
 import BookingEscrow from './BookingEscrow';
-import { apiFetch, fetchWallet, fetchTeachers, createBooking, logout } from './services/api';
+import { fetchWallet, fetchTeachers, createBooking, apiFetch, logout } from './services/api';
 import { useWallet } from './context/WalletContext';
 
 function ProtectedRoute({ isLoggedIn, isAuthLoading, children }) {
@@ -24,9 +24,13 @@ function ProtectedRoute({ isLoggedIn, isAuthLoading, children }) {
 }
 
 function AppContent() {
-  const { refreshChainBalance, signer, address } = useWallet();
+  const { refreshChainBalance, signer, address, setCanConnect, disconnectWallet } = useWallet();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  // Session 尚未確認前，不允許開始錢包連線。
+  useEffect(() => {
+    setCanConnect(isLoggedIn && !isAuthLoading);
+  }, [isLoggedIn, isAuthLoading, setCanConnect]);
   const [userId, setUserId] = useState(null);
   const [userName, setUserName] = useState('Yun');
   const [balance, setBalance] = useState(0); 
@@ -61,8 +65,8 @@ function AppContent() {
       title,
       message,
       onConfirm: () => {
-        onConfirmAction(); 
-        closeNotification(); 
+        closeNotification();
+        onConfirmAction();
       }
     });
   };
@@ -94,6 +98,8 @@ function AppContent() {
       .catch(err => {
         if (!active) return;
         if (err.status === 401) {
+          setCanConnect(false);
+          disconnectWallet();
           setIsLoggedIn(false);
           setUserId(null);
           setUserName('Yun');
@@ -144,11 +150,11 @@ function AppContent() {
         setTeachers(prev => [data, ...prev]);
         showNotification('success', '上架成功', `已成功上架「${newSkill}」課程，開始賺取 YTC 吧！`);
       } else {
-        showNotification('error', '上架失敗', data.error || "未知錯誤");
+        throw new Error(data.error || '未知錯誤');
       }
     } catch (error) {
       console.error("發佈技能時發生錯誤:", error);
-      showNotification('error', '連線錯誤', "無法連線至伺服器。");
+      throw error;
     }
   };
 
@@ -215,7 +221,9 @@ function AppContent() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-          <ConnectWalletButton onError={(msg) => showNotification('error', '錢包連線', msg)} />
+          {isLoggedIn && !isAuthLoading && (
+            <ConnectWalletButton onError={(msg) => showNotification('error', '錢包連線', msg)} />
+          )}
           {!isLoggedIn ? (
             <>
               <Link to="/login" style={{ textDecoration: 'none' }}><button style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', color: '#334155', fontWeight: 'bold', cursor: 'pointer', fontSize: '14px' }}>登入</button></Link>
@@ -235,6 +243,8 @@ function AppContent() {
                 onClick={() => showConfirmation('確定登出', '您確定要登出系統嗎？', async () => {
                   try {
                     await logout();
+                    setCanConnect(false);
+                    disconnectWallet();
                     setIsLoggedIn(false);
                     setUserId(null);
                     setUserName('Yun');
@@ -263,7 +273,7 @@ function AppContent() {
             <SearchTeacher 
               isLoggedIn={isLoggedIn} balance={balance}
               onBookingComplete={handleBookingComplete}
-              teachers={teachers} userId={userId}
+              teachers={teachers} userId={userId} userName={userName}
               showNotification={showNotification} showConfirmation={showConfirmation}
             />
           } />
@@ -299,13 +309,13 @@ function AppContent() {
 
           {/* 🌟 合約爭議託管 (串接全局通知、錢包餘額與交易紀錄) */}
           <Route path="/bookings" element={
+            <ProtectedRoute isLoggedIn={isLoggedIn} isAuthLoading={isAuthLoading}>
             <BookingEscrow
               userName={userName}
               balance={balance}
-              setBalance={setBalance}
-              setTransactions={setTransactions}
               showNotification={showNotification}
             />
+            </ProtectedRoute>
           } />
         </Routes>
 

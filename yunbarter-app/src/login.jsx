@@ -1,11 +1,9 @@
+import { login as loginRequest, register as registerRequest } from './services/api';
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useWallet } from './context/WalletContext';
-import { apiFetch } from './services/api';
 
 // 🌟 接收 showNotification 和 showConfirmation 作為 Props
 export default function Login({ setIsLoggedIn, setUserId, setUserName, showNotification, showConfirmation }) {
-  const { connectWallet } = useWallet();
   const location = useLocation(); 
   const navigate = useNavigate();
 
@@ -60,64 +58,43 @@ export default function Login({ setIsLoggedIn, setUserId, setUserName, showNotif
       return;
     }
 
-    const apiUrl = isLoginView 
-      ? '/api/auth/login'
-      : '/api/auth/register';
-
-    const payload = isLoginView 
-      ? { email, password } 
-      : { email, password, userName: inputName }; 
+    const payload = isLoginView
+      ? { email, password }
+      : { email, password, userName: inputName };
 
     try {
-      const response = await apiFetch(apiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      const data = isLoginView
+        ? await loginRequest(email, password)
+        : await registerRequest(payload);
 
-      const data = await response.json();
-
-      if (response.ok) {
-        setIsLoggedIn(true);
-        setUserId(data.userId);
-        if (data.userName) {
-            setUserName(data.userName); 
-        }
-        // 🌟 將 alert 替換為 showNotification
-        showNotification('success', `${isLoginView ? '登入' : '註冊'}成功`, `歡迎，${data.userName || inputName}。`);
-        
-        const intendedDestination = location.state?.from || '/search';
-        navigate(intendedDestination);
-      } else {
-        if (isLoginView) {
-          // 🌟 將 window.confirm 替換為 showConfirmation
-          showConfirmation(
-            '登入失敗', 
-            `${data.error}\n\n您是不是還沒建立過帳號？需要為您切換到「註冊」畫面嗎？`, 
-            () => switchView('/register')
-          );
-        } else {
-          // 🌟 將 window.confirm 替換為 showConfirmation
-          showConfirmation(
-            '註冊失敗', 
-            `${data.error}\n\n該信箱可能已經註冊過了，要切換到「登入」畫面試試看嗎？`, 
-            () => switchView('/login')
-          );
-        }
+      // Session cookie 由後端回應；不要靠 MetaMask 地址假裝會員身分。
+      if (data.userId != null || data.user_id != null) {
+        setUserId?.(data.userId ?? data.user_id);
       }
-    } catch (error) {
-      console.error("驗證時發生錯誤:", error);
-      // 🌟 將 alert 替換為 showNotification
-      showNotification('error', '連線異常', '無法連線至後端伺服器');
-    }
-  };
+      if (data.userName) setUserName(data.userName);
+      setIsLoggedIn(true);
+      showNotification('success', `${isLoginView ? '登入' : '註冊'}成功`, `歡迎，${data.userName || inputName}。`);
 
-  const handleWeb3Auth = async () => {
-    try {
-      await connectWallet();
-      showNotification('success', '錢包已連線', '請使用電子郵件與密碼登入帳號。錢包連線不會建立會員登入狀態。');
-    } catch (err) {
-      showNotification('error', '錢包連線失敗', err.message);
+      const intendedDestination = location.state?.from || '/search';
+      navigate(intendedDestination);
+    } catch (error) {
+      console.error('驗證時發生錯誤:', error);
+      // 真正的網路異常與帳密/註冊失敗分開處理。
+      if (error.status == null) {
+        showNotification('error', '連線異常', '無法連線至後端伺服器');
+      } else if (isLoginView) {
+        showConfirmation(
+          '登入失敗',
+          `${error.message}\n\n您是不是還沒建立過帳號？需要為您切換到「註冊」畫面嗎？`,
+          () => switchView('/register')
+        );
+      } else {
+        showConfirmation(
+          '註冊失敗',
+          `${error.message}\n\n該信箱可能已經註冊過了，要切換到「登入」畫面試試看嗎？`,
+          () => switchView('/login')
+        );
+      }
     }
   };
 
@@ -302,18 +279,7 @@ export default function Login({ setIsLoggedIn, setUserId, setUserName, showNotif
             </button>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', margin: '25px 0' }}>
-            <div style={{ flex: 1, height: '1px', backgroundColor: '#ecf0f1' }}></div>
-            <span style={{ padding: '0 15px', color: '#bdc3c7', fontSize: '13px', fontWeight: 'bold' }}>或使用 Web3 登入</span>
-            <div style={{ flex: 1, height: '1px', backgroundColor: '#ecf0f1' }}></div>
-          </div>
-
-          <button 
-            onClick={handleWeb3Auth} 
-            style={{ width: '100%', padding: '14px', backgroundColor: 'transparent', color: '#f39c12', border: '2px solid #f39c12', borderRadius: '8px', fontWeight: 'bold', fontSize: '15px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px' }}
-          >
-          連接 MetaMask 錢包
-          </button>
+          
         </div>
 
         {/* ================= 優化版右側：視覺品牌區塊 ================= */}

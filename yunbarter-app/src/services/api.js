@@ -1,12 +1,12 @@
 /**
- * 後端 API 集中管理
- * 所有前端與 yunbarter-backend 的 HTTP 請求由此發出
+ * 與團隊 PostgreSQL + HttpOnly Cookie Session 後端相容的 API helper。
+ * 本檔不儲存認證 cookie，所有請求交由瀏覽器自動附帶。
  */
+const API_BASE = (
+  import.meta.env.VITE_API_BASE_URL ||
+  (import.meta.env.DEV ? `${window.location.protocol}//${window.location.hostname}:5000` : '')
+).replace(/\/$/, '');
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL
-  || (import.meta.env.DEV ? `${window.location.protocol}//${window.location.hostname}:5000` : '')).replace(/\/$/, '');
-
-/** Include the HttpOnly login cookie for every backend request. */
 export function apiFetch(path, options = {}) {
   return fetch(`${API_BASE}${path}`, {
     ...options,
@@ -19,88 +19,43 @@ async function request(path, options = {}) {
   const response = await apiFetch(path, options);
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const error = new Error(data.error || `請求失敗 (${response.status})`);
-    error.status = response.status;
-    throw error;
+    const err = new Error(data.error || `請求失敗 (${response.status})`);
+    err.status = response.status;
+    throw err;
   }
   return data;
 }
 
-/** 取得錢包與交易紀錄 */
 export const fetchWallet = () => request('/api/user/wallet');
-
-/** 同步鏈上錢包地址與餘額快取 */
-export const syncWalletAddress = (walletAddress, cachedPoints) =>
-  request('/api/user/wallet/sync', {
-    method: 'POST',
-    body: JSON.stringify({ walletAddress, cachedPoints }),
-  });
-
-/** 取得教師／課程列表 */
+// 錢包地址綁定不應覆蓋 PostgreSQL 內的平台餘額。
+export const syncWalletAddress = (walletAddress) => request('/api/user/wallet/sync', {
+  method: 'POST', body: JSON.stringify({ walletAddress }),
+});
 export const fetchTeachers = () => request('/api/teachers');
-
-/** 建立預約（鏈上交易成功後呼叫） */
-export const createBooking = (payload) =>
-  request('/api/bookings', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-
-/** 儲值 */
-export const depositWallet = (amount, txHash = null) =>
-  request('/api/wallet/deposit', {
-    method: 'POST',
-    body: JSON.stringify({ amount, txHash }),
-  });
-
-/** 提領 */
-export const withdrawWallet = (amount) =>
-  request('/api/wallet/withdraw', {
-    method: 'POST',
-    body: JSON.stringify({ amount }),
-  });
-
-/** 登入 */
-export const login = (email, password) =>
-  request('/api/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({ email, password }),
-  });
-
-/** Revoke this browser's session without affecting other users. */
+export const createBooking = (payload) => request('/api/bookings', {
+  method: 'POST', body: JSON.stringify(payload),
+});
+export const depositWallet = (amount, txHash = null) => request('/api/wallet/deposit', {
+  method: 'POST', body: JSON.stringify({ amount, txHash }),
+});
+export const withdrawWallet = (amount) => request('/api/wallet/withdraw', {
+  method: 'POST', body: JSON.stringify({ amount }),
+});
+export const login = (email, password) => request('/api/auth/login', {
+  method: 'POST', body: JSON.stringify({ email, password }),
+});
 export const logout = () => request('/api/auth/logout', { method: 'POST' });
-
-/** 註冊 */
-export const register = (payload) =>
-  request('/api/auth/register', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-
-/** 取得個人檔案 */
+export const register = (payload) => request('/api/auth/register', {
+  method: 'POST', body: JSON.stringify(payload),
+});
 export const fetchProfile = () => request('/api/user/profile');
-
-/** 更新個人檔案 */
-export const updateProfile = (payload) =>
-  request('/api/user/profile', {
-    method: 'PUT',
-    body: JSON.stringify(payload),
-  });
-
-/** 新增教師課程 */
-export const addTeacher = (payload) =>
-  request('/api/teachers', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-
-/** 刪除教師課程 */
-export const deleteTeacher = (id) =>
-  request(`/api/teachers/${id}`, { method: 'DELETE' });
-
-/** 更新教師課程 */
-export const updateTeacher = (id, payload) =>
-  request(`/api/teachers/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(payload),
-  });
+export const updateProfile = (payload) => request('/api/user/profile', {
+  method: 'PUT', body: JSON.stringify(payload),
+});
+export const addTeacher = (payload) => request('/api/teachers', {
+  method: 'POST', body: JSON.stringify(payload),
+});
+export const deleteTeacher = (id) => request(`/api/teachers/${id}`, { method: 'DELETE' });
+export const updateTeacher = (id, payload) => request(`/api/teachers/${id}`, {
+  method: 'PUT', body: JSON.stringify(payload),
+});

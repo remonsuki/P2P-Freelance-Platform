@@ -56,11 +56,31 @@ export default function ConnectWalletButton({ onError, style = {} }) {
       ) : (
         <Wallet size={16} />
       )}
-      {isConnecting
-        ? '連線中...'
-        : isConnected
-          ? shortAddress
-          : '連線錢包'}
+      {isConnecting ? (
+        '連線中...'
+      ) : isConnected ? (
+        <span
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'flex-start',
+            lineHeight: '1.3',
+          }}
+        >
+          <span>已連接錢包</span>
+          <span
+            style={{
+              fontSize: '11px',
+              fontWeight: 'normal',
+              opacity: 0.8,
+            }}
+          >
+            {shortAddress}
+          </span>
+        </span>
+      ) : (
+        '連線錢包'
+      )}
     </button>
   );
 }

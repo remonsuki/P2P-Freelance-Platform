@@ -1,7 +1,7 @@
+import { apiFetch } from './services/api';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, BookOpen, CircleDollarSign, Tags, AlignLeft, Send, Loader2 } from 'lucide-react';
-import { apiFetch } from './services/api';
 
 // 🌟 接收來自 App.jsx 的 showNotification
 export default function PublishSkill({ onAddTeacher, showNotification }) {
@@ -15,7 +15,7 @@ export default function PublishSkill({ onAddTeacher, showNotification }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiStyle, setAiStyle] = useState('幽默風趣'); 
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!skill.trim()) {
       // 🌟 替換為高級通知
@@ -23,10 +23,12 @@ export default function PublishSkill({ onAddTeacher, showNotification }) {
       return;
     }
 
-    onAddTeacher(skill, price, category);
-    // 🌟 替換為高級通知
-    showNotification('success', '上架成功', `成功上架「${skill}」課程！開始賺取 YTC 吧！`);
-    navigate('/profile'); 
+    try {
+      await onAddTeacher(skill, price, category);
+      navigate('/profile');
+    } catch (error) {
+      showNotification('error', '上架失敗', error.message || '無法新增課程');
+    } 
   };
 
   const handleAIGenerate = async () => {
