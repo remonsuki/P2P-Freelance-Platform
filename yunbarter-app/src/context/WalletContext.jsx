@@ -1,15 +1,17 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { BrowserProvider, Contract, formatUnits } from 'ethers';
+import { useState, useEffect, useCallback } from 'react';
+import { WalletContext } from './walletState';
 import { formatAddress } from '../utils/formatAddress';
 import { syncWalletAddress } from '../services/api';
 import {
-  SKILL_TOKEN_ADDRESS,
-  SKILL_TOKEN_ABI,
-} from '../config/contracts';
+  isWalletAvailable,
+  requestWalletConnection,
+  getAuthorizedWalletAccounts,
+  createWalletSession,
+  subscribeWalletEvents,
+  readSkillBalance,
+} from '../services/blockchain';
 
 const STORAGE_KEY = 'yunbarter_wallet_address';
-
-const WalletContext = createContext(null);
 
 /**
  * 全域錢包狀態管理
@@ -31,10 +33,7 @@ export function WalletProvider({ children }) {
   const refreshChainBalance = useCallback(async (signerOrProvider, userAddress) => {
     if (!signerOrProvider || !userAddress) return null;
     try {
-      const token = new Contract(SKILL_TOKEN_ADDRESS, SKILL_TOKEN_ABI, signerOrProvider);
-      const raw = await token.balanceOf(userAddress);
-      const decimals = await token.decimals();
-      const formatted = parseFloat(formatUnits(raw, decimals));
+      const formatted = await readSkillBalance(signerOrProvider, userAddress);
       setChainBalance(formatted);
       return formatted;
     } catch (err) {
@@ -43,18 +42,17 @@ export function WalletProvider({ children }) {
     }
   }, []);
 
-  /** 建立 ethers Provider 與 Signer */
+  /** 將區塊鏈連線結果寫入 React 狀態，並同步錢包地址至後端。 */
   const setupProvider = useCallback(async (userAddress) => {
-    if (!window.ethereum) return;
-    const browserProvider = new BrowserProvider(window.ethereum);
-    const walletSigner = await browserProvider.getSigner();
+    if (!isWalletAvailable()) return;
+    const { provider: browserProvider, signer: walletSigner } = await createWalletSession();
     setProvider(browserProvider);
     setSigner(walletSigner);
     setAddress(userAddress);
     localStorage.setItem(STORAGE_KEY, userAddress);
 
     const balance = await refreshChainBalance(walletSigner, userAddress);
-    // 同步至後端快取
+    // 只同步地址；後端維護的平台點數不採用鏈上餘額顯示值。
     try {
       await syncWalletAddress(userAddress, balance ?? 0);
     } catch (err) {
@@ -66,28 +64,15 @@ export function WalletProvider({ children }) {
   const connectWallet = useCallback(async () => {
     setError(null);
 
-    if (!window.ethereum) {
-      const msg = '未偵測到 MetaMask，請先安裝瀏覽器擴充套件。';
-      setError(msg);
-      throw new Error(msg);
-    }
-
     setIsConnecting(true);
     try {
-      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-      const userAddress = accounts[0];
+      const userAddress = await requestWalletConnection();
       await setupProvider(userAddress);
       return userAddress;
     } catch (err) {
-      // 使用者拒絕簽章（錯誤碼 4001）
-      if (err.code === 4001) {
-        const msg = '您已拒絕連線錢包，請重新點擊「連線錢包」並授權。';
-        setError(msg);
-        throw new Error(msg);
-      }
       const msg = err.message || '連線錢包時發生未知錯誤';
       setError(msg);
-      throw new Error(msg);
+      throw new Error(msg, { cause: err });
     } finally {
       setIsConnecting(false);
     }
@@ -105,10 +90,9 @@ export function WalletProvider({ children }) {
 
   // 頁面載入時嘗試恢復連線
   useEffect(() => {
-    if (!window.ethereum || !address) return;
+    if (!isWalletAvailable() || !address) return;
 
-    window.ethereum
-      .request({ method: 'eth_accounts' })
+    getAuthorizedWalletAccounts()
       .then((accounts) => {
         if (accounts.length > 0 && accounts[0].toLowerCase() === address.toLowerCase()) {
           setupProvider(accounts[0]);
@@ -121,8 +105,6 @@ export function WalletProvider({ children }) {
 
   // 監聽帳戶與鏈變更
   useEffect(() => {
-    if (!window.ethereum) return;
-
     const handleAccountsChanged = (accounts) => {
       if (accounts.length === 0) {
         disconnectWallet();
@@ -135,13 +117,10 @@ export function WalletProvider({ children }) {
       window.location.reload();
     };
 
-    window.ethereum.on('accountsChanged', handleAccountsChanged);
-    window.ethereum.on('chainChanged', handleChainChanged);
-
-    return () => {
-      window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
-      window.ethereum.removeListener('chainChanged', handleChainChanged);
-    };
+    return subscribeWalletEvents({
+      onAccountsChanged: handleAccountsChanged,
+      onChainChanged: handleChainChanged,
+    });
   }, [setupProvider, disconnectWallet]);
 
   const shortAddress = address ? formatAddress(address) : '';
@@ -165,13 +144,4 @@ export function WalletProvider({ children }) {
       {children}
     </WalletContext.Provider>
   );
-}
-
-/** 取得錢包 Context，必須在 WalletProvider 內使用 */
-export function useWallet() {
-  const ctx = useContext(WalletContext);
-  if (!ctx) {
-    throw new Error('useWallet 必須在 WalletProvider 內使用');
-  }
-  return ctx;
 }

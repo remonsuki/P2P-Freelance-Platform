@@ -1,5 +1,5 @@
 import { Loader2, Wallet } from 'lucide-react';
-import { useWallet } from '../context/WalletContext';
+import { useWallet } from '../hooks/useWallet';
 
 /**
  * 連線錢包按鈕

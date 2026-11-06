@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Wallet as WalletIcon, ArrowUpRight, ArrowDownRight, History, CreditCard, Landmark, ArrowRightLeft, ShieldCheck, Loader2, CircleDollarSign } from 'lucide-react';
-import { useWallet } from './context/WalletContext';
+import { useWallet } from './hooks/useWallet';
 import ConnectWalletButton from './components/ConnectWalletButton';
 import { depositWallet, withdrawWallet } from './services/api';
 import { SKILL_TOKEN_ADDRESS } from './config/contracts';

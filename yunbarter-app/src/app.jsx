@@ -12,7 +12,7 @@ import NotificationCard from './NotificationCard';
 import ConnectWalletButton from './components/ConnectWalletButton';
 import BookingEscrow from './BookingEscrow';
 import { fetchWallet, fetchTeachers, createBooking, logout, addTeacher, deleteTeacher, updateTeacher } from './services/api';
-import { useWallet } from './context/WalletContext';
+import { useWallet } from './hooks/useWallet';
 
 function ProtectedRoute({ isLoggedIn, isAuthLoading, children }) {
   const location = useLocation();

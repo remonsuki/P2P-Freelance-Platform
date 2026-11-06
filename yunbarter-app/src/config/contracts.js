@@ -1,10 +1,10 @@
 /**
  * 區塊鏈合約設定
- * - SkillToken：已部署的 ERC-20 測試代幣
+ * - SkillToken：專案既有的 ERC-20 測試代幣地址，網路及部署狀態仍待確認
  * - SkillExchange：技能交換平台合約（部署後請更新地址）
  */
 
-// 測試幣 SkillToken 合約地址（Sepolia / 本地測試網）
+// 測試幣 SkillToken 合約地址（使用前需確認對應網路）
 export const SKILL_TOKEN_ADDRESS = '0xF3A9Ad79A8bCDF5F58C4d79BADebB3F47715B009';
 
 // 技能交換平台合約地址（部署後替換此佔位符）

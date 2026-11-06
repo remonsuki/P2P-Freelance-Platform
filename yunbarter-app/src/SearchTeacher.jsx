@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Code, Music, Languages, Sparkles, User, X, Clock, Calendar, Star, ShieldCheck, AlignLeft, Info, CircleDollarSign, Loader2 } from 'lucide-react';
-import { useWallet } from './context/WalletContext';
+import { useWallet } from './hooks/useWallet';
 import { useSkillTrade } from './hooks/useSkillTrade';
-import { SKILL_EXCHANGE_ADDRESS } from './config/contracts';
+import { isSkillExchangeConfigured } from './services/blockchain';
 
 export default function SearchTeacher({ isLoggedIn, balance, onBookingComplete, teachers, userId, showNotification }) {
   const navigate = useNavigate();
@@ -65,7 +65,7 @@ export default function SearchTeacher({ isLoggedIn, balance, onBookingComplete, 
       return;
     }
 
-    const platformDeployed = SKILL_EXCHANGE_ADDRESS !== '0x0000000000000000000000000000000000000000';
+    const platformDeployed = isSkillExchangeConfigured();
     if (platformDeployed && !isConnected) {
       try {
         await connectWallet();

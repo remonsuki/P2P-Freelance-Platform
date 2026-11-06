@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useWallet } from './context/WalletContext';
+import { useWallet } from './hooks/useWallet';
 import { apiFetch } from './services/api';
 
 // 🌟 接收 showNotification 和 showConfirmation 作為 Props

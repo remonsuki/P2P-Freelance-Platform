@@ -57,6 +57,21 @@ npm run dev
 
 若前端使用其他網址或 port，請將完整來源加入後端 `.env` 的 `FRONTEND_ORIGINS`，以逗號分隔。正式部署建議將 `/api` 反向代理到後端並使用 HTTPS；設定後端 `NODE_ENV=production` 會啟用 Secure Cookie。若需要獨立 API 網址，可在前端 `.env.local` 設定 `VITE_API_BASE_URL`；前後端應部署於相同 site，才能使用目前的 SameSite=Lax Cookie。
 
+## 區塊鏈程式碼
+
+鏈上操作集中在獨立的 [blockchain.js](yunbarter-app/src/services/blockchain.js)，不依賴 React 或後端 API。其餘檔案分工如下：
+
+| 檔案 | 用途 |
+| --- | --- |
+| `yunbarter-app/src/services/blockchain.js` | MetaMask 授權、Provider / Signer、帳戶與網路事件、代幣餘額、approve → buySkill 與交易確認。 |
+| `yunbarter-app/src/config/contracts.js` | 代幣與交易合約地址、ABI。 |
+| `yunbarter-app/src/context/WalletContext.jsx` | React 錢包狀態、地址暫存，以及呼叫後端同步地址。 |
+| `yunbarter-app/src/context/walletState.js`、`yunbarter-app/src/hooks/useWallet.js` | 共用 Context 與讀取錢包狀態的 Hook；與 Provider 元件分檔。 |
+| `yunbarter-app/src/hooks/useSkillTrade.js` | React 交易進度、執行中狀態。 |
+| `file/SkillToken.sol` | ERC-20 智慧合約原始碼。 |
+
+新增 ethers 或 MetaMask 操作時，請放在 `services/blockchain.js`，頁面透過 Context / Hook 使用。交易合約目前仍是零地址，`isSkillExchangeConfigured()` 只檢查是否填入地址，不會驗證合約部署。平台點數預約、撥款、退款仍由 PostgreSQL 處理；啟用真實鏈上付款前，需要另行完成託管合約與後端驗證／同步，避免鏈上付款與平台點數重複扣款。
+
 ## 本次登入與權限規則
 
 - 每個瀏覽器使用獨立的隨機 Session Token，Cookie 為 HttpOnly、SameSite=Lax；資料庫只儲存 Token 的 SHA-256 雜湊。有效期預設 168 小時，可用 `SESSION_TTL_HOURS` 調整。
