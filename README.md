@@ -65,7 +65,7 @@ npm run dev
 | --- | --- |
 | `yunbarter-app/src/services/blockchain.js` | MetaMask 授權、Provider / Signer、帳戶與網路事件、代幣餘額、approve → buySkill 與交易確認。 |
 | `yunbarter-app/src/config/contracts.js` | 代幣與交易合約地址、ABI。 |
-| `yunbarter-app/src/context/WalletContext.jsx` | React 錢包狀態、地址暫存，以及呼叫後端同步地址。 |
+| `yunbarter-app/src/context/WalletContext.jsx` | React 錢包狀態、登入後手動連線、登出時清除連線，以及呼叫後端同步地址。 |
 | `yunbarter-app/src/context/walletState.js`、`yunbarter-app/src/hooks/useWallet.js` | 共用 Context 與讀取錢包狀態的 Hook；與 Provider 元件分檔。 |
 | `yunbarter-app/src/hooks/useSkillTrade.js` | React 交易進度、執行中狀態。 |
 | `file/SkillToken.sol` | ERC-20 智慧合約原始碼。 |

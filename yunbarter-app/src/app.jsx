@@ -4,10 +4,10 @@ import { CircleDollarSign, CircleUser, LogOut, Sparkles, GraduationCap, ShieldCh
 
 import SearchTeacher from './SearchTeacher';
 import PublishSkill from './PublishSkill';
-import Home from './Home';
-import Login from './Login';
-import Wallet from './Wallet';
-import Profile from './Profile';
+import Home from './home';
+import Login from './login';
+import Wallet from './wallet';
+import Profile from './profile';
 import NotificationCard from './NotificationCard';
 import ConnectWalletButton from './components/ConnectWalletButton';
 import BookingEscrow from './BookingEscrow';
@@ -24,9 +24,13 @@ function ProtectedRoute({ isLoggedIn, isAuthLoading, children }) {
 }
 
 function AppContent() {
-  const { refreshChainBalance, signer, address } = useWallet();
+  const { refreshChainBalance, signer, address, setCanConnect, disconnectWallet } = useWallet();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  // Session 尚未確認前，不允許開始錢包連線。
+  useEffect(() => {
+    setCanConnect(isLoggedIn && !isAuthLoading);
+  }, [isLoggedIn, isAuthLoading, setCanConnect]);
   const [userId, setUserId] = useState(null);
   const [userName, setUserName] = useState('Yun');
   const [balance, setBalance] = useState(0); 
@@ -63,8 +67,8 @@ function AppContent() {
       title,
       message,
       onConfirm: () => {
-        onConfirmAction(); 
-        closeNotification(); 
+        closeNotification();
+        onConfirmAction();
       }
     });
   };
@@ -101,6 +105,8 @@ function AppContent() {
   useEffect(() => {
     const clearSession = () => {
       walletRequest.current += 1;
+      setCanConnect(false);
+      disconnectWallet();
       setIsLoggedIn(false);
       setUserId(null);
       setUserName('Yun');
@@ -109,7 +115,7 @@ function AppContent() {
     };
     window.addEventListener('yunbarter:unauthorized', clearSession);
     return () => window.removeEventListener('yunbarter:unauthorized', clearSession);
-  }, []);
+  }, [setCanConnect, disconnectWallet]);
 
   useEffect(() => {
     let active = true;
@@ -125,6 +131,8 @@ function AppContent() {
       .catch(err => {
         if (!active) return;
         if (err.status === 401) {
+          setCanConnect(false);
+          disconnectWallet();
           setIsLoggedIn(false);
           setUserId(null);
           setUserName('Yun');
@@ -136,7 +144,7 @@ function AppContent() {
       })
       .finally(() => { if (active) setIsAuthLoading(false); });
     return () => { active = false; };
-  }, [isLoggedIn, userId]);
+  }, [isLoggedIn, userId, setCanConnect, disconnectWallet]);
 
   useEffect(() => {
     const refresh = () => {
@@ -217,7 +225,9 @@ function AppContent() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-          <ConnectWalletButton onError={(msg) => showNotification('error', '錢包連線', msg)} />
+          {isLoggedIn && !isAuthLoading && (
+            <ConnectWalletButton onError={(msg) => showNotification('error', '錢包連線', msg)} />
+          )}
           {!isLoggedIn ? (
             <>
               <Link to="/login" style={{ textDecoration: 'none' }}><button style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', color: '#334155', fontWeight: 'bold', cursor: 'pointer', fontSize: '14px' }}>登入</button></Link>
@@ -237,6 +247,8 @@ function AppContent() {
                 onClick={() => showConfirmation('確定登出', '您確定要登出系統嗎？', async () => {
                   try {
                     await logout();
+                    setCanConnect(false);
+                    disconnectWallet();
                     setIsLoggedIn(false);
                     setUserId(null);
                     setUserName('Yun');
@@ -265,7 +277,7 @@ function AppContent() {
             <SearchTeacher 
               isLoggedIn={isLoggedIn} balance={balance}
               onBookingComplete={handleBookingComplete}
-              teachers={teachers} userId={userId}
+              teachers={teachers} userId={userId} userName={userName}
               showNotification={showNotification} showConfirmation={showConfirmation}
             />
           } />

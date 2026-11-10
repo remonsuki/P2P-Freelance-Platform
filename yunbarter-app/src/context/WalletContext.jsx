@@ -1,11 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { WalletContext } from './walletState';
 import { formatAddress } from '../utils/formatAddress';
 import { syncWalletAddress } from '../services/api';
 import {
   isWalletAvailable,
   requestWalletConnection,
-  getAuthorizedWalletAccounts,
   createWalletSession,
   subscribeWalletEvents,
   readSkillBalance,
@@ -16,11 +15,18 @@ const STORAGE_KEY = 'yunbarter_wallet_address';
 /**
  * 全域錢包狀態管理
  * - MetaMask 連線 / 斷線
- * - 地址持久化至 localStorage
+ * - 需會員登入後手動授權；登出時清除網站錢包狀態
  * - 監聽帳戶切換與鏈變更
  */
 export function WalletProvider({ children }) {
-  const [address, setAddress] = useState(() => localStorage.getItem(STORAGE_KEY) || null);
+  // 記錄會員是否已登入，預設禁止連接錢包
+  const canConnectRef = useRef(false);
+
+  // 提供給 App 更新會員登入狀態
+  const setCanConnect = useCallback((loggedIn) => {
+    canConnectRef.current = Boolean(loggedIn);
+  }, []);
+  const [address, setAddress] = useState(null);
   const [provider, setProvider] = useState(null);
   const [signer, setSigner] = useState(null);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -34,7 +40,7 @@ export function WalletProvider({ children }) {
     if (!signerOrProvider || !userAddress) return null;
     try {
       const formatted = await readSkillBalance(signerOrProvider, userAddress);
-      setChainBalance(formatted);
+      if (canConnectRef.current) setChainBalance(formatted);
       return formatted;
     } catch (err) {
       console.error('讀取鏈上餘額失敗:', err);
@@ -44,17 +50,20 @@ export function WalletProvider({ children }) {
 
   /** 將區塊鏈連線結果寫入 React 狀態，並同步錢包地址至後端。 */
   const setupProvider = useCallback(async (userAddress) => {
-    if (!isWalletAvailable()) return;
+    if (!isWalletAvailable() || !canConnectRef.current) return;
     const { provider: browserProvider, signer: walletSigner } = await createWalletSession();
+
+    // 等待 MetaMask 回應期間若會員登出，就停止連線。
+    if (!canConnectRef.current) return;
     setProvider(browserProvider);
     setSigner(walletSigner);
     setAddress(userAddress);
-    localStorage.setItem(STORAGE_KEY, userAddress);
+    // 僅當前頁面連線；登出後不保存舊地址。
 
-    const balance = await refreshChainBalance(walletSigner, userAddress);
-    // 只同步地址；後端維護的平台點數不採用鏈上餘額顯示值。
+    await refreshChainBalance(walletSigner, userAddress);
+    // 只同步錢包地址，不以鏈上餘額覆寫平台點數。
     try {
-      await syncWalletAddress(userAddress, balance ?? 0);
+      if (canConnectRef.current) await syncWalletAddress(userAddress);
     } catch (err) {
       console.warn('同步錢包至後端失敗（後端可能未啟動）:', err.message);
     }
@@ -64,9 +73,18 @@ export function WalletProvider({ children }) {
   const connectWallet = useCallback(async () => {
     setError(null);
 
+    if (!canConnectRef.current) {
+      const msg = '請先登入平台會員，再連接 MetaMask 錢包。';
+      setError(msg);
+      throw new Error(msg);
+    }
+
     setIsConnecting(true);
     try {
       const userAddress = await requestWalletConnection();
+      if (!canConnectRef.current) {
+        throw new Error('會員已登出，已取消錢包連線。');
+      }
       await setupProvider(userAddress);
       return userAddress;
     } catch (err) {
@@ -88,24 +106,15 @@ export function WalletProvider({ children }) {
     localStorage.removeItem(STORAGE_KEY);
   }, []);
 
-  // 頁面載入時嘗試恢復連線
-  useEffect(() => {
-    if (!isWalletAvailable() || !address) return;
-
-    getAuthorizedWalletAccounts()
-      .then((accounts) => {
-        if (accounts.length > 0 && accounts[0].toLowerCase() === address.toLowerCase()) {
-          setupProvider(accounts[0]);
-        } else if (accounts.length === 0) {
-          disconnectWallet();
-        }
-      })
-      .catch(console.error);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // 不自動恢復錢包：需先確認會員 Session，再由使用者主動連線。
 
   // 監聽帳戶與鏈變更
   useEffect(() => {
     const handleAccountsChanged = (accounts) => {
+      if (!canConnectRef.current) {
+        disconnectWallet();
+        return;
+      }
       if (accounts.length === 0) {
         disconnectWallet();
       } else {
@@ -128,6 +137,7 @@ export function WalletProvider({ children }) {
   return (
     <WalletContext.Provider
       value={{
+        setCanConnect,
         address,
         shortAddress,
         provider,

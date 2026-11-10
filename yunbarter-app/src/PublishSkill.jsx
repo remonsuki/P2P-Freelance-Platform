@@ -1,7 +1,7 @@
+import { apiFetch } from './services/api';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, BookOpen, CircleDollarSign, Tags, AlignLeft, Send, Loader2 } from 'lucide-react';
-import { apiFetch } from './services/api';
 
 // 🌟 接收來自 App.jsx 的 showNotification
 export default function PublishSkill({ onAddTeacher, showNotification }) {
@@ -31,7 +31,7 @@ export default function PublishSkill({ onAddTeacher, showNotification }) {
       showNotification('success', '上架成功', `成功上架「${skill}」課程！`);
       navigate('/profile');
     } catch (error) {
-      showNotification('error', '上架失敗', error.message);
+      showNotification('error', '上架失敗', error.message || '無法新增課程');
     } finally {
       setIsSubmitting(false);
     }

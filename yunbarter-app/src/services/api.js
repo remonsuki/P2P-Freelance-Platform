@@ -1,12 +1,12 @@
 /**
- * 後端 API 集中管理
- * 所有前端與 yunbarter-backend 的 HTTP 請求由此發出
+ * 與團隊 PostgreSQL + HttpOnly Cookie Session 後端相容的 API helper。
+ * 本檔不儲存認證 cookie，所有請求交由瀏覽器自動附帶。
  */
+const API_BASE = (
+  import.meta.env.VITE_API_BASE_URL ||
+  (import.meta.env.DEV ? `${window.location.protocol}//${window.location.hostname}:5000` : '')
+).replace(/\/$/, '');
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL
-  || (import.meta.env.DEV ? `${window.location.protocol}//${window.location.hostname}:5000` : '')).replace(/\/$/, '');
-
-/** Include the HttpOnly login cookie for every backend request. */
 export function apiFetch(path, options = {}) {
   return fetch(`${API_BASE}${path}`, {
     ...options,
@@ -28,14 +28,13 @@ async function request(path, options = {}) {
   return data;
 }
 
-/** 取得錢包與交易紀錄 */
 export const fetchWallet = () => request('/api/user/wallet');
 
 /** 同步錢包地址；點數帳務餘額由後端維護 */
-export const syncWalletAddress = (walletAddress, cachedPoints) =>
+export const syncWalletAddress = (walletAddress) =>
   request('/api/user/wallet/sync', {
     method: 'POST',
-    body: JSON.stringify({ walletAddress, cachedPoints }),
+    body: JSON.stringify({ walletAddress }),
   });
 
 /** 取得教師／課程列表 */
@@ -71,15 +70,9 @@ export const login = (email, password) =>
 
 /** Revoke this browser's session without affecting other users. */
 export const logout = () => request('/api/auth/logout', { method: 'POST' });
-
-/** 註冊 */
-export const register = (payload) =>
-  request('/api/auth/register', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-
-/** 取得個人檔案 */
+export const register = (payload) => request('/api/auth/register', {
+  method: 'POST', body: JSON.stringify(payload),
+});
 export const fetchProfile = () => request('/api/user/profile');
 
 /** 更新個人檔案 */

@@ -1,4 +1,4 @@
-import { X, ShieldCheck, AlertTriangle, CheckCircle, HelpCircle } from 'lucide-react';
+import { X, AlertTriangle, CheckCircle, HelpCircle } from 'lucide-react';
 
 export default function NotificationCard({ 
   isVisible, 

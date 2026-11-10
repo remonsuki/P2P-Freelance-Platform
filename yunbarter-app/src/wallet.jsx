@@ -38,7 +38,7 @@ export default function Wallet({ balance, setBalance, transactions, setTransacti
         setAmount('');
         setIsProcessing(false);
         if (signer && address) await refreshChainBalance(signer, address);
-        showNotification('success', '交易完成', `已成功${activeTab === 'deposit' ? '儲值' : '提領'} ${parsedAmount} SKILL！`);
+        showNotification('success', '交易完成', `已成功${activeTab === 'deposit' ? '儲值' : '提領'} ${parsedAmount} YTC！（測試記帳）`);
       }, 800);
     } catch (error) {
       console.error("交易錯誤:", error);
@@ -79,13 +79,13 @@ export default function Wallet({ balance, setBalance, transactions, setTransacti
               <span style={{ fontSize: '15px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '8px', letterSpacing: '1px' }}>
                 <WalletIcon size={18} /> YUNBARTER WALLET
               </span>
-              <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: '4px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold', color: '#fcd34d' }}>Web3 安全認證</span>
+              <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: '4px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold', color: '#fcd34d' }}>平台測試點數</span>
             </div>
             <div style={{ position: 'relative', zIndex: 1 }}>
-              <div style={{ fontSize: '14px', color: '#cbd5e1', marginBottom: '5px' }}>目前總資產 (SKILL)</div>
+              <div style={{ fontSize: '14px', color: '#cbd5e1', marginBottom: '5px' }}>平台點數餘額（YTC）</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
                 <span style={{ fontSize: '48px', fontWeight: '900', letterSpacing: '-1px' }}>{balance.toFixed(1)}</span>
-                <span style={{ fontSize: '18px', color: '#d97706', fontWeight: 'bold' }}>SKILL</span>
+                <span style={{ fontSize: '18px', color: '#d97706', fontWeight: 'bold' }}>YTC</span>
               </div>
               {isConnected && chainBalance !== null && (
                 <div style={{ marginTop: '12px', fontSize: '13px', color: '#94a3b8' }}>
