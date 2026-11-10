@@ -78,7 +78,7 @@ export default function PublishSkill({ onAddTeacher, showNotification }) {
         {/* 頂部標題區 */}
         <div style={{ textAlign: 'center', marginBottom: '35px' }}>
           <h2 style={{ fontSize: '32px', color: '#0f172a', margin: '0 0 10px 0', fontWeight: '900' }}>將你的天賦變現</h2>
-          <p style={{ fontSize: '16px', color: '#64748b', margin: 0 }}>上架技能課程，賺取 YTC 代幣，與社群互助成長</p>
+          <p style={{ fontSize: '16px', color: '#64748b', margin: 0 }}>上架技能課程，賺取 SKILL 代幣，與社群互助成長</p>
         </div>
 
         {/* 核心表單大卡片 (已優化內邊距與整體呼吸感) */}
@@ -122,7 +122,7 @@ export default function PublishSkill({ onAddTeacher, showNotification }) {
               
               <div style={{ flex: 1, minWidth: '200px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', color: '#334155', fontWeight: 'bold', marginBottom: '10px' }}>
-                  <CircleDollarSign size={18} color="#d97706" /> 課程定價 (YTC)
+                  <CircleDollarSign size={18} color="#d97706" /> 課程定價 (SKILL)
                 </label>
                 <div style={{ position: 'relative' }}>
                   <input 

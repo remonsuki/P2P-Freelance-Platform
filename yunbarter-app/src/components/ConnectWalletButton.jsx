@@ -10,6 +10,7 @@ export default function ConnectWalletButton({ onError, style = {} }) {
     isConnected,
     shortAddress,
     isConnecting,
+    error,
     connectWallet,
     disconnectWallet,
   } = useWallet();
@@ -49,7 +50,7 @@ export default function ConnectWalletButton({ onError, style = {} }) {
       onClick={handleClick}
       disabled={isConnecting}
       style={baseStyle}
-      title={isConnected ? '點擊斷開錢包' : '連線 MetaMask'}
+      title={error || (isConnected ? '點擊斷開錢包' : '連線 MetaMask')}
     >
       {isConnecting ? (
         <Loader2 size={16} className="animate-spin" />
@@ -79,7 +80,7 @@ export default function ConnectWalletButton({ onError, style = {} }) {
           </span>
         </span>
       ) : (
-        '連線錢包'
+        error ? '重新連接綁定錢包' : '連線錢包'
       )}
     </button>
   );

@@ -1,14 +1,11 @@
 /**
  * 區塊鏈合約設定
- * - SkillToken：專案既有的 ERC-20 測試代幣地址，網路及部署狀態仍待確認
- * - SkillExchange：技能交換平台合約（部署後請更新地址）
+ * 未啟用交易時的代幣餘額顯示預設值。
+ * 付款所需的 chainId、token 與 escrow 皆由後端 /api/chain/config、簽章報價提供。
  */
 
 // 測試幣 SkillToken 合約地址（使用前需確認對應網路）
 export const SKILL_TOKEN_ADDRESS = '0xF3A9Ad79A8bCDF5F58C4d79BADebB3F47715B009';
-
-// 技能交換平台合約地址（部署後替換此佔位符）
-export const SKILL_EXCHANGE_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 /**
  * SkillToken ERC-20 ABI（來自 file/constants.js）
@@ -63,19 +60,6 @@ export const SKILL_TOKEN_ABI = [
     ],
     name: 'transfer',
     outputs: [{ internalType: 'bool', name: '', type: 'bool' }],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-];
-
-/**
- * 技能交換平台合約 ABI（虛擬介面，部署真實合約後替換）
- */
-export const SKILL_EXCHANGE_ABI = [
-  {
-    inputs: [{ internalType: 'uint256', name: 'jobId', type: 'uint256' }],
-    name: 'buySkill',
-    outputs: [],
     stateMutability: 'nonpayable',
     type: 'function',
   },

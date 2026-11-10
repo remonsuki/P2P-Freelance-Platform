@@ -7,9 +7,12 @@
     "start": "node server.js",
     "db:migrate": "node scripts/migrate.js",
     "db:seed": "node scripts/seed.js",
+    "db:create-test-accounts": "node scripts/create-test-accounts.js",
+    "test:local-transactions": "node scripts/test-local-transactions.js",
     "db:audit": "node scripts/audit.js",
     "test": "node --test test/*.test.js",
-    "test:integration": "node --test test/integration/*.test.js"
+    "test:integration": "node --test test/integration/*.test.js",
+    "db:sync-chain": "node scripts/sync-chain-history.js"
   },
   "keywords": [],
   "author": "",
@@ -18,6 +21,7 @@
   "dependencies": {
     "cors": "^2.8.6",
     "dotenv": "^18.0.7",
+    "ethers": "^6.17.0",
     "express": "^5.2.1",
     "pg": "^8.23.1"
   }

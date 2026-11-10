@@ -1,0 +1,57 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const {randomBytes}=require('node:crypto');
+const fs=require('node:fs/promises');
+const path=require('node:path');
+const os=require('node:os');
+const {Pool}=require('pg');
+const {connectionOptions,assertConfigured}=require('../../db');
+const {migrate}=require('../../scripts/migrate');
+const {hashPassword}=require('../../passwords');
+const {createTestAccounts}=require('../../scripts/create-test-accounts');
+
+test('test-account setup preserves existing users, signs unique wallets and never stores or seeds balances',async t=>{
+  const env=process.env.TEST_DATABASE_URL?{DATABASE_URL:process.env.TEST_DATABASE_URL}:process.env;
+  assertConfigured(env);
+  const pool=new Pool(connectionOptions(env));
+  const schema='yunbarter_demo_'+randomBytes(8).toString('hex');
+  const directory=await fs.mkdtemp(path.join(os.tmpdir(),'yunbarter-demo-'));
+  const manifestPath=path.join(directory,'accounts.json');
+  t.after(async()=>{
+    try{await pool.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);}finally{await pool.end();}
+    for(const name of ['accounts.json','README.md'])await fs.unlink(path.join(directory,name)).catch(e=>{if(e.code!=='ENOENT')throw e;});
+    await fs.rmdir(directory);
+  });
+  await pool.query(`CREATE SCHEMA "${schema}"`);
+  const db={async connect(){const c=await pool.connect();try{await c.query("SELECT set_config('search_path',$1,false)",[schema]);return c;}catch(e){c.release();throw e;}},async query(sql,values){const c=await db.connect();try{return await c.query(sql,values);}finally{c.release();}}};
+  await migrate(db);
+  await db.query("INSERT INTO users(email,password_hash,username) VALUES('existing@example.com',$1,'原使用者')",[await hashPassword('existing-password')]);
+  const before=(await db.query("SELECT * FROM users WHERE email='existing@example.com'")).rows[0];
+  const first=await createTestAccounts({db,manifestPath});
+  assert.equal(first.accounts.length,4);assert.equal(first.accounts.filter(a=>a.created).length,4);
+  assert.equal(new Set(first.accounts.map(a=>a.walletAddress)).size,4);
+  assert.ok(first.accounts.every(a=>!Object.hasOwn(a,'balance')));
+  assert.equal((await db.query("SELECT COUNT(*)::int n FROM users WHERE role='teacher'")).rows[0].n,2);
+  assert.equal((await db.query('SELECT COUNT(*)::int n FROM courses')).rows[0].n,2);
+  assert.equal((await db.query('SELECT COUNT(*)::int n FROM user_sessions')).rows[0].n,0);
+  assert.deepEqual((await db.query("SELECT * FROM users WHERE email='existing@example.com'")).rows[0],before);
+  const privateManifest=JSON.parse(await fs.readFile(manifestPath,'utf8'));
+  assert.ok(privateManifest.accounts.every(a=>/^0x[0-9a-f]{64}$/.test(a.privateKey)));
+  assert.equal(JSON.stringify(first).includes('privateKey'),false,'private keys never appear in the public summary');
+  const student=first.accounts.find(a=>a.role==='student');
+  await db.query('UPDATE users SET username=$2 WHERE user_id=$1',[student.userId,'測試後自行修改']);
+  const teacher=first.accounts.find(a=>a.role==='teacher');
+  await db.query('DELETE FROM teacher_availability WHERE teacher_id=$1',[teacher.userId]);
+  const second=await createTestAccounts({db,manifestPath});
+  assert.equal(second.accounts.filter(a=>a.created).length,0);
+  assert.ok(second.accounts.every(a=>!Object.hasOwn(a,'balance')));
+  assert.equal((await db.query('SELECT username FROM users WHERE user_id=$1',[student.userId])).rows[0].username,'測試後自行修改');
+  assert.equal((await db.query('SELECT COUNT(*)::int n FROM teacher_availability WHERE teacher_id=$1',[teacher.userId])).rows[0].n,0);
+  assert.equal((await db.query("SELECT COUNT(*)::int n FROM legacy_point_transactions")).rows[0].n,0);
+  assert.equal((await db.query('SELECT COUNT(*)::int n FROM courses')).rows[0].n,2);
+  const originalHash=(await db.query('SELECT password_hash FROM users WHERE user_id=$1',[student.userId])).rows[0].password_hash;
+  await db.query('UPDATE users SET password_hash=$1 WHERE user_id=$2',[await hashPassword('changed-password'),student.userId]);
+  await assert.rejects(createTestAccounts({db,manifestPath}),/衝突/);
+  assert.notEqual((await db.query('SELECT password_hash FROM users WHERE user_id=$1',[student.userId])).rows[0].password_hash,originalHash);
+  assert.equal((await db.query('SELECT COUNT(*)::int n FROM users')).rows[0].n,5);
+});

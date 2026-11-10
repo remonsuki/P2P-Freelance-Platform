@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, User, Star, GraduationCap, ShieldCheck, BookOpen, Calendar, CircleDollarSign, AlertCircle, CalendarDays, Plus, X } from 'lucide-react';
+import { ArrowLeft, User, Star, GraduationCap, ShieldCheck, BookOpen, Calendar, CircleDollarSign, CalendarDays, Plus, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { fetchProfile, updateProfile, fetchBookings, cancelBooking } from './services/api';
+import { fetchProfile, updateProfile, fetchBookings } from './services/api';
 import { useLiveData } from './hooks/useLiveData';
 
 export default function Profile({ userName, userId, setUserName, teachers, onDeleteTeacher, onUpdateTeacher, refreshTeachers, showNotification, showConfirmation }) {
@@ -32,13 +32,12 @@ export default function Profile({ userName, userId, setUserName, teachers, onDel
   const [profileError, setProfileError] = useState('');
   const [teacherRating, setTeacherRating] = useState(null);
   const [editingCourse, setEditingCourse] = useState(null);
-  const { data: bookingData, error: bookingError, refresh: refreshBookings } = useLiveData(fetchBookings);
+  const { data: bookingData, error: bookingError } = useLiveData(fetchBookings);
 
   const bookedCourses = (bookingData || []).filter(b => b.role === 'student').map(b => ({
     ...b, skill: b.courseTitle, price: b.amount, date: b.scheduledTime,
   }));
 
-  const [refundingCourse, setRefundingCourse] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -111,22 +110,6 @@ export default function Profile({ userName, userId, setUserName, teachers, onDel
     } finally {
       setIsSaving(false);
     }
-  };
-
-  const handleRefundClick = (course) => setRefundingCourse(course);
-
-  const executeRefund = async () => {
-    if (!refundingCourse || isSaving) return;
-    setIsSaving(true);
-    try {
-      await cancelBooking(refundingCourse.id);
-      await refreshBookings();
-      setRefundingCourse(null);
-      showNotification('success', '取消成功', '點數已退回帳戶，預約紀錄會保留。');
-    } catch (error) {
-      showNotification('error', '取消失敗', error.message);
-      await refreshBookings();
-    } finally { setIsSaving(false); }
   };
 
   const saveCourse = async (event) => {
@@ -242,10 +225,10 @@ export default function Profile({ userName, userId, setUserName, teachers, onDel
                     <h4 style={{ margin: '0 0 6px 0' }}>{course.skill}</h4>
                     <div style={{ display: 'flex', gap: '10px', fontSize: '13px', color: '#64748b' }}>
                         <span>{course.teacherName} 老師</span><span>{course.date}</span>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '2px' }}><CircleDollarSign size={13} /> {course.price.toFixed(1)}</span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '2px' }}><CircleDollarSign size={13} /> {course.price} {course.archived?'YTC（封存）':'SKILL'}</span>
                     </div>
                   </div>
-                  {course.status === 'IN_ESCROW' && course.canCancel ? <button disabled={isSaving} onClick={() => handleRefundClick(course)} style={{ padding: '8px 16px', backgroundColor: '#fff5f5', color: '#e53e3e', border: '1px solid #fed7d7', borderRadius: '20px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}>申請退款</button> : <span>{{IN_ESCROW:'已預約',DISPUTED:'爭議處理中',COMPLETED:'已完課',REFUNDED:'已退款'}[course.status]}</span>}
+                  {course.archived?<span>已封存</span>:course.status === 'IN_ESCROW' && course.canCancel ? <Link to="/bookings">管理鏈上預約</Link> : <span>{{IN_ESCROW:'已預約',DISPUTED:'爭議處理中',COMPLETED:'已完課',REFUNDED:'已退款'}[course.status]}</span>}
               </div>
           ))}
         </div>
@@ -273,25 +256,6 @@ export default function Profile({ userName, userId, setUserName, teachers, onDel
           <button disabled={isSaving} type="button" onClick={()=>setEditingCourse(null)}>取消</button>
         </form>
       </div>}
-      {/* 🌟 復活的 Modal 區域：退款視窗 */}
-      {refundingCourse && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2500, padding: '20px', boxSizing: 'border-box' }}>
-          <div style={{ backgroundColor: 'white', width: '100%', maxWidth: '420px', borderRadius: '24px', padding: '32px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-            <div style={{ width: '60px', height: '60px', backgroundColor: '#fef2f2', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '20px' }}><AlertCircle size={32} color="#ef4444" strokeWidth={2} /></div>
-            <h2 style={{ margin: '0 0 12px 0', fontSize: '22px', color: '#0f172a', fontWeight: 'bold' }}>確定要取消預約嗎？</h2>
-            <p style={{ margin: '0 0 24px 0', color: '#64748b', fontSize: '15px', lineHeight: '1.6' }}>課前取消會退回全部點數，並保留預約與退款紀錄。</p>
-            <div style={{ width: '100%', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', marginBottom: '30px', textAlign: 'left' }}>
-              <div style={{ fontSize: '14px', color: '#475569', fontWeight: 'bold', marginBottom: '6px' }}>{refundingCourse.skill}</div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><span style={{ fontSize: '13px', color: '#64748b' }}>{refundingCourse.teacherName} 老師</span><span style={{ fontSize: '15px', color: '#d97706', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}><CircleDollarSign size={14} /> +{refundingCourse.price.toFixed(1)} YTC</span></div>
-            </div>
-            <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
-              <button onClick={() => setRefundingCourse(null)} style={{ flex: 1, padding: '14px', backgroundColor: 'white', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '12px', fontWeight: 'bold', fontSize: '15px', cursor: 'pointer' }}>保留預約</button>
-              <button disabled={isSaving} onClick={executeRefund} style={{ flex: 1, padding: '14px', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', fontSize: '15px', cursor: 'pointer' }}>確認退款</button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* 🌟 復活的 Modal 區域：編輯個人檔案視窗 */}
       {isEditing && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000 }}>

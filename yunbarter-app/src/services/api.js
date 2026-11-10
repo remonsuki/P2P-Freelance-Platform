@@ -2,9 +2,10 @@
  * 與團隊 PostgreSQL + HttpOnly Cookie Session 後端相容的 API helper。
  * 本檔不儲存認證 cookie，所有請求交由瀏覽器自動附帶。
  */
+const API_ENV=import.meta.env||{};
 const API_BASE = (
-  import.meta.env.VITE_API_BASE_URL ||
-  (import.meta.env.DEV ? `${window.location.protocol}//${window.location.hostname}:5000` : '')
+  API_ENV.VITE_API_BASE_URL ||
+  (API_ENV.DEV ? `${window.location.protocol}//${window.location.hostname}:5000` : '')
 ).replace(/\/$/, '');
 
 export function apiFetch(path, options = {}) {
@@ -30,7 +31,7 @@ async function request(path, options = {}) {
 
 export const fetchWallet = () => request('/api/user/wallet');
 
-/** 同步錢包地址；點數帳務餘額由後端維護 */
+/** 確認目前錢包地址與帳號綁定相符 */
 export const syncWalletAddress = (walletAddress) =>
   request('/api/user/wallet/sync', {
     method: 'POST',
@@ -39,27 +40,6 @@ export const syncWalletAddress = (walletAddress) =>
 
 /** 取得教師／課程列表 */
 export const fetchTeachers = () => request('/api/teachers');
-
-/** 建立預約與平台點數託管 */
-export const createBooking = (payload) =>
-  request('/api/bookings', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-
-/** 儲值 */
-export const depositWallet = (amount, txHash = null) =>
-  request('/api/wallet/deposit', {
-    method: 'POST',
-    body: JSON.stringify({ amount, txHash }),
-  });
-
-/** 提領 */
-export const withdrawWallet = (amount) =>
-  request('/api/wallet/withdraw', {
-    method: 'POST',
-    body: JSON.stringify({ amount }),
-  });
 
 /** 登入 */
 export const login = (email, password) =>
@@ -73,6 +53,7 @@ export const logout = () => request('/api/auth/logout', { method: 'POST' });
 export const register = (payload) => request('/api/auth/register', {
   method: 'POST', body: JSON.stringify(payload),
 });
+export const requestRegistrationWalletChallenge = (payload) => request('/api/auth/register/wallet-challenge', {method:'POST',body:JSON.stringify(payload)});
 export const fetchProfile = () => request('/api/user/profile');
 
 /** 更新個人檔案 */
@@ -101,7 +82,23 @@ export const updateTeacher = (id, payload) =>
   });
 
 export const fetchBookings = () => request('/api/bookings');
-export const cancelBooking = (id) => request(`/api/bookings/${id}/cancel`, { method: 'POST' });
-export const completeBooking = (id, payload) => request(`/api/bookings/${id}/complete`, { method: 'POST', body: JSON.stringify(payload) });
-export const disputeBooking = (id, reason) => request(`/api/bookings/${id}/dispute`, { method: 'POST', body: JSON.stringify({ reason }) });
-export const refundBooking = (id) => request(`/api/bookings/${id}/refund`, { method: 'POST' });
+
+export const fetchChainConfig = () => request('/api/chain/config');
+export const fetchChainPayments = () => request('/api/chain/payments');
+export const createChainQuote = (payload) => request('/api/chain/quotes', {method:'POST',body:JSON.stringify(payload)});
+export const syncChainPayment = (id) => request(`/api/chain/payments/${id}/sync`, {method:'POST'});
+export const reviewChainPayment = (id,payload) => request(`/api/chain/payments/${id}/review`, {method:'POST',body:JSON.stringify(payload)});
+export const saveChainDisputeReason = (id,reason) => request(`/api/chain/payments/${id}/reason`, {method:'POST',body:JSON.stringify({reason})});
+export async function verifyTransactionWallet(signer) {
+  const walletAddress = await signer.getAddress();
+  const current = await fetchWallet();
+  if (current.verifiedWalletAddress?.toLowerCase() === walletAddress.toLowerCase()) return walletAddress;
+  if (current.verifiedWalletAddress) throw new Error('此帳號已綁定其他錢包，請連接原本綁定的錢包');
+  const {message} = await request('/api/chain/wallet/challenge', {method:'POST',body:JSON.stringify({walletAddress})});
+  const signature = await signer.signMessage(message);
+  await request('/api/chain/wallet/verify', {method:'POST',body:JSON.stringify({signature})});
+  return walletAddress;
+}
+
+export const fetchChainTransactions = () => request('/api/chain/transactions');
+export const backupChainTransaction = (txHash) => request('/api/chain/transactions/sync',{method:'POST',body:JSON.stringify({txHash})});

@@ -1,0 +1,20 @@
+{
+  "name": "yunbarter-blockchain",
+  "private": true,
+  "scripts": {
+    "compile": "node scripts/compile.js",
+    "test": "node --test test/*.test.js",
+    "deploy": "node --env-file-if-exists=.env scripts/deploy.js",
+    "create-quote-key": "node scripts/create-quote-key.js",
+    "local:prepare": "node scripts/prepare-local-node.js",
+    "local:node": "node scripts/local-node.js"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "5.4.0",
+    "ethers": "^6.16.0"
+  },
+  "devDependencies": {
+    "ganache": "7.9.2",
+    "solc": "0.8.30"
+  }
+}

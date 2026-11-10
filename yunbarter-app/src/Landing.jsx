@@ -25,7 +25,7 @@ export default function Landing() {
           </h1>
           
           <p style={{ fontSize: '18px', color: '#475569', lineHeight: '1.7', margin: '0 auto 40px auto', maxWidth: '600px' }}>
-            YunBarter 是一個基於 P2P (點對點) 架構的校園時間銀行。我們不聘請師資，而是透過 Web3 虛擬代幣 (YTC)，讓大學生能安全、流暢地互相交易彼此的閒置時間與專長。
+            YunBarter 是一個基於 P2P (點對點) 架構的校園時間銀行。我們不聘請師資，而是透過 Web3 虛擬代幣 (SKILL)，讓大學生能安全、流暢地互相交易彼此的閒置時間與專長。
           </p>
 
           <div style={{ display: 'flex', justifyContent: 'center', gap: '15px', flexWrap: 'wrap' }}>
@@ -59,7 +59,7 @@ export default function Landing() {
                 <Repeat size={28} color="#3b82f6" strokeWidth={2} />
               </div>
               <h3 style={{ fontSize: '20px', fontWeight: 'bold', margin: '0 0 10px 0' }}>P2P 點對點直接交易</h3>
-              <p style={{ color: '#64748b', lineHeight: '1.6', margin: 0 }}>沒有補習班抽成，沒有中間商賺差價。你的技能創造多少價值，你就獲得多少 YTC 代幣，100% 價值回歸學生。</p>
+              <p style={{ color: '#64748b', lineHeight: '1.6', margin: 0 }}>沒有補習班抽成，沒有中間商賺差價。你的技能創造多少價值，你就獲得多少 SKILL 代幣，100% 價值回歸學生。</p>
             </div>
 
             {/* 特色 2 */}
@@ -112,8 +112,8 @@ export default function Landing() {
                 <CircleDollarSign size={24} color="#475569" />
               </div>
               <div>
-                <h4 style={{ fontSize: '18px', fontWeight: 'bold', margin: '0 0 8px 0' }}>使用 YTC 代幣預約</h4>
-                <p style={{ color: '#64748b', margin: 0, lineHeight: '1.6', fontSize: '15px' }}>選擇適合的時段，使用平台專屬代幣 (YTC) 進行沉浸式安全結帳，預約零風險。</p>
+                <h4 style={{ fontSize: '18px', fontWeight: 'bold', margin: '0 0 8px 0' }}>使用 SKILL 代幣預約</h4>
+                <p style={{ color: '#64748b', margin: 0, lineHeight: '1.6', fontSize: '15px' }}>選擇適合的時段，使用平台專屬代幣 (SKILL) 進行沉浸式安全結帳，由智能合約託管課程費用。</p>
               </div>
             </div>
 
@@ -125,7 +125,7 @@ export default function Landing() {
               </div>
               <div>
                 <h4 style={{ fontSize: '18px', fontWeight: 'bold', margin: '0 0 8px 0' }}>線下學習，累積資產</h4>
-                <p style={{ color: '#64748b', margin: 0, lineHeight: '1.6', fontSize: '15px' }}>與同學見面交換技能！完成教學後賺取 YTC 代幣，再去兌換其他你想學的課程。</p>
+                <p style={{ color: '#64748b', margin: 0, lineHeight: '1.6', fontSize: '15px' }}>與同學見面交換技能！完成教學後賺取 SKILL 代幣，再去兌換其他你想學的課程。</p>
               </div>
             </div>
 
@@ -138,7 +138,7 @@ export default function Landing() {
         <div style={{ maxWidth: '600px', margin: '0 auto' }}>
           <h2 style={{ fontSize: '36px', fontWeight: '900', margin: '0 0 20px 0' }}>準備好加入我們了嗎？</h2>
           <p style={{ fontSize: '18px', color: '#94a3b8', margin: '0 0 40px 0', lineHeight: '1.6' }}>
-            現在註冊，立即獲得初始 YTC 獎勵。<br />
+            註冊並綁定 MetaMask，即可使用 SKILL 預約課程。<br />
             開啟你在 YunBarter 的知識交換旅程。
           </p>
           <Link to="/login" state={{ isRegister: true }} style={{ textDecoration: 'none' }}>

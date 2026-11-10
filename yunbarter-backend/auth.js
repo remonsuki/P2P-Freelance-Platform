@@ -30,7 +30,7 @@ function createAuth(db, { secureCookies = false, sessionHours = 168 } = {}) {
     if (!token) return res.status(401).json({ error: '請先登入' });
     const { rows } = await db.query(
       `SELECT u.user_id, u.email, u.username, u.role, u.category, u.hourly_points,
-              u.cached_points, u.wallet_address, u.department, u.bio
+              u.wallet_address, u.verified_wallet_address, u.department, u.bio
          FROM user_sessions s JOIN users u ON u.user_id = s.user_id
         WHERE s.token_hash = $1 AND s.expires_at > NOW()`,
       [hashToken(token)],

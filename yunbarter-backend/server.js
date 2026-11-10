@@ -5,8 +5,9 @@ const { transaction, assertConfigured } = require('./db');
 const { createAuth } = require('./auth');
 const { hashPassword, verifyPassword } = require('./passwords');
 const { installMarketplace, courseCards, HttpError } = require('./marketplace');
+const { createChainService, installChainRoutes } = require('./chain');
+const { createWalletBinding } = require('./walletBinding');
 
-const TRANSACTION_LABEL = { charge: '儲值', consume: '上課支出', refund: '退款', withdraw: '提領', release: '授課收入' };
 // A missing account still performs the same password derivation as a failed login.
 const DUMMY_HASH = `scrypt$131072$8$1$${'0'.repeat(32)}$${'0'.repeat(128)}`;
 
@@ -18,40 +19,15 @@ function text(value, name, maxLength, required = true) {
   return value.trim();
 }
 
-function positiveAmount(value) {
-  if (!['number', 'string'].includes(typeof value) || !/^\d+(\.\d{1,6})?$/.test(String(value))
-      || !Number.isFinite(Number(value)) || Number(value) <= 0 || Number(value) > 1000000000) {
-    throw new HttpError(400, '金額必須是大於零、最多六位小數的有效數值');
-  }
-  return String(value);
-}
-
-function transactionHash(value) {
-  if (value === undefined || value === null || value === '') return null;
-  if (typeof value !== 'string' || !/^0x[a-fA-F0-9]{64}$/.test(value)) throw new HttpError(400, '交易雜湊格式不正確');
-  return value.toLowerCase();
-}
-
-function formatTransaction(row) {
-  return {
-    id: Number(row.transaction_id),
-    type: TRANSACTION_LABEL[row.transaction_type] || row.transaction_type,
-    amount: Number(row.amount),
-    date: new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date(row.created_at)),
-    note: row.description,
-    txHash: row.tx_hash,
-    txStatus: row.tx_status,
-  };
-}
-
 function createApp({ db = pool, allowedOrigins, secureCookies = process.env.NODE_ENV === 'production',
-  sessionHours = Number(process.env.SESSION_TTL_HOURS || 168),
-  demoPayments = process.env.NODE_ENV !== 'production' && process.env.ENABLE_DEMO_PAYMENTS !== 'false' } = {}) {
+  chain = createChainService(),
+  sessionHours = Number(process.env.SESSION_TTL_HOURS || 168) } = {}) {
   if (!Number.isFinite(sessionHours) || sessionHours <= 0 || sessionHours > 720) throw new Error('SESSION_TTL_HOURS 必須介於 0 與 720 之間');
   const origins = new Set(allowedOrigins || (process.env.FRONTEND_ORIGINS
     || 'http://localhost:5173,http://127.0.0.1:5173').split(',').map((origin) => origin.trim()).filter(Boolean));
   const app = express();
   const auth = createAuth(db, { secureCookies, sessionHours });
+  const walletBinding = createWalletBinding(db, {secureCookies});
   app.disable('x-powered-by');
   app.use(cors({ origin: (origin, callback) => callback(null, !origin || origins.has(origin)), credentials: true }));
   app.use('/api', (req, res, next) => {
@@ -67,6 +43,7 @@ function createApp({ db = pool, allowedOrigins, secureCookies = process.env.NODE
     res.json({ status: 'ok', database: 'postgresql' });
   });
 
+  app.post('/api/auth/register/wallet-challenge',walletBinding.registrationChallenge);
   app.post('/api/auth/register', async (req, res) => {
     const body = req.body || {};
     const email = text(body.email, '電子郵件', 255).toLowerCase();
@@ -75,16 +52,19 @@ function createApp({ db = pool, allowedOrigins, secureCookies = process.env.NODE
     if (typeof body.password !== 'string' || body.password.length < 8 || Buffer.byteLength(body.password) > 1024) {
       throw new HttpError(400, '密碼至少需要 8 個字元，且不可超過 1024 bytes');
     }
+    if (!body.walletProof) throw new HttpError(400,'建立帳號前請先連接 MetaMask 並完成錢包簽章');
     const passwordHash = await hashPassword(body.password);
     const user = await transaction(db, async (client) => {
+      const walletAddress = await walletBinding.consumeRegistrationProof(client,req,email,body.walletProof);
       const { rows: [created] } = await client.query(
-        'INSERT INTO users (email, password_hash, username) VALUES ($1, $2, $3) RETURNING user_id, username',
-        [email, passwordHash, userName],
+        'INSERT INTO users (email, password_hash, username,verified_wallet_address) VALUES ($1, $2, $3,$4) RETURNING user_id, username,verified_wallet_address',
+        [email, passwordHash, userName,walletAddress],
       );
       await auth.issueSession(req, res, created.user_id, client);
       return created;
     });
-    res.status(201).json({ success: true, userName: user.username, userId: Number(user.user_id) });
+    walletBinding.clearRegistrationCookie(res);
+    res.status(201).json({ success: true, userName: user.username, userId: Number(user.user_id),walletAddress:user.verified_wallet_address });
   });
 
   app.post('/api/auth/login', async (req, res) => {
@@ -102,54 +82,39 @@ function createApp({ db = pool, allowedOrigins, secureCookies = process.env.NODE
 
   app.post('/api/auth/logout', auth.logout);
 
-  app.get('/api/teachers', async (req, res) => res.json(await courseCards(db)));
+  app.get('/api/chain/config', async (req, res) => {
+    if (!chain) return res.json({enabled:false,message:'SKILL 託管交易尚未啟用'});
+    try { await chain.ready(); res.json(chain.config()); }
+    catch { res.json({enabled:false,message:'SKILL 託管交易暫時無法使用，請檢查後端鏈上設定'}); }
+  });
+  app.get('/api/teachers', async (req, res) => {
+    if (chain) await chain.reconcile(db);
+    res.json(await courseCards(db));
+  });
 
   // Everything below this point requires a database-backed session.
   app.use('/api', auth.requireUser);
 
   installMarketplace(app, db);
+  walletBinding.installAccountRoutes(app);
+  installChainRoutes(app, db, chain);
 
   app.get('/api/user/wallet', async (req, res) => {
-    const { rows } = await db.query(
-      'SELECT * FROM point_transactions WHERE user_id = $1 ORDER BY created_at DESC, transaction_id DESC', [req.user.user_id],
-    );
-    res.json({ userId: Number(req.user.user_id), userName: req.user.username, balance: Number(req.user.cached_points),
-      walletAddress: req.user.wallet_address, transactions: rows.map(formatTransaction) });
+    res.json({ userId: Number(req.user.user_id), userName: req.user.username,
+      walletAddress: req.user.verified_wallet_address, verifiedWalletAddress:req.user.verified_wallet_address });
   });
 
   app.post('/api/user/wallet/sync', async (req, res) => {
     const walletAddress = req.body?.walletAddress;
     if (typeof walletAddress !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) throw new HttpError(400, '錢包地址格式不正確');
-    // The browser's cachedPoints is deliberately not used as an accounting balance.
-    const { rows: [user] } = await db.query(
-      'UPDATE users SET wallet_address = $1 WHERE user_id = $2 RETURNING wallet_address, cached_points',
-      [walletAddress.toLowerCase(), req.user.user_id],
-    );
-    res.json({ success: true, walletAddress: user.wallet_address, balance: Number(user.cached_points) });
+    if (!req.user.verified_wallet_address) throw new HttpError(409,'請先簽章綁定錢包');
+    if (walletAddress.toLowerCase()!==req.user.verified_wallet_address) throw new HttpError(409,'此帳號只能使用原本綁定的錢包，無法更換');
+    res.json({ success: true, walletAddress: req.user.verified_wallet_address });
   });
 
-  async function changeWallet(req, res, withdraw) {
-    if (!demoPayments) throw new HttpError(501, '尚未串接實際金流；如需測試點數帳務，請由管理者開啟 ENABLE_DEMO_PAYMENTS');
-    const amount = positiveAmount(req.body?.amount);
-    const txHash = transactionHash(req.body?.txHash);
-    const result = await transaction(db, async (client) => {
-      const { rows: [user] } = await client.query(
-        `UPDATE users SET cached_points = cached_points ${withdraw ? '-' : '+'} $1::numeric
-          WHERE user_id = $2 ${withdraw ? 'AND cached_points >= $1::numeric' : ''} RETURNING cached_points`,
-        [amount, req.user.user_id],
-      );
-      if (!user) throw new HttpError(400, '餘額不足以進行提領');
-      const { rows: [entry] } = await client.query(
-        `INSERT INTO point_transactions (user_id, amount, transaction_type, description, tx_hash, tx_status)
-         VALUES ($1, ${withdraw ? '-' : ''}$2::numeric, $3, $4, $5, 'success') RETURNING *`,
-        [req.user.user_id, amount, withdraw ? 'withdraw' : 'charge', withdraw ? '測試點數提領（未轉入銀行）' : '測試點數儲值（未收取款項）', txHash],
-      );
-      return { success: true, balance: Number(user.cached_points), newTransaction: formatTransaction(entry) };
-    });
-    res.json(result);
-  }
-  app.post('/api/wallet/deposit', (req, res) => changeWallet(req, res, false));
-  app.post('/api/wallet/withdraw', (req, res) => changeWallet(req, res, true));
+  app.post(['/api/wallet/deposit','/api/wallet/withdraw'], () => {
+    throw new HttpError(410,'平台點數儲值與提領已停用，請使用 MetaMask 進行 SKILL 鏈上交易');
+  });
 
   app.post('/api/ai/generate', (req, res) => {
     const skill = text(req.body?.skill, '技能名稱', 100);
@@ -166,7 +131,9 @@ function createApp({ db = pool, allowedOrigins, secureCookies = process.env.NODE
     if (error instanceof HttpError) return res.status(error.status).json({ error: error.message });
     if (error.type === 'entity.parse.failed') return res.status(400).json({ error: 'JSON 格式不正確' });
     if (error.type === 'entity.too.large') return res.status(413).json({ error: '請求資料過大' });
+    if (error.constraint === 'users_verified_wallet_unique') return res.status(409).json({error:'此錢包已綁定其他帳號，請使用原帳號登入'});
     if (error.code === '23505') return res.status(409).json({ error: '資料已存在，電子郵件、交易或授課時段不可重複，請重新整理' });
+    if (error.constraint === 'users_wallet_binding_immutable') return res.status(409).json({error:'帳號已綁定錢包，無法更換或解除綁定'});
     if (error.code === '23514') return res.status(400).json({ error: '資料違反金額、狀態或時間限制' });
     if (error.code === '23503') return res.status(409).json({ error: '資料仍有其他紀錄使用，無法刪除或修改' });
     if (['22P02', '22003', '22007', '22008'].includes(error.code)) return res.status(400).json({ error: '資料格式或數值不正確' });
@@ -180,6 +147,9 @@ async function start() {
   assertConfigured();
   await pool.query('SELECT token_hash FROM user_sessions LIMIT 0');
   await pool.query('SELECT course_id FROM courses LIMIT 0');
+  await pool.query('SELECT chain_payment_id FROM bookings LIMIT 0');
+  await pool.query('SELECT challenge_id FROM registration_wallet_challenges LIMIT 0');
+  await pool.query('SELECT tx_hash FROM chain_transaction_records LIMIT 0');
   const port = Number(process.env.PORT || 5000);
   const server = createApp().listen(port, () => console.log(`YunBarter API 已連線 PostgreSQL：http://localhost:${port}`));
   server.on('error', async (error) => {

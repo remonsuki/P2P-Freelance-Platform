@@ -11,7 +11,7 @@ import Profile from './profile';
 import NotificationCard from './NotificationCard';
 import ConnectWalletButton from './components/ConnectWalletButton';
 import BookingEscrow from './BookingEscrow';
-import { fetchWallet, fetchTeachers, createBooking, logout, addTeacher, deleteTeacher, updateTeacher } from './services/api';
+import { fetchWallet, fetchTeachers, logout, addTeacher, deleteTeacher, updateTeacher } from './services/api';
 import { useWallet } from './hooks/useWallet';
 
 function ProtectedRoute({ isLoggedIn, isAuthLoading, children }) {
@@ -24,7 +24,7 @@ function ProtectedRoute({ isLoggedIn, isAuthLoading, children }) {
 }
 
 function AppContent() {
-  const { refreshChainBalance, signer, address, setCanConnect, disconnectWallet } = useWallet();
+  const { chainBalance, refreshChainBalance, signer, address, setCanConnect, disconnectWallet } = useWallet();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   // Session 尚未確認前，不允許開始錢包連線。
@@ -33,8 +33,6 @@ function AppContent() {
   }, [isLoggedIn, isAuthLoading, setCanConnect]);
   const [userId, setUserId] = useState(null);
   const [userName, setUserName] = useState('Yun');
-  const [balance, setBalance] = useState(0); 
-  const [transactions, setTransactions] = useState([]); 
   const [teachers, setTeachers] = useState([]); 
   const teachersRequest = useRef(0);
   const walletRequest = useRef(0);
@@ -94,8 +92,7 @@ function AppContent() {
       setIsLoggedIn(true);
       setUserId(data.userId);
       setUserName(data.userName);
-      setBalance(data.balance);
-      setTransactions(data.transactions);
+
     }
     return data;
   }, []);
@@ -110,8 +107,7 @@ function AppContent() {
       setIsLoggedIn(false);
       setUserId(null);
       setUserName('Yun');
-      setBalance(0);
-      setTransactions([]);
+
     };
     window.addEventListener('yunbarter:unauthorized', clearSession);
     return () => window.removeEventListener('yunbarter:unauthorized', clearSession);
@@ -125,8 +121,7 @@ function AppContent() {
         setIsLoggedIn(true);
         setUserId(data.userId);
         setUserName(data.userName);
-        setBalance(data.balance);
-        setTransactions(data.transactions);
+
       })
       .catch(err => {
         if (!active) return;
@@ -136,8 +131,7 @@ function AppContent() {
           setIsLoggedIn(false);
           setUserId(null);
           setUserName('Yun');
-          setBalance(0);
-          setTransactions([]);
+
         } else {
           console.error('無法獲取錢包資料:', err);
         }
@@ -169,12 +163,6 @@ function AppContent() {
       refreshChainBalance(signer, address);
     }
   }, [signer, address, refreshChainBalance]);
-
-  const handleBookingComplete = async (payload) => {
-    const data = await createBooking({ ...payload, expectedUserId: userId });
-    await Promise.allSettled([refreshWallet(), loadTeachers()]);
-    return data;
-  };
 
   const handleAddTeacher = async (skill, price, category, description) => {
     const data = await addTeacher({ skill, price, category, description, expectedUserId: userId });
@@ -237,7 +225,7 @@ function AppContent() {
             <>
               <Link to="/wallet" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#fffbeb', border: '1px solid #fde68a', padding: '6px 14px', borderRadius: '20px', color: '#d97706', fontWeight: 'bold', fontSize: '14px' }}>
                 <CircleDollarSign size={16} color="#d97706" strokeWidth={2} />
-                <span>{balance.toFixed(1)} <span style={{ fontSize: '12px', fontWeight: 'normal' }}>YTC</span></span>
+                <span>{chainBalance ?? "—"} <span style={{ fontSize: '12px', fontWeight: 'normal' }}>SKILL</span></span>
               </Link>
               <Link to="/profile" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer' }}>
                 <div style={{ width: '28px', height: '28px', backgroundColor: '#e2e8f0', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}><CircleUser size={18} color="#475569" strokeWidth={2} /></div>
@@ -252,8 +240,7 @@ function AppContent() {
                     setIsLoggedIn(false);
                     setUserId(null);
                     setUserName('Yun');
-                    setBalance(0);
-                    setTransactions([]);
+
                   } catch (error) {
                     showNotification('error', '登出失敗', error.message);
                   }
@@ -275,8 +262,7 @@ function AppContent() {
           
           <Route path="/search" element={
             <SearchTeacher 
-              isLoggedIn={isLoggedIn} balance={balance}
-              onBookingComplete={handleBookingComplete}
+              isLoggedIn={isLoggedIn}
               teachers={teachers} userId={userId} userName={userName}
               showNotification={showNotification} showConfirmation={showConfirmation}
             />
@@ -307,7 +293,7 @@ function AppContent() {
           {/* 🌟 把通知功能傳給錢包 */}
           <Route path="/wallet" element={
             <ProtectedRoute isLoggedIn={isLoggedIn} isAuthLoading={isAuthLoading}>
-              <Wallet balance={balance} setBalance={setBalance} transactions={transactions} setTransactions={setTransactions} showNotification={showNotification} />
+              <Wallet showNotification={showNotification} />
             </ProtectedRoute>
           } />
 

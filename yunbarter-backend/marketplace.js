@@ -56,13 +56,13 @@ async function syncClasses(client, teacherId) {
 }
 
 async function profile(db, userId) {
-  const { rows:[u] } = await db.query(`SELECT user_id,username,department,bio,role,wallet_address,
+  const { rows:[u] } = await db.query(`SELECT user_id,username,department,bio,role,verified_wallet_address,
     (SELECT AVG(rating_stars) FROM reviews WHERE receiver_id=$1 AND reviewer_role='student_to_teacher') AS rating
     FROM users WHERE user_id=$1`,[userId]);
   const { rows } = await db.query(`SELECT a.available_date::text,a.slot_type,
     EXISTS(SELECT 1 FROM classes c WHERE c.teacher_id=a.teacher_id AND c.class_date=a.available_date AND c.slot_type=a.slot_type AND c.is_booked) AS reserved
     FROM teacher_availability a WHERE teacher_id=$1 AND available_date>=(NOW() AT TIME ZONE 'Asia/Taipei')::date ORDER BY available_date,start_time`,[userId]);
-  return {userId:Number(u.user_id),userName:u.username,department:u.department||'',bio:u.bio||'',role:u.role,walletAddress:u.wallet_address,teacherRating:u.rating===null?null:Number(u.rating),
+  return {userId:Number(u.user_id),userName:u.username,department:u.department||'',bio:u.bio||'',role:u.role,walletAddress:u.verified_wallet_address,teacherRating:u.rating===null?null:Number(u.rating),
     availableTimes:rows.map(r=>`${r.available_date}|${LABEL[r.slot_type]}`),lockedTimes:rows.filter(r=>r.reserved).map(r=>`${r.available_date}|${LABEL[r.slot_type]}`)};
 }
 
@@ -79,8 +79,9 @@ async function bookingList(db, userId) {
     role:String(b.student_id)===String(userId)?'student':'teacher',category:b.category,amount:Number(b.points_spent),
     scheduledTime:`${b.day_text} ${b.start_time.slice(0,5)} - ${b.end_time.slice(0,5)}`,
     status:{confirmed:'IN_ESCROW',disputed:'DISPUTED',completed:'COMPLETED',cancelled:'REFUNDED'}[b.status],
+    archived:!!b.archived_at,paymentMethod:b.payment_method,chainPaymentId:b.chain_payment_id,
     paymentStatus:b.payment_status,txHash:b.tx_hash,rating:b.rating_stars,review:b.comment||'',disputeReason:b.dispute_reason||'',
-    canCancel:b.can_cancel,canComplete:b.can_complete,createdAt:b.created_at}));
+    canCancel:!b.archived_at&&b.can_cancel,canComplete:!b.archived_at&&b.can_complete,createdAt:b.created_at}));
 }
 
 function installMarketplace(app, db) {
@@ -163,8 +164,9 @@ function installMarketplace(app, db) {
       if(!o) throw new HttpError(404,'找不到課程');
       if(String(o.teacher_id)!==String(req.user.user_id)) throw new HttpError(403,'只能下架自己的課程');
       const active=await client.query(`SELECT 1 FROM bookings b JOIN classes c ON c.class_id=b.class_id
-        WHERE c.course_id=$1 AND b.status IN ('confirmed','disputed') LIMIT 1`,[courseId]);
+        WHERE c.course_id=$1 AND b.archived_at IS NULL AND b.status IN ('confirmed','disputed') LIMIT 1`,[courseId]);
       if(active.rowCount) throw new HttpError(409,'課程仍有尚未結束的預約，請先處理預約');
+      if ((await client.query("SELECT 1 FROM chain_payments WHERE course_id=$1 AND status IN ('quoted','funded','disputed') LIMIT 1", [courseId])).rowCount) throw new HttpError(409,'課程仍有鏈上付款或託管，請先處理');
       await client.query('UPDATE courses SET is_active=FALSE,updated_at=NOW() WHERE course_id=$1',[courseId]);
     });
     res.json({success:true});
@@ -172,87 +174,9 @@ function installMarketplace(app, db) {
 
   app.get('/api/bookings',async(req,res)=>res.json(await bookingList(db,req.user.user_id)));
 
-  async function createBooking(req,res){
-    const body=req.body||{};
-    let courseId=body.courseId? id(body.courseId):null;
-    if(!courseId){
-      const {rows:[reference]}=await db.query('SELECT course_id FROM classes WHERE class_id=$1',[id(body.classId)]);
-      if(!reference) throw new HttpError(404,'找不到課程');
-      courseId=reference.course_id;
-    }
-    const {rows:[reference]}=await db.query('SELECT teacher_id FROM courses WHERE course_id=$1',[courseId]);
-    if(!reference) throw new HttpError(404,'找不到課程');
-    const chosen=body.timeSlot?slot(body.timeSlot):null;
-    const bookingId=await transaction(db,async client=>{
-      // Consistent user order prevents concurrent settlement/booking deadlocks.
-      await client.query('SELECT user_id FROM users WHERE user_id=ANY($1::bigint[]) ORDER BY user_id FOR UPDATE',[[reference.teacher_id,req.user.user_id]]);
-      const {rows:[o]}=await client.query('SELECT * FROM courses WHERE course_id=$1 AND is_active FOR UPDATE',[courseId]);
-      if(!o) throw new HttpError(404,'課程已下架');
-      if(String(o.teacher_id)===String(req.user.user_id)) throw new HttpError(400,'不能預約自己的課程');
-      const params=chosen?[courseId,chosen.date,chosen.type]:[courseId,id(body.classId)];
-      const {rows:[c]}=await client.query(`SELECT c.*,c.class_date::text AS day_text FROM classes c
-        JOIN teacher_availability a ON a.teacher_id=c.teacher_id AND a.available_date=c.class_date AND a.slot_type=c.slot_type
-        WHERE c.course_id=$1 AND ${chosen?'c.class_date=$2 AND c.slot_type=$3':'c.class_id=$2'} AND NOT c.is_booked
-        AND (c.class_date+c.start_time) AT TIME ZONE 'Asia/Taipei'>NOW()
-        AND NOT EXISTS(SELECT 1 FROM classes busy WHERE busy.teacher_id=c.teacher_id AND busy.class_date=c.class_date AND busy.slot_type=c.slot_type AND busy.is_booked)
-        LIMIT 1 FOR UPDATE OF c`,params);
-      if(!c) throw new HttpError(409,'此時段已無法預約，請重新選擇');
-      const {rows:[student]}=await client.query('UPDATE users SET cached_points=cached_points-$1::numeric WHERE user_id=$2 AND cached_points>=$1::numeric RETURNING username',[o.price,req.user.user_id]);
-      if(!student) throw new HttpError(400,'餘額不足');
-      const {rows:[teacher]}=await client.query('SELECT username FROM users WHERE user_id=$1',[o.teacher_id]);
-      const {rows:[b]}=await client.query(`INSERT INTO bookings(student_id,class_id,points_spent,course_title,teacher_name,student_name,scheduled_date,slot_type,teacher_id)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING booking_id`,[req.user.user_id,c.class_id,o.price,o.title,teacher.username,student.username,c.day_text,c.slot_type,o.teacher_id]);
-      await client.query(`INSERT INTO point_transactions(user_id,amount,transaction_type,description,tx_status,booking_id)
-        VALUES ($1,-$2::numeric,'consume',$3,'success',$4)`,[req.user.user_id,o.price,`預約託管：${o.title}`,b.booking_id]);
-      return b.booking_id;
-    });
-    res.status(201).json({success:true,booking:(await bookingList(db,req.user.user_id)).find(b=>String(b.id)===String(bookingId))});
-  }
-  app.post(['/api/bookings','/api/wallet/deduct'],createBooking);
-
-  async function changeBooking(req,res,action){
-    const bookingId=id(req.params.id),body=req.body||{};
-    const {rows:[reference]}=await db.query('SELECT b.student_id,c.teacher_id FROM bookings b JOIN classes c ON c.class_id=b.class_id WHERE booking_id=$1',[bookingId]);
-    if(!reference) throw new HttpError(404,'找不到預約');
-    if(![String(reference.student_id),String(reference.teacher_id)].includes(String(req.user.user_id))) throw new HttpError(403,'無法操作其他人的預約');
-    await transaction(db,async client=>{
-      await client.query('SELECT user_id FROM users WHERE user_id=ANY($1::bigint[]) ORDER BY user_id FOR UPDATE',[[reference.student_id,reference.teacher_id]]);
-      const {rows:[b]}=await client.query(`SELECT b.*,c.teacher_id,
-        (c.class_date+c.start_time) AT TIME ZONE 'Asia/Taipei'>NOW() AS before_start,
-        (c.class_date+c.end_time) AT TIME ZONE 'Asia/Taipei'<=NOW() AS after_end
-        FROM bookings b JOIN classes c ON c.class_id=b.class_id WHERE b.booking_id=$1 FOR UPDATE OF b`,[bookingId]);
-      const student=String(b.student_id)===String(req.user.user_id);
-      if(b.payment_status!=='escrowed') throw new HttpError(409,'此預約已結算，請重新整理');
-      if(action==='dispute'){
-        if(!student) throw new HttpError(403,'只有學生可以提出爭議');
-        if(b.status!=='confirmed'||b.before_start) throw new HttpError(409,'課前請使用取消預約；課後才能提出爭議');
-        await client.query("UPDATE bookings SET status='disputed',dispute_reason=$1,updated_at=NOW() WHERE booking_id=$2",[text(body.reason,'爭議原因',3000),bookingId]);
-        return;
-      }
-      if(action==='complete'){
-        if(!student) throw new HttpError(403,'只有學生可以確認完課');
-        if(b.status!=='confirmed'||!b.after_end) throw new HttpError(409,'課程結束且沒有爭議時，才能確認完課');
-        if(!Number.isInteger(body.rating)||body.rating<1||body.rating>5) throw new HttpError(400,'評分必須介於 1 到 5');
-        if(body.review!==undefined&&(typeof body.review!=='string'||body.review.length>3000)) throw new HttpError(400,'評語最多 3000 字');
-        await client.query("UPDATE bookings SET status='completed',payment_status='released',completed_at=NOW(),updated_at=NOW() WHERE booking_id=$1",[bookingId]);
-        await client.query('UPDATE users SET cached_points=cached_points+$1::numeric WHERE user_id=$2',[b.points_spent,b.teacher_id]);
-        await client.query(`INSERT INTO point_transactions(user_id,amount,transaction_type,description,tx_status,booking_id)
-          VALUES ($1,$2,'release',$3,'success',$4)`,[b.teacher_id,b.points_spent,`完課收入：${b.course_title}`,bookingId]);
-        await client.query(`INSERT INTO reviews(booking_id,sender_id,receiver_id,reviewer_role,rating_stars,comment)
-          VALUES ($1,$2,$3,'student_to_teacher',$4,$5)`,[bookingId,b.student_id,b.teacher_id,body.rating,body.review||'']);
-        await client.query("UPDATE users SET teacher_rating=(SELECT AVG(rating_stars) FROM reviews WHERE receiver_id=$1 AND reviewer_role='student_to_teacher') WHERE user_id=$1",[b.teacher_id]);
-      }else{
-        if(action==='cancel'&&(!student||b.status!=='confirmed'||!b.before_start)) throw new HttpError(409,'只有學生能在課程開始前取消預約');
-        if(action==='refund'&&(student||b.status!=='disputed')) throw new HttpError(403,'爭議退款須由授課老師同意');
-        await client.query("UPDATE bookings SET status='cancelled',payment_status='refunded',refunded_at=NOW(),updated_at=NOW() WHERE booking_id=$1",[bookingId]);
-        await client.query('UPDATE users SET cached_points=cached_points+$1::numeric WHERE user_id=$2',[b.points_spent,b.student_id]);
-        await client.query(`INSERT INTO point_transactions(user_id,amount,transaction_type,description,tx_status,booking_id)
-          VALUES ($1,$2,'refund',$3,'success',$4)`,[b.student_id,b.points_spent,`預約退款：${b.course_title}`,bookingId]);
-      }
-    });
-    res.json({success:true,booking:(await bookingList(db,req.user.user_id)).find(b=>String(b.id)===bookingId)});
-  }
-  for(const action of ['complete','cancel','dispute','refund']) app.post(`/api/bookings/:id/${action}`,(req,res)=>changeBooking(req,res,action));
+  const retired = () => { throw new HttpError(410,'點數交易已停用，請使用 SKILL 鏈上託管並同步交易收據'); };
+  app.post(['/api/bookings','/api/wallet/deduct'],retired);
+  for(const action of ['complete','cancel','dispute','refund']) app.post('/api/bookings/:id/'+action,retired);
 }
 
-module.exports={installMarketplace,courseCards,HttpError};
+module.exports={installMarketplace,courseCards,bookingList,HttpError,slot,id};

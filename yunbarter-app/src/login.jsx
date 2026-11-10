@@ -1,5 +1,7 @@
-import { login as loginRequest, register as registerRequest } from './services/api';
-import { useState } from 'react';
+import { login as loginRequest } from './services/api';
+import { registerWithWallet } from './services/registration';
+import { useWallet } from './hooks/useWallet';
+import { useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 const CheckIcon = () => (
@@ -36,6 +38,10 @@ const WarningIcon = () => (
 export default function Login({ setIsLoggedIn, setUserId, setUserName, showNotification, showConfirmation }) {
   const location = useLocation(); 
   const navigate = useNavigate();
+  const {attachRegisteredWallet}=useWallet();
+  const submitting=useRef(false);
+  const [isSubmitting,setIsSubmitting]=useState(false);
+  const [progress,setProgress]=useState('');
 
   const isLoginView = location.pathname === '/login';
 
@@ -60,6 +66,7 @@ export default function Login({ setIsLoggedIn, setUserId, setUserName, showNotif
   };
 
   const switchView = (targetPath) => {
+    if (submitting.current) return;
     setConfirmPassword(''); 
     setShowPassword(false);
     setShowConfirmPassword(false);
@@ -69,6 +76,7 @@ export default function Login({ setIsLoggedIn, setUserId, setUserName, showNotif
   };
 
   const handleAuth = async () => {
+    if (submitting.current) return;
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       // 🌟 將 alert 替換為 showNotification
@@ -87,15 +95,20 @@ export default function Login({ setIsLoggedIn, setUserId, setUserName, showNotif
       showNotification('error', '密碼錯誤', '兩次輸入的密碼不一致，請重新確認！');
       return;
     }
+    if (!isLoginView && password.length<8) {
+      showNotification('warning','密碼太短','註冊密碼至少需要 8 個字元');
+      return;
+    }
 
     const payload = isLoginView
       ? { email, password }
       : { email, password, userName: inputName };
 
+    submitting.current=true;setIsSubmitting(true);
     try {
-      const data = isLoginView
-        ? await loginRequest(email, password)
-        : await registerRequest(payload);
+      let data,session;
+      if (isLoginView) data=await loginRequest(email,password);
+      else ({data,session}=await registerWithWallet(payload,setProgress));
 
       // Session cookie 由後端回應；不要靠 MetaMask 地址假裝會員身分。
       if (data.userId != null || data.user_id != null) {
@@ -103,6 +116,7 @@ export default function Login({ setIsLoggedIn, setUserId, setUserName, showNotif
       }
       if (data.userName) setUserName(data.userName);
       setIsLoggedIn(true);
+      if(session) attachRegisteredWallet(session,data.walletAddress);
       showNotification('success', `${isLoginView ? '登入' : '註冊'}成功`, `歡迎，${data.userName || inputName}。`);
 
       const intendedDestination = location.state?.from || '/search';
@@ -110,22 +124,18 @@ export default function Login({ setIsLoggedIn, setUserId, setUserName, showNotif
     } catch (error) {
       console.error('驗證時發生錯誤:', error);
       // 真正的網路異常與帳密/註冊失敗分開處理。
-      if (error.status == null) {
+      if (!isLoginView) {
+        showNotification('error','註冊未完成',error.code==='ACTION_REJECTED'||error.code===4001?'你已取消錢包操作，帳號尚未建立。':error.message||'錢包連線或註冊失敗，請重試');
+      } else if (error.status == null) {
         showNotification('error', '連線異常', '無法連線至後端伺服器');
-      } else if (isLoginView) {
+      } else {
         showConfirmation(
           '登入失敗',
           `${error.message}\n\n您是不是還沒建立過帳號？需要為您切換到「註冊」畫面嗎？`,
           () => switchView('/register')
         );
-      } else {
-        showConfirmation(
-          '註冊失敗',
-          `${error.message}\n\n該信箱可能已經註冊過了，要切換到「登入」畫面試試看嗎？`,
-          () => switchView('/login')
-        );
       }
-    }
+    } finally {submitting.current=false;setIsSubmitting(false);setProgress('');}
   };
 
 
@@ -263,10 +273,12 @@ export default function Login({ setIsLoggedIn, setUserId, setUserName, showNotif
 
             <button 
               onClick={handleAuth} 
+              disabled={isSubmitting}
               style={{ width: '100%', padding: '15px', backgroundColor: '#3498db', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer', marginTop: '10px', boxShadow: '0 4px 10px rgba(52, 152, 219, 0.3)', transition: 'background-color 0.3s' }}
             >
-              {isLoginView ? '登入帳號' : '建立新帳號'}
+              {isSubmitting ? (progress||'正在登入…') : isLoginView ? '登入帳號' : '連接 MetaMask 並建立帳號'}
             </button>
+            {!isLoginView&&<p style={{fontSize:'13px',color:'#64748b',lineHeight:1.7,margin:0}}>建立帳號時會開啟 MetaMask，請選擇並簽章驗證要綁定的錢包。一個帳號只能綁定一個錢包，綁定後不能更換；同一錢包也不能用於其他帳號。此簽章不會轉出代幣。</p>}
           </div>
 
           <div style={{ textAlign: 'center', marginTop: '20px' }}>

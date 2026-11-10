@@ -1,13 +1,13 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Code, Music, Languages, Sparkles, User, X, Clock, Calendar, Star, ShieldCheck, AlignLeft, Info, CircleDollarSign, Loader2 } from 'lucide-react';
-import { useWallet } from './hooks/useWallet';
 import { useSkillTrade } from './hooks/useSkillTrade';
-import { isSkillExchangeConfigured } from './services/blockchain';
+import { fetchChainConfig } from './services/api';
+import { useLiveData } from './hooks/useLiveData';
 
-export default function SearchTeacher({ isLoggedIn, balance, onBookingComplete, teachers, userId, showNotification }) {
+export default function SearchTeacher({ isLoggedIn, teachers, userId, showNotification }) {
   const navigate = useNavigate();
-  const { isConnected, connectWallet } = useWallet();
+  const {data:chainConfig}=useLiveData(fetchChainConfig);
   const { executeSkillTrade, loadingMessage, isTrading } = useSkillTrade();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -65,58 +65,15 @@ export default function SearchTeacher({ isLoggedIn, balance, onBookingComplete, 
       return;
     }
 
-    const platformDeployed = isSkillExchangeConfigured();
-    if (platformDeployed && !isConnected) {
-      try {
-        await connectWallet();
-      } catch (err) {
-        showNotification('error', '錢包連線', err.message);
-        return;
-      }
-    }
+    if(!chainConfig?.enabled) { showNotification('error','交易暫停',chainConfig?.message||'鏈上交易尚未就緒'); return; }
 
-    if (balance < selectedTeacher.price) {
-      showNotification('error', '交易失敗', '餘額不足！請先至錢包儲值或確認鏈上 SKILL 代幣餘額。');
-      setSelectedTeacher(null);
-      navigate('/wallet');
-      return;
-    }
-
-    let txHash = null;
-    const jobId = selectedTeacher.jobId ?? selectedTeacher.classId ?? selectedTeacher.id;
     setIsBooking(true);
     try {
-      // 平台合約已部署：執行 Approve → buySkill 鏈上交易
-      if (platformDeployed) {
-        const { tradeTxHash } = await executeSkillTrade(jobId, selectedTeacher.price);
-        txHash = tradeTxHash;
-      }
-
-      await onBookingComplete({
-        courseId: selectedTeacher.courseId,
-        classId: selectedTeacher.classId ?? selectedTeacher.id,
-        timeSlot: selectedTimeSlot,
-        teacherName: selectedTeacher.name,
-        skillName: selectedTeacher.skill,
-        amount: selectedTeacher.price,
-        txHash,
-      });
-
-      let timeText = selectedTimeSlot;
-      if (timeText.includes('-') || timeText.includes('|')) {
-        timeText = formatTimeSlot(timeText);
-      }
-
-      const chainNote = platformDeployed
-        ? `\n鏈上交易：${txHash?.slice(0, 10)}...`
-        : '\n預約與點數託管已儲存，可至預約管理查看。';
-
-      showNotification(
-        'success',
-        '預約成功',
-        `已預約 ${selectedTeacher.name} 老師的課程。\n約定時間：${timeText}${chainNote}`
-      );
+      const payment=await executeSkillTrade(selectedTeacher.courseId,selectedTimeSlot,userId);
+      showNotification(payment.status==='quoted'?'warning':'success',payment.status==='quoted'?'付款確認中':'SKILL 付款已確認',
+        payment.status==='quoted'?'交易已送出，請到預約管理同步確認，請勿重複付款。':'SKILL 已存入託管合約，完課後才會撥款給老師。');
       setSelectedTeacher(null);
+      navigate('/bookings');
     } catch (err) {
       showNotification('error', '交易失敗', err.message || '未知錯誤');
       setSelectedTeacher(null);
@@ -211,7 +168,7 @@ export default function SearchTeacher({ isLoggedIn, balance, onBookingComplete, 
                       
                       {/* 🌟 已更新：這裡不再使用 Emoji，全部替換為圖示 */}
                       <span style={{ color: '#d97706', fontWeight: '900', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <CircleDollarSign size={18} strokeWidth={2.5} /> {teacher.price.toFixed(1)}
+                        <CircleDollarSign size={18} strokeWidth={2.5} /> {teacher.price} SKILL
                       </span>
                     </div>
                     <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', color: '#0f172a', flexGrow: 1 }}>{teacher.skill}</h3>
@@ -291,14 +248,16 @@ export default function SearchTeacher({ isLoggedIn, balance, onBookingComplete, 
               <div style={{ backgroundColor: 'white', borderRadius: '16px', padding: '24px', border: '1px solid #e2e8f0', marginBottom: '30px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '10px' }}>
                   <span style={{ fontSize: '36px', color: '#0f172a', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <CircleDollarSign size={32} strokeWidth={2.5} color="#0f172a" /> {selectedTeacher.price.toFixed(1)}
+                    <CircleDollarSign size={32} strokeWidth={2.5} color="#0f172a" /> {selectedTeacher.price}
                   </span>
-                  <span style={{ fontSize: '16px', color: '#64748b', fontWeight: 'bold' }}>YTC / 堂</span>
+                  <span style={{ fontSize: '16px', color: '#64748b', fontWeight: 'bold' }}>SKILL / 堂</span>
                 </div>
-                <div style={{ fontSize: '13px', color: '#94a3b8' }}>免收平台手續費，100% 價值回歸</div>
+                <div style={{ fontSize: '13px', color: '#94a3b8' }}>課程費全額結算，另需 ETH 網路費</div>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '30px' }}>
+                <p style={{fontSize:'13px',color:'#475569',lineHeight:1.7}}>使用 SKILL 鏈上託管付款，網路費以 ETH 支付。付款時段最多保留約 10 分鐘，請依序完成 MetaMask 的授權與付款。</p>
+                {!chainConfig?.enabled&&<p role="alert">{chainConfig?.message||'鏈上交易尚未就緒'}</p>}
                 <div>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', color: '#475569', fontWeight: 'bold', marginBottom: '8px' }}>
                     <Calendar size={16} /> 選擇老師有空時段
@@ -339,7 +298,7 @@ export default function SearchTeacher({ isLoggedIn, balance, onBookingComplete, 
               <div style={{ marginTop: 'auto' }}>
                 <button 
                   onClick={confirmBooking}
-                  disabled={isTrading || isBooking || !selectedTeacher.availableTimes?.length}
+                  disabled={isTrading || isBooking || !chainConfig?.enabled || !selectedTeacher.availableTimes?.length}
                   style={{ width: '100%', padding: '16px', backgroundColor: '#0f172a', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', fontSize: '16px', cursor: isTrading ? 'not-allowed' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', boxShadow: '0 10px 20px -5px rgba(15, 23, 42, 0.3)', transition: 'background-color 0.2s', opacity: isTrading ? 0.7 : 1 }}
                   onMouseOver={e => { if (!isTrading) e.currentTarget.style.backgroundColor = '#1e293b'; }}
                   onMouseOut={e => e.currentTarget.style.backgroundColor = '#0f172a'}
@@ -347,12 +306,7 @@ export default function SearchTeacher({ isLoggedIn, balance, onBookingComplete, 
                   {isTrading ? <Loader2 size={20} className="animate-spin" /> : <ShieldCheck size={20} />}
                   {isTrading || isBooking ? (loadingMessage || '處理中...') : '確認預約並扣款'}
                 </button>
-                <div style={{ textAlign: 'center', marginTop: '15px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontSize: '13px', color: '#64748b' }}>目前錢包餘額：</span>
-                  <span style={{ fontSize: '14px', color: '#d97706', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <CircleDollarSign size={14} strokeWidth={2.5} /> {balance.toFixed(1)} YTC
-                  </span>
-                </div>
+
               </div>
 
             </div>

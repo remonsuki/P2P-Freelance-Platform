@@ -1,0 +1,29 @@
+{
+  "name": "YunBarterSkillEscrow",
+  "version": "1",
+  "types": {
+    "Quote": [
+      {"name":"paymentId","type":"bytes32"},
+      {"name":"slotKey","type":"bytes32"},
+      {"name":"student","type":"address"},
+      {"name":"teacher","type":"address"},
+      {"name":"amount","type":"uint256"},
+      {"name":"startsAt","type":"uint64"},
+      {"name":"endsAt","type":"uint64"},
+      {"name":"deadline","type":"uint64"}
+    ]
+  },
+  "abi": [
+    "function version() view returns (uint256)",
+    "function token() view returns (address)",
+    "function quoteSigner() view returns (address)",
+    "function fund((bytes32 paymentId,bytes32 slotKey,address student,address teacher,uint256 amount,uint64 startsAt,uint64 endsAt,uint64 deadline) quote,bytes signature)",
+    "function getPayment(bytes32) view returns (((bytes32 paymentId,bytes32 slotKey,address student,address teacher,uint256 amount,uint64 startsAt,uint64 endsAt,uint64 deadline) quote,uint8 state,uint64 fundedBlock,uint64 changedBlock))",
+    "function cancel(bytes32)",
+    "function complete(bytes32)",
+    "function dispute(bytes32)",
+    "function refund(bytes32)",
+    "function claim(bytes32)",
+    "event PaymentStateChanged(bytes32 indexed paymentId,uint8 state,address actor)"
+  ]
+}
