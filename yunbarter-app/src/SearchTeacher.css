@@ -1,0 +1,165 @@
+/* 尋找課程：電腦版主要排版 */
+.search-layout {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  gap: 30px;
+  align-items: flex-start;
+}
+
+/* 左側課程篩選 */
+.search-sidebar {
+  width: 250px;
+  position: sticky;
+  top: 100px;
+  flex-shrink: 0;
+}
+
+/* 右側課程內容 */
+.search-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* 手機和平板版 */
+@media (max-width: 768px) {
+  .search-layout {
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .search-sidebar {
+    width: 100%;
+    position: static;
+  }
+
+  .search-content {
+    width: 100%;
+    flex: none;
+  }
+}
+/* =========================================
+   Step 5.2：手機版可收合分類篩選
+   ========================================= */
+
+/* 電腦版：分類永遠顯示 */
+.search-filter-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* 電腦版：隱藏展開按鈕 */
+.search-filter-toggle {
+  display: none;
+}
+
+/* 手機版（768px 以下） */
+@media (max-width: 768px) {
+
+  .search-filter-toggle {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 13px 16px;
+    border: 1px solid #bfdbfe;
+    border-radius: 12px;
+    background-color: #eff6ff;
+    color: #2563eb;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+
+  /* 手機版預設收合 */
+  .search-filter-options {
+    display: none;
+  }
+
+  /* 點擊展開後顯示 */
+  .search-filter-options.is-open {
+    display: flex;
+    margin-top: 16px;
+  }
+}
+/* =========================================
+   Step 5.3：手機版搜尋與排序優化
+   ========================================= */
+
+@media (max-width: 768px) {
+
+  /* 三個排序按鈕保持同一行 */
+  .search-sort-controls {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 5px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  /* 按鈕文字不換行，也不壓縮 */
+  .search-sort-controls > button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    min-width: max-content;
+  }
+
+}
+/* =========================================
+   Step 5.4：課程卡片 RWD 優化
+   ========================================= */
+
+/* 電腦版課程卡片排列 */
+.search-course-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 25px;
+  margin-top: 10px;
+  min-width: 0;
+}
+
+/* 電腦版封面高度 */
+.search-course-cover {
+  height: 160px;
+}
+
+/* 電腦版卡片內容 */
+.search-course-body {
+  padding: 22px;
+  min-width: 0;
+}
+
+/* 手機及平板 */
+@media (max-width: 768px) {
+
+  /* 課程卡片改成單欄 */
+  .search-course-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    width: 100%;
+  }
+
+  /* 縮短封面高度 */
+  .search-course-cover {
+    height: 140px;
+  }
+
+  /* 減少內部留白 */
+  .search-course-body {
+    padding: 18px;
+  }
+}
+
+/* 特別窄的手機 */
+@media (max-width: 360px) {
+  .search-course-body {
+    padding: 16px;
+  }
+}
