@@ -1,304 +1,1078 @@
+
 import { useState, useEffect } from 'react';
-import { ArrowLeft, User, Star, GraduationCap, ShieldCheck, BookOpen, Calendar, CircleDollarSign, CalendarDays, Plus, X } from 'lucide-react';
+import {
+  ArrowLeft, User, GraduationCap, ShieldCheck,
+  BookOpen, Calendar, CalendarDays, Plus, X
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { fetchProfile, updateProfile, fetchBookings } from './services/api';
 import { useLiveData } from './hooks/useLiveData';
+import './Profile.css';
 
-export default function Profile({ userName, userId, setUserName, teachers, onDeleteTeacher, onUpdateTeacher, refreshTeachers, showNotification, showConfirmation }) {
+// 共用卡片樣式
+const cardStyle = {
+  backgroundColor: 'white',
+  padding: '26px',
+  border: '1px solid #e2e8f0',
+  borderRadius: '16px',
+  boxShadow: '0 5px 20px rgba(15,23,42,0.04)',
+  minWidth: 0,
+};
+
+const primaryButton = {
+  backgroundColor: '#2563eb',
+  color: 'white',
+  border: 0,
+  borderRadius: '10px',
+  padding: '11px 16px',
+  fontWeight: 'bold',
+  cursor: 'pointer',
+};
+
+const inputStyle = {
+  width: '100%',
+  padding: '11px',
+  border: '1px solid #cbd5e1',
+  borderRadius: '9px',
+  boxSizing: 'border-box',
+  fontSize: '14px',
+};
+
+const statusLabels = {
+  IN_ESCROW: '已預約',
+  DISPUTED: '爭議處理中',
+  COMPLETED: '已完課',
+  REFUNDED: '已退款',
+};
+
+export default function Profile({
+  userName,
+  userId,
+  setUserName,
+  teachers = [],
+  onDeleteTeacher,
+  onUpdateTeacher,
+  refreshTeachers,
+  showNotification,
+  showConfirmation,
+}) {
   const [isEditing, setIsEditing] = useState(false);
-  
   const [editName, setEditName] = useState(userName);
-  const [editBio, setEditBio] = useState('熱愛程式與音樂，目前在鑽研網頁設計與吉他指彈。');
-  const [editDept, setEditDept] = useState('尚未填寫系所');
-  // 新增：用來存放預覽圖片的網址
+  const [editBio, setEditBio] = useState('');
+  const [editDept, setEditDept] = useState('');
   const [avatarPreview, setAvatarPreview] = useState(null);
-
-  // 新增：當使用者選擇圖片時觸發的函數
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      // 產生一個純前端暫時的圖片預覽網址
-      const imageUrl = URL.createObjectURL(file);
-      setAvatarPreview(imageUrl);
-    }
-  };
 
   const [availableTimes, setAvailableTimes] = useState([]);
   const [newDate, setNewDate] = useState('');
   const [newSlot, setNewSlot] = useState('Morning');
   const [lockedTimes, setLockedTimes] = useState([]);
+
   const [isSaving, setIsSaving] = useState(false);
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [profileError, setProfileError] = useState('');
   const [teacherRating, setTeacherRating] = useState(null);
   const [editingCourse, setEditingCourse] = useState(null);
-  const { data: bookingData, error: bookingError } = useLiveData(fetchBookings);
 
-  const bookedCourses = (bookingData || []).filter(b => b.role === 'student').map(b => ({
-    ...b, skill: b.courseTitle, price: b.amount, date: b.scheduledTime,
-  }));
+  const {
+    data: bookingData,
+    error: bookingError,
+  } = useLiveData(fetchBookings);
 
+  const bookedCourses = (
+    Array.isArray(bookingData) ? bookingData : []
+  )
+    .filter(b => b.role === 'student')
+    .map(b => ({
+      ...b,
+      skill: b.courseTitle,
+      price: b.amount,
+      date: b.scheduledTime,
+    }));
 
+  const myTeachers = teachers.filter(
+    teacher => teacher.teacherId === userId
+  );
+
+  // 載入個人資料
   useEffect(() => {
     let active = true;
+    setProfileLoaded(false);
+
     fetchProfile()
       .then(data => {
         if (!active) return;
+
         if (data.userName) {
           setEditName(data.userName);
-          setUserName(data.userName); 
+          setUserName(data.userName);
         }
+
         setEditDept(data.department || '');
         setEditBio(data.bio || '');
         setTeacherRating(data.teacherRating);
-        if (data.availableTimes) setAvailableTimes(data.availableTimes);
+        setAvailableTimes(data.availableTimes || []);
         setLockedTimes(data.lockedTimes || []);
+        setProfileError('');
         setProfileLoaded(true);
       })
-      .catch(err => { if (active) setProfileError(err.message); });
-    return () => { active = false; };
+      .catch(err => {
+        if (active) setProfileError(err.message);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [setUserName, userId]);
 
-  const myTeachers = teachers.filter(teacher => teacher.teacherId === userId);
+  // 清理頭像預覽網址
+  useEffect(() => {
+    return () => {
+      if (avatarPreview) {
+        URL.revokeObjectURL(avatarPreview);
+      }
+    };
+  }, [avatarPreview]);
 
+  const handleImageChange = (event) => {
+    const file = event.target.files?.[0];
+
+    if (file) {
+      setAvatarPreview(URL.createObjectURL(file));
+    }
+  };
+
+  // 新增授課時間
   const handleAddSpecificTime = () => {
     if (!newDate) {
-      showNotification('warning', '操作提示', '請先選擇一個日期！');
+      showNotification(
+        'warning', '操作提示', '請先選擇一個日期！'
+      );
       return;
     }
+
     const timeKey = `${newDate}|${newSlot}`;
+
     if (availableTimes.includes(timeKey)) {
-      showNotification('warning', '重複新增', '這個時段已經存在了');
+      showNotification(
+        'warning', '重複新增', '這個時段已經存在了'
+      );
       return;
     }
+
     setAvailableTimes(prev => [...prev, timeKey].sort());
   };
 
-  const handleRemoveTime = (timeKeyToRemove) => {
-    if (lockedTimes.includes(timeKeyToRemove)) return;
-    setAvailableTimes(prev => prev.filter(time => time !== timeKeyToRemove));
-  };
-
   const formatDisplayTime = (timeKey) => {
-    if (timeKey.includes('|')) {
-      const [date, slot] = timeKey.split('|');
-      const slotMap = { 'Morning': '早上', 'Afternoon': '下午', 'Night': '晚上' };
-      return `${date} ${slotMap[slot] || slot}`;
-    }
-    return timeKey; 
+    const [date, slot] = timeKey.split('|');
+
+    const names = {
+      Morning: '早上',
+      Afternoon: '下午',
+      Night: '晚上',
+    };
+
+    return slot
+      ? `${date} ${names[slot] || slot}`
+      : timeKey;
   };
 
+  // 儲存會員資料及排班
   const handleSaveProfile = async () => {
-    if (!profileLoaded) { showNotification('error', '資料尚未載入', '請重新整理後再儲存。'); return; }
+    if (!profileLoaded) {
+      showNotification(
+        'error', '資料尚未載入', '請重新整理後再儲存。'
+      );
+      return;
+    }
+
     if (!editName.trim()) {
-      showNotification('warning', '資料不完整', '名稱不可為空！');
+      showNotification(
+        'warning', '資料不完整', '名稱不可為空！'
+      );
       return;
     }
 
     if (isSaving) return;
+
     setIsSaving(true);
+
     try {
-      const data = await updateProfile({ userName: editName, department: editDept, bio: editBio, availableTimes, expectedUserId: userId });
+      const data = await updateProfile({
+        userName: editName.trim(),
+        department: editDept,
+        bio: editBio,
+        availableTimes,
+        expectedUserId: userId,
+      });
+
       setUserName(data.userName);
-      setAvailableTimes(data.availableTimes);
-      setLockedTimes(data.lockedTimes);
+      setAvailableTimes(data.availableTimes || []);
+      setLockedTimes(data.lockedTimes || []);
       setIsEditing(false);
-      void refreshTeachers().catch(error => console.error('重新載入課程失敗:', error));
-      showNotification('success', '成功', '個人資料與授課時段已儲存。');
-    } catch (error) {
-      showNotification('error', '儲存失敗', error.message);
+
+      void refreshTeachers().catch(err => {
+        console.error('重新載入課程失敗:', err);
+      });
+
+      showNotification(
+        'success', '儲存成功',
+        '個人資料與授課時段已儲存。'
+      );
+    } catch (err) {
+      showNotification('error', '儲存失敗', err.message);
     } finally {
       setIsSaving(false);
     }
   };
 
+  // 更新課程
   const saveCourse = async (event) => {
     event.preventDefault();
-    if (isSaving) return;
-    setIsSaving(true);
-    try {
-      await onUpdateTeacher(editingCourse.id, editingCourse.skill, editingCourse.price, editingCourse.description);
-      setEditingCourse(null);
-      showNotification('success', '儲存成功', '課程已更新；既有預約保留原名稱與成交金額。');
-    } catch (error) { showNotification('error', '更新失敗', error.message); }
-    finally { setIsSaving(false); }
-  };
 
-  const confirmDeleteTeacher = (teacher) => {
-    showConfirmation('確認下架', `確定要下架「${teacher.skill}」嗎？`, () => onDeleteTeacher(teacher.id));
+    if (isSaving || !editingCourse) return;
+
+    setIsSaving(true);
+
+    try {
+      await onUpdateTeacher(
+        editingCourse.id,
+        editingCourse.skill,
+        editingCourse.price,
+        editingCourse.description
+      );
+
+      setEditingCourse(null);
+
+      showNotification(
+        'success', '儲存成功',
+        '課程已更新；既有預約保留原名稱與成交金額。'
+      );
+    } catch (err) {
+      showNotification('error', '更新失敗', err.message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
-    <div style={{ backgroundColor: '#f4f7f6', minHeight: 'calc(100vh - 70px)', padding: '40px 20px', fontFamily: 'sans-serif' }}>
-      <div style={{ maxWidth: '700px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        {profileError && <p role="alert">載入個人資料失敗：{profileError}。請重新整理後再編輯。</p>}
-        
-        {/* 卡片一：封面與個人名片 */}
-        <div style={{ backgroundColor: 'white', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)', overflow: 'hidden' }}>
-          <div style={{ height: '140px', background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', position: 'relative' }}></div>
-          <div style={{ padding: '0 30px 30px 30px', position: 'relative' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              {/* 加上預覽邏輯與 overflow: hidden */}
-              <div style={{ width: '100px', height: '100px', backgroundColor: '#f1f5f9', borderRadius: '50%', border: '4px solid white', marginTop: '-50px', display: 'flex', justifyContent: 'center', alignItems: 'center', boxShadow: '0 2px 10px rgba(0,0,0,0.1)', zIndex: 1, position: 'relative', overflow: 'hidden' }}>
+    <div style={{
+      background: '#f4f7f6',
+      minHeight: 'calc(100vh - 70px)',
+      padding: '40px 20px',
+    }}>
+
+      <div className="profile-layout">
+
+        {profileError && (
+          <p role="alert" style={{ color: '#dc2626' }}>
+            載入個人資料失敗：{profileError}
+          </p>
+        )}
+
+        {/* ===== 頂部會員名片 ===== */}
+        <div
+          className="profile-hero"
+          style={{
+            background: 'white',
+            borderRadius: '16px',
+            overflow: 'hidden',
+            border: '1px solid #e2e8f0',
+          }}
+        >
+          <div style={{
+            height: '105px',
+            background: 'linear-gradient(115deg, #1e40af, #38bdf8)',
+          }} />
+
+          <div style={{ padding: '0 28px 26px' }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              gap: '12px',
+            }}>
+              <div style={{
+                width: '90px',
+                height: '90px',
+                marginTop: '-45px',
+                border: '4px solid white',
+                borderRadius: '50%',
+                background: '#eff6ff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
+              }}>
                 {avatarPreview ? (
-                  <img src={avatarPreview} alt="大頭貼" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img
+                    src={avatarPreview}
+                    alt="頭像預覽"
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                    }}
+                  />
                 ) : (
-                  <User size={44} color="#64748b" />
+                  <User size={40} color="#64748b" />
                 )}
               </div>
-              <button onClick={() => setIsEditing(true)} style={{ marginTop: '15px', padding: '8px 20px', borderRadius: '20px', border: '1px solid #3498db', backgroundColor: 'transparent', color: '#3498db', fontWeight: 'bold', cursor: 'pointer' }}>編輯名片</button>
-            </div>
-            <div style={{ marginTop: '15px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
-                <h1 style={{ margin: 0, color: '#2c3e50', fontSize: '26px' }}>{userName}</h1>
-                <span style={{ backgroundColor: '#0f172a', color: '#f59e0b', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}><Star size={12} fill="#f59e0b" color="#f59e0b" /> 認證達人</span>
-              </div>
-              <div style={{ display: 'flex', gap: '20px', margin: '15px 0', color: '#34495e', fontSize: '15px' }}>
-                <div><strong style={{ color: '#2c3e50' }}>{myTeachers.length}</strong> 上架技能</div>
-                <div><strong style={{ color: '#2c3e50' }}>{teacherRating == null ? '尚無' : teacherRating.toFixed(1)}</strong> 平均評價</div>
-                <div><strong style={{ color: '#2c3e50' }}>100%</strong> 回覆率</div>
-              </div>
-              <p style={{ margin: 0, color: '#7f8c8d', lineHeight: '1.6', fontSize: '15px', fontStyle: 'italic' }}>“ {editBio} ”</p>
-            </div>
-          </div>
-        </div>
 
-        {/* 卡片二：專業身分 */}
-        <div style={{ backgroundColor: 'white', padding: '25px 30px', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
-          <h3 style={{ margin: '0 0 20px 0', color: '#2c3e50', fontSize: '18px' }}>專業身分</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-              <GraduationCap size={22} color="#64748b" />
-              <div><div style={{ fontWeight: 'bold', color: '#2c3e50', fontSize: '15px' }}>教育經歷 / 職稱</div><div style={{ color: '#7f8c8d', fontSize: '14px', marginTop: '2px' }}>{editDept}</div></div>
-            </div>
-            <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-              <ShieldCheck size={22} color="#64748b" />
-              <div><div style={{ fontWeight: 'bold', color: '#2c3e50', fontSize: '15px' }}>帳號認證狀態</div><div style={{ color: '#7f8c8d', fontSize: '14px', marginTop: '2px' }}>National Yunlin University of Science and Technology 學生身分已核可</div></div>
-            </div>
-          </div>
-        </div>
-
-        {/* 卡片三：指定授課時間 */}
-        <div style={{ backgroundColor: 'white', padding: '25px 30px', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
-            <h3 style={{ margin: '0 0 20px 0', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><CalendarDays size={20} color="#0f172a" />我的授課時間</h3>
-            
-            <div style={{ backgroundColor: '#f8fafc', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '20px' }}>
-                <div style={{ display: 'flex', gap: '15px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                    <div style={{ flex: '2', minWidth: '150px' }}>
-                        <label style={{ display: 'block', fontSize: '13px', color: '#64748b', fontWeight: 'bold', marginBottom: '6px' }}>選擇日期</label>
-                        <input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} />
-                    </div>
-                    <div style={{ flex: '1', minWidth: '100px' }}>
-                        <label style={{ display: 'block', fontSize: '13px', color: '#64748b', fontWeight: 'bold', marginBottom: '6px' }}>時段</label>
-                        <select value={newSlot} onChange={(e) => setNewSlot(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-                            <option value="Morning">早上</option><option value="Afternoon">下午</option><option value="Night">晚上</option>
-                        </select>
-                    </div>
-                    <button onClick={handleAddSpecificTime} style={{ padding: '10px 16px', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
-                        <Plus size={16} /> 新增
-                    </button>
-                </div>
+              <button
+                type="button"
+                onClick={() => setIsEditing(true)}
+                style={{
+                  marginTop: '16px',
+                  padding: '9px 17px',
+                  borderRadius: '20px',
+                  border: '1px solid #bfdbfe',
+                  background: '#eff6ff',
+                  color: '#2563eb',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                }}
+              >
+                編輯名片
+              </button>
             </div>
 
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', minHeight: '50px' }}>
-                {availableTimes.map(timeKey => (
-                    <div key={timeKey} style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#eff6ff', color: '#1d4ed8', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: 'bold' }}>
-                        <Calendar size={14} />{formatDisplayTime(timeKey)}
-                        <button disabled={lockedTimes.includes(timeKey)} title={lockedTimes.includes(timeKey) ? "已有預約，不能移除此時段" : "移除此時段"} onClick={() => handleRemoveTime(timeKey)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}><X size={14} /></button>
-                    </div>
-                ))}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '10px',
+              marginTop: '10px',
+            }}>
+              <h1 style={{
+                margin: 0,
+                fontSize: '26px',
+                color: '#0f172a',
+              }}>
+                {userName}
+              </h1>
+
+              <span style={{
+                borderRadius: '20px',
+                background: '#eff6ff',
+                color: '#2563eb',
+                padding: '5px 10px',
+                fontSize: '12px',
+                fontWeight: 'bold',
+              }}>
+                YunBarter 會員
+              </span>
             </div>
 
-            <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end' }}>
-                <button disabled={isSaving || !profileLoaded} onClick={handleSaveProfile} style={{ padding: '10px 24px', backgroundColor: '#0f172a', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>儲存排班設定</button>
-            </div>
-        </div>
+            {editBio && (
+              <p style={{
+                color: '#64748b',
+                fontSize: '14px',
+                lineHeight: 1.6,
+                margin: '8px 0 18px',
+                overflowWrap: 'anywhere',
+              }}>
+                {editBio}
+              </p>
+            )}
 
-        {/* 卡片四：預約課程 */}
-        <div style={{ backgroundColor: 'white', padding: '25px 30px', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
-          <h3 style={{ margin: '0 0 20px 0', color: '#2c3e50', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><BookOpen size={20} color="#0f172a" />我預約的課程 ({bookedCourses.length})</h3>
-          {bookingError && <p role="alert">載入失敗：{bookingError}</p>}
-          <Link to="/bookings">查看預約、完課與爭議處理</Link>
-          {bookedCourses.map(course => (
-              <div key={course.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '15px 0', borderBottom: '1px solid #f0f0f0' }}>
-                  <div>
-                    <h4 style={{ margin: '0 0 6px 0' }}>{course.skill}</h4>
-                    <div style={{ display: 'flex', gap: '10px', fontSize: '13px', color: '#64748b' }}>
-                        <span>{course.teacherName} 老師</span><span>{course.date}</span>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '2px' }}><CircleDollarSign size={13} /> {course.price} {course.archived?'YTC（封存）':'SKILL'}</span>
-                    </div>
+            {/* 三項統計 */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns:
+                'repeat(auto-fit, minmax(150px, 1fr))',
+              gap: '12px',
+              marginTop: '18px',
+            }}>
+              {[
+                {
+                  label: '上架課程',
+                  value: myTeachers.length,
+                },
+                {
+                  label: '已預約課程',
+                  value: bookedCourses.length,
+                },
+                {
+                  label: '教師評價',
+                  value: teacherRating == null
+                    ? '尚無'
+                    : Number(teacherRating).toFixed(1),
+                },
+              ].map(item => (
+                <div
+                  key={item.label}
+                  style={{
+                    padding: '12px',
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '12px',
+                    textAlign: 'center',
+                  }}
+                >
+                  <div style={{
+                    fontSize: '22px',
+                    fontWeight: 900,
+                    color: '#0f172a',
+                  }}>
+                    {item.value}
                   </div>
-                  {course.archived?<span>已封存</span>:course.status === 'IN_ESCROW' && course.canCancel ? <Link to="/bookings">管理鏈上預約</Link> : <span>{{IN_ESCROW:'已預約',DISPUTED:'爭議處理中',COMPLETED:'已完課',REFUNDED:'已退款'}[course.status]}</span>}
-              </div>
-          ))}
+
+                  <div style={{
+                    fontSize: '12px',
+                    color: '#64748b',
+                    marginTop: '4px',
+                  }}>
+                    {item.label}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
-        {/* 卡片五：我的技能 */}
-        <div style={{ backgroundColor: 'white', padding: '25px 30px', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
-          <h3 style={{ margin: '0 0 20px 0', fontSize: '18px' }}>我的技能課程 ({myTeachers.length})</h3>
-          {myTeachers.map(teacher => (
-              <div key={teacher.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '15px 0', borderBottom: '1px solid #f0f0f0' }}>
-                  <span>{teacher.skill}</span>
-                  <button onClick={() => setEditingCourse({...teacher})} style={{cursor:'pointer',background:'none',border:'none',color:'#2563eb'}}>編輯課程</button>
-                  <button onClick={() => confirmDeleteTeacher(teacher)} style={{ color: 'red', cursor: 'pointer', background: 'none', border: 'none' }}>下架</button>
+        {/* ===== 下方雙欄 Dashboard ===== */}
+        <div className="profile-dashboard">
+
+          {/* ===== 左側 ===== */}
+          <div className="profile-dashboard-left">
+
+            {/* 專業身分 */}
+            <section style={cardStyle}>
+              <h3 style={{
+                margin: '0 0 22px',
+                color: '#0f172a',
+              }}>
+                專業身分
+              </h3>
+
+              <div style={{
+                display: 'flex',
+                gap: '12px',
+                alignItems: 'center',
+                marginBottom: '20px',
+              }}>
+                <GraduationCap color="#2563eb" size={24} />
+                <div>
+                  <strong>教育經歷 / 職稱</strong>
+                  <p style={{
+                    margin: '5px 0 0',
+                    color: '#64748b',
+                    overflowWrap: 'anywhere',
+                  }}>
+                    {editDept || '尚未填寫'}
+                  </p>
+                </div>
               </div>
-          ))}
+
+              <div style={{
+                display: 'flex',
+                gap: '12px',
+                alignItems: 'center',
+              }}>
+                <ShieldCheck color="#059669" size={24} />
+                <div>
+                  <strong>個人資料狀態</strong>
+                  <p style={{
+                    margin: '5px 0 0',
+                    color: '#64748b',
+                  }}>
+                    {profileLoaded
+                      ? '會員資料已載入'
+                      : profileError
+                        ? '載入失敗'
+                        : '會員資料載入中'}
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            {/* 我預約的課程 */}
+            <section style={cardStyle}>
+              <h3 style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                margin: '0 0 16px',
+                color: '#0f172a',
+              }}>
+                <BookOpen size={20} color="#2563eb" />
+                我預約的課程 ({bookedCourses.length})
+              </h3>
+
+              {bookingError && (
+                <p role="alert" style={{ color: '#dc2626' }}>
+                  載入失敗：{bookingError}
+                </p>
+              )}
+
+              {!bookingError && bookedCourses.length === 0 && (
+                <p style={{
+                  color: '#94a3b8',
+                  textAlign: 'center',
+                  padding: '22px 0',
+                }}>
+                  目前還沒有預約的課程
+                </p>
+              )}
+
+              {bookedCourses.map(course => (
+                <div
+                  key={course.id}
+                  style={{
+                    padding: '14px 0',
+                    borderBottom: '1px solid #f1f5f9',
+                    overflowWrap: 'anywhere',
+                  }}
+                >
+                  <strong>{course.skill}</strong>
+
+                  <p style={{
+                    margin: '6px 0',
+                    color: '#64748b',
+                    fontSize: '13px',
+                  }}>
+                    {course.teacherName} 老師 · {course.date}
+                  </p>
+
+                  <p style={{
+                    margin: '5px 0',
+                    color: '#64748b',
+                    fontSize: '13px',
+                  }}>
+                    {course.price}{' '}
+                    {course.archived ? 'YTC（封存）' : 'SKILL'}
+                    {' · '}
+                    {course.archived
+                      ? '已封存'
+                      : statusLabels[course.status] || course.status}
+                  </p>
+
+                  {!course.archived &&
+                    course.status === 'IN_ESCROW' &&
+                    course.canCancel && (
+                      <Link to="/bookings">
+                        管理鏈上預約
+                      </Link>
+                    )}
+                </div>
+              ))}
+
+              <Link
+                to="/bookings"
+                style={{
+                  display: 'block',
+                  textAlign: 'center',
+                  padding: '12px',
+                  marginTop: '18px',
+                  textDecoration: 'none',
+                  background: '#eff6ff',
+                  color: '#2563eb',
+                  borderRadius: '10px',
+                  fontWeight: 'bold',
+                }}
+              >
+                查看預約、完課與爭議處理
+              </Link>
+            </section>
+
+          </div>
+
+          {/* ===== 右側 ===== */}
+          <div className="profile-dashboard-right">
+
+            {/* 我的授課時間 */}
+            <section style={cardStyle}>
+              <h3 style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                margin: '0 0 20px',
+                color: '#0f172a',
+              }}>
+                <CalendarDays size={20} color="#2563eb" />
+                我的授課時間
+              </h3>
+
+              <div style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '12px',
+                alignItems: 'end',
+                background: '#f8fafc',
+                padding: '18px',
+                borderRadius: '12px',
+                border: '1px solid #e2e8f0',
+              }}>
+                <label style={{
+                  flex: '2 1 150px',
+                  fontSize: '13px',
+                  color: '#475569',
+                  fontWeight: 'bold',
+                }}>
+                  選擇日期
+                  <input
+                    type="date"
+                    value={newDate}
+                    onChange={e => setNewDate(e.target.value)}
+                    style={{
+                      ...inputStyle,
+                      marginTop: '6px',
+                    }}
+                  />
+                </label>
+
+                <label style={{
+                  flex: '1 1 100px',
+                  fontSize: '13px',
+                  color: '#475569',
+                  fontWeight: 'bold',
+                }}>
+                  時段
+                  <select
+                    value={newSlot}
+                    onChange={e => setNewSlot(e.target.value)}
+                    style={{
+                      ...inputStyle,
+                      marginTop: '6px',
+                    }}
+                  >
+                    <option value="Morning">早上</option>
+                    <option value="Afternoon">下午</option>
+                    <option value="Night">晚上</option>
+                  </select>
+                </label>
+
+                <button
+                  type="button"
+                  onClick={handleAddSpecificTime}
+                  style={primaryButton}
+                >
+                  <Plus
+                    size={15}
+                    style={{ verticalAlign: 'middle' }}
+                  />
+                  {' '}新增
+                </button>
+              </div>
+
+              <div style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '8px',
+                marginTop: '18px',
+                minHeight: '30px',
+              }}>
+                {availableTimes.length === 0 && (
+                  <span style={{
+                    color: '#94a3b8',
+                    fontSize: '13px',
+                  }}>
+                    尚未設定授課時段
+                  </span>
+                )}
+
+                {availableTimes.map(timeKey => (
+                  <span
+                    key={timeKey}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px 10px',
+                      background: '#eff6ff',
+                      borderRadius: '9px',
+                      color: '#1d4ed8',
+                      fontSize: '13px',
+                    }}
+                  >
+                    <Calendar size={14} />
+                    {formatDisplayTime(timeKey)}
+
+                    <button
+                      type="button"
+                      disabled={lockedTimes.includes(timeKey)}
+                      title={
+                        lockedTimes.includes(timeKey)
+                          ? '已有預約，不能移除'
+                          : '移除此時段'
+                      }
+                      onClick={() => {
+                        setAvailableTimes(prev =>
+                          prev.filter(t => t !== timeKey)
+                        );
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 0,
+                        cursor: 'pointer',
+                        opacity: lockedTimes.includes(timeKey)
+                          ? 0.4
+                          : 1,
+                      }}
+                    >
+                      <X size={14} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+
+              <div style={{
+                textAlign: 'right',
+                marginTop: '22px',
+              }}>
+                <button
+                  type="button"
+                  onClick={handleSaveProfile}
+                  disabled={isSaving || !profileLoaded}
+                  style={{
+                    ...primaryButton,
+                    background: '#0f172a',
+                    opacity: isSaving || !profileLoaded
+                      ? 0.6
+                      : 1,
+                  }}
+                >
+                  儲存排班設定
+                </button>
+              </div>
+            </section>
+
+            {/* 我的技能課程 */}
+            <section style={cardStyle}>
+              <h3 style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                margin: '0 0 18px',
+                color: '#0f172a',
+              }}>
+                <BookOpen color="#2563eb" size={20} />
+                我的技能課程 ({myTeachers.length})
+              </h3>
+
+              {myTeachers.length === 0 && (
+                <p style={{
+                  textAlign: 'center',
+                  padding: '20px',
+                  color: '#94a3b8',
+                }}>
+                  目前還沒有上架課程
+                </p>
+              )}
+
+              {myTeachers.map(teacher => (
+                <div
+                  key={teacher.id}
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: '10px',
+                    borderBottom: '1px solid #f1f5f9',
+                    padding: '13px 0',
+                  }}
+                >
+                  <strong style={{
+                    flex: 1,
+                    minWidth: '140px',
+                    overflowWrap: 'anywhere',
+                  }}>
+                    {teacher.skill}
+                  </strong>
+
+                  <div style={{
+                    display: 'flex',
+                    gap: '8px',
+                  }}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditingCourse({ ...teacher })
+                      }
+                      style={{
+                        ...primaryButton,
+                        background: '#eff6ff',
+                        color: '#2563eb',
+                      }}
+                    >
+                      編輯
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        showConfirmation(
+                          '確認下架',
+                          `確定要下架「${teacher.skill}」嗎？`,
+                          () => onDeleteTeacher(teacher.id)
+                        )
+                      }
+                      style={{
+                        ...primaryButton,
+                        background: '#fef2f2',
+                        color: '#dc2626',
+                      }}
+                    >
+                      下架
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              <Link
+                to="/publish"
+                style={{
+                  display: 'block',
+                  textAlign: 'center',
+                  marginTop: '18px',
+                  padding: '12px',
+                  background: '#eff6ff',
+                  borderRadius: '10px',
+                  color: '#2563eb',
+                  textDecoration: 'none',
+                  fontWeight: 'bold',
+                }}
+              >
+                + 發佈新課程
+              </Link>
+            </section>
+
+          </div>
         </div>
       </div>
-      
-      {editingCourse && <div style={{position:'fixed',inset:0,background:'rgba(15,23,42,.6)',display:'flex',alignItems:'center',justifyContent:'center',padding:'20px',zIndex:2200}}>
-        <form onSubmit={saveCourse} style={{background:'white',padding:'28px',borderRadius:'18px',width:'100%',maxWidth:'500px',display:'flex',flexDirection:'column',gap:'16px'}}>
-          <h3>編輯課程內容</h3>
-          <label>課程名稱<input required maxLength={200} value={editingCourse.skill} onChange={e=>setEditingCourse({...editingCourse,skill:e.target.value})} style={{width:'100%',padding:'10px',boxSizing:'border-box'}}/></label>
-          <label>定價<input required type="number" min="0.1" step="0.1" value={editingCourse.price} onChange={e=>setEditingCourse({...editingCourse,price:e.target.value})} style={{width:'100%',padding:'10px',boxSizing:'border-box'}}/></label>
-          <label>課程說明<textarea maxLength={10000} rows={6} value={editingCourse.description || ''} onChange={e=>setEditingCourse({...editingCourse,description:e.target.value})} style={{width:'100%',padding:'10px',boxSizing:'border-box'}}/></label>
-          <button disabled={isSaving} type="submit">{isSaving?'儲存中...':'儲存課程'}</button>
-          <button disabled={isSaving} type="button" onClick={()=>setEditingCourse(null)}>取消</button>
-        </form>
-      </div>}
-      {/* 🌟 復活的 Modal 區域：編輯個人檔案視窗 */}
+
+      {/* ===== 編輯課程視窗 ===== */}
+      {editingCourse && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(15,23,42,.6)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 2200,
+          padding: '20px',
+        }}>
+          <form
+            onSubmit={saveCourse}
+            style={{
+              background: 'white',
+              borderRadius: '18px',
+              width: '100%',
+              maxWidth: '500px',
+              padding: '28px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              boxSizing: 'border-box',
+            }}
+          >
+            <h3 style={{ margin: 0 }}>編輯課程內容</h3>
+
+            <label>
+              課程名稱
+              <input
+                required
+                maxLength={200}
+                value={editingCourse.skill}
+                onChange={e => setEditingCourse({
+                  ...editingCourse,
+                  skill: e.target.value,
+                })}
+                style={inputStyle}
+              />
+            </label>
+
+            <label>
+              定價
+              <input
+                required
+                type="number"
+                min="0.1"
+                step="0.1"
+                value={editingCourse.price}
+                onChange={e => setEditingCourse({
+                  ...editingCourse,
+                  price: e.target.value,
+                })}
+                style={inputStyle}
+              />
+            </label>
+
+            <label>
+              課程說明
+              <textarea
+                maxLength={10000}
+                rows={5}
+                value={editingCourse.description || ''}
+                onChange={e => setEditingCourse({
+                  ...editingCourse,
+                  description: e.target.value,
+                })}
+                style={inputStyle}
+              />
+            </label>
+
+            <button
+              type="submit"
+              disabled={isSaving}
+              style={primaryButton}
+            >
+              {isSaving ? '儲存中...' : '儲存課程'}
+            </button>
+
+            <button
+              type="button"
+              disabled={isSaving}
+              onClick={() => setEditingCourse(null)}
+              style={{
+                ...primaryButton,
+                background: '#f1f5f9',
+                color: '#334155',
+              }}
+            >
+              取消
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* ===== 編輯個人名片視窗 ===== */}
       {isEditing && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000 }}>
-          <div style={{ backgroundColor: 'white', width: '100%', maxWidth: '500px', borderRadius: '20px', padding: '0', boxShadow: '0 20px 50px rgba(0,0,0,0.2)', overflow: 'hidden', display: 'flex', flexDirection: 'column', maxHeight: '90vh' }}>
-            <div style={{ display: 'flex', alignItems: 'center', padding: '20px 25px', borderBottom: '1px solid #f1f5f9' }}>
-              <button onClick={() => setIsEditing(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', marginRight: '15px', padding: 0, display: 'flex', alignItems: 'center' }}><ArrowLeft size={20} /></button>
-              <h3 style={{ margin: 0, fontSize: '18px', color: '#0f172a', fontWeight: 'bold' }}>編輯個人檔案</h3>
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(15,23,42,.6)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 2000,
+          padding: '20px',
+        }}>
+          <div style={{
+            background: 'white',
+            maxWidth: '500px',
+            width: '100%',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            borderRadius: '20px',
+            padding: '24px',
+            boxSizing: 'border-box',
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              marginBottom: '22px',
+            }}>
+              <button
+                type="button"
+                onClick={() => setIsEditing(false)}
+                style={{
+                  border: 0,
+                  background: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                <ArrowLeft size={20} />
+              </button>
+              <h3 style={{ margin: 0 }}>編輯個人檔案</h3>
             </div>
-            <div style={{ padding: '25px', overflowY: 'auto' }}>
-              {/* 🌟 升級版：支援點擊上傳與預覽的頭像區塊 */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '30px' }}>
-                
-                {/* 隱藏的 input，用來選取檔案 */}
-                <input 
-                  type="file" 
-                  id="avatarUpload" 
-                  accept="image/*" 
-                  style={{ display: 'none' }} 
-                  onChange={handleImageChange} 
+
+            <label style={{
+              display: 'flex',
+              gap: '14px',
+              alignItems: 'center',
+              marginBottom: '20px',
+              cursor: 'pointer',
+            }}>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageChange}
+                style={{ display: 'none' }}
+              />
+
+              <span style={{
+                width: '64px',
+                height: '64px',
+                borderRadius: '50%',
+                background: '#eff6ff',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                overflow: 'hidden',
+                flexShrink: 0,
+              }}>
+                {avatarPreview ? (
+                  <img
+                    src={avatarPreview}
+                    alt="預覽頭像"
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                    }}
+                  />
+                ) : (
+                  <User size={30} />
+                )}
+              </span>
+
+              <span style={{
+                color: '#64748b',
+                fontSize: '13px',
+              }}>
+                點擊選擇頭像（僅供預覽，不會儲存至伺服器）
+              </span>
+            </label>
+
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+            }}>
+              <label>
+                名稱
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
+                  style={inputStyle}
                 />
-                
-                {/* 點擊這個 div 會觸發上面的隱藏 input */}
-                <div 
-                  onClick={() => document.getElementById('avatarUpload').click()}
-                  style={{ width: '70px', height: '70px', backgroundColor: '#f1f5f9', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative', cursor: 'pointer', border: '1px dashed #cbd5e1', overflow: 'hidden' }}
-                >
-                  {avatarPreview ? (
-                    <img src={avatarPreview} alt="預覽頭像" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    <User size={32} color="#94a3b8" />
-                  )}
-                </div>
-                
-                <span style={{ color: '#64748b', fontSize: '14px' }}>點擊頭像上傳照片</span>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                <div><label style={{ display: 'block', fontSize: '14px', color: '#475569', fontWeight: 'bold', marginBottom: '8px' }}>名稱</label><input type="text" value={editName} onChange={e => setEditName(e.target.value)} style={{ width: '100%', padding: '14px', borderRadius: '10px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', fontSize: '15px', color: '#0f172a', boxSizing: 'border-box' }} /></div>
-                <div><label style={{ display: 'block', fontSize: '14px', color: '#475569', fontWeight: 'bold', marginBottom: '8px' }}>職稱 / 身份 (選填)</label><input type="text" value={editDept} onChange={e => setEditDept(e.target.value)} placeholder="例：資管系 二技" style={{ width: '100%', padding: '14px', borderRadius: '10px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', fontSize: '15px', color: '#0f172a', boxSizing: 'border-box' }} /></div>
-                <div><label style={{ display: 'block', fontSize: '14px', color: '#475569', fontWeight: 'bold', marginBottom: '8px' }}>自我介紹 (選填)</label><textarea value={editBio} onChange={e => setEditBio(e.target.value)} placeholder="介紹一下自己..." rows="4" style={{ width: '100%', padding: '14px', borderRadius: '10px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', fontSize: '15px', color: '#0f172a', boxSizing: 'border-box', resize: 'vertical' }} /></div>
-              </div>
-            </div>
-            <div style={{ padding: '20px 25px', borderTop: '1px solid #f1f5f9', backgroundColor: 'white' }}>
-              <button disabled={isSaving || !profileLoaded} onClick={handleSaveProfile} style={{ width: '100%', padding: '14px', borderRadius: '25px', border: 'none', backgroundColor: '#0f172a', color: 'white', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer' }}>儲存</button>
+              </label>
+
+              <label>
+                職稱 / 身分
+                <input
+                  type="text"
+                  value={editDept}
+                  onChange={e => setEditDept(e.target.value)}
+                  style={inputStyle}
+                />
+              </label>
+
+              <label>
+                自我介紹
+                <textarea
+                  rows={4}
+                  value={editBio}
+                  onChange={e => setEditBio(e.target.value)}
+                  style={inputStyle}
+                />
+              </label>
+
+              <button
+                type="button"
+                disabled={isSaving || !profileLoaded}
+                onClick={handleSaveProfile}
+                style={primaryButton}
+              >
+                {isSaving ? '儲存中...' : '儲存'}
+              </button>
             </div>
           </div>
         </div>

@@ -1,0 +1,48 @@
+/* 個人中心：主要容器 */
+.profile-layout {
+  max-width: 1100px;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* 頂部會員名片 */
+.profile-hero {
+  width: 100%;
+  min-width: 0;
+}
+
+/* 下方左右雙欄 */
+.profile-dashboard {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  align-items: start;
+  gap: 20px;
+}
+
+/* 左右欄獨立排列，避免大面積空白 */
+.profile-dashboard-left,
+.profile-dashboard-right {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+/* 統一卡片外觀 */
+.profile-dashboard-left > div,
+.profile-dashboard-right > div {
+  min-width: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  box-shadow: 0 5px 20px rgba(15, 23, 42, 0.04);
+}
+
+/* 手機與平板恢復單欄 */
+@media (max-width: 850px) {
+  .profile-dashboard {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
