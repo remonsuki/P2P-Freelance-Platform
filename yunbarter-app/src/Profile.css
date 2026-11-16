@@ -46,3 +46,259 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* =========================================
+   Step 5.5：個人資料頁面手機版 RWD
+   ========================================= */
+
+.profile-page {
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+@media (max-width: 768px) {
+
+  /* 整個頁面縮小留白 */
+  .profile-page {
+    padding: 20px 14px 36px !important;
+  }
+
+  .profile-layout {
+    width: 100%;
+    max-width: 100%;
+    gap: 16px;
+  }
+
+  /* 個人中心改為單欄 */
+  .profile-dashboard {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .profile-dashboard-left,
+  .profile-dashboard-right {
+    gap: 16px;
+  }
+
+  /* 區塊卡片 */
+  .profile-dashboard section {
+    min-width: 0;
+    padding: 18px !important;
+    box-sizing: border-box;
+    overflow-wrap: anywhere;
+  }
+
+  /* 會員名片 */
+  .profile-hero {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .profile-hero > div:nth-child(2) {
+    padding: 0 18px 20px !important;
+  }
+
+  .profile-hero h1 {
+    font-size: 23px !important;
+    overflow-wrap: anywhere;
+  }
+
+  /* 三項統計：兩欄排列 */
+  .profile-stats {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  /* 第三張統計卡片獨佔一列 */
+  .profile-stats > div:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .profile-stats > div {
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  /* 授課時間表單：日期、時段上下排列 */
+  .profile-schedule-form {
+    padding: 14px !important;
+    gap: 12px !important;
+    box-sizing: border-box;
+  }
+
+  .profile-schedule-form > label {
+    flex: 1 1 100% !important;
+    min-width: 0 !important;
+    width: 100%;
+  }
+
+  .profile-schedule-form input,
+  .profile-schedule-form select {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    font-size: 16px !important;
+    box-sizing: border-box;
+  }
+
+  /* 新增時段按鈕 */
+  .profile-schedule-form > button {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  /* 我的課程：名稱與按鈕上下排列 */
+  .profile-course-row {
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+
+  .profile-course-row > strong {
+    flex: 1 1 100% !important;
+    min-width: 0 !important;
+    overflow-wrap: anywhere;
+  }
+
+  /* 編輯與下架按鈕平分寬度 */
+  .profile-course-actions {
+    display: grid !important;
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+    gap: 10px !important;
+    width: 100%;
+  }
+
+  .profile-course-actions button {
+    width: 100%;
+    min-height: 42px;
+  }
+}
+
+/* 特別窄的手機 */
+@media (max-width: 360px) {
+
+  .profile-page {
+    padding: 16px 12px 30px !important;
+  }
+
+  .profile-dashboard section {
+    padding: 16px !important;
+  }
+
+  .profile-hero > div:nth-child(2) {
+    padding: 0 14px 18px !important;
+  }
+
+  .profile-stats {
+    gap: 8px !important;
+  }
+}
+
+/* =========================================
+   Step 5.6：編輯視窗手機版 RWD
+   編輯名片 / 編輯課程共用
+   ========================================= */
+
+@media (max-width: 768px) {
+
+  /* 全螢幕視窗遮罩 */
+  .profile-edit-overlay {
+    box-sizing: border-box;
+    padding: 12px !important;
+
+    display: flex !important;
+    justify-content: center !important;
+    align-items: flex-start !important;
+
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+
+    padding-top:
+      max(12px, env(safe-area-inset-top)) !important;
+    padding-bottom:
+      max(12px, env(safe-area-inset-bottom)) !important;
+  }
+
+  /* 編輯視窗主卡片 */
+  .profile-edit-dialog {
+    width: 100% !important;
+    max-width: 500px !important;
+
+    max-height: calc(100dvh - 32px) !important;
+    min-height: 0;
+
+    padding: 20px !important;
+    border-radius: 18px !important;
+
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    box-sizing: border-box;
+
+    scroll-padding-bottom: 72px;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* 表單標題 */
+  .profile-edit-dialog h3 {
+    font-size: 20px !important;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+
+  /* 表單欄位 */
+  .profile-edit-dialog input:not([type="file"]),
+  .profile-edit-dialog textarea,
+  .profile-edit-dialog select {
+    width: 100% !important;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    font-size: 16px !important;
+  }
+
+  /* 多行文字輸入 */
+  .profile-edit-dialog textarea {
+    min-height: 110px;
+    resize: vertical;
+  }
+
+  /* 按鈕保持方便觸控的高度 */
+  .profile-edit-dialog button {
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+
+  /* 長文字不撐破視窗 */
+  .profile-edit-dialog p,
+  .profile-edit-dialog span,
+  .profile-edit-dialog label {
+    overflow-wrap: anywhere;
+  }
+
+  /* 輸入框聚焦時較容易辨認 */
+  .profile-edit-dialog input:focus,
+  .profile-edit-dialog textarea:focus,
+  .profile-edit-dialog select:focus {
+    outline: 2px solid #93c5fd;
+    outline-offset: 1px;
+  }
+}
+
+/* 特別窄的手機 */
+@media (max-width: 360px) {
+  .profile-edit-overlay {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
+
+  .profile-edit-dialog {
+    padding: 16px !important;
+    border-radius: 14px !important;
+  }
+
+  .profile-edit-dialog h3 {
+    font-size: 19px !important;
+  }
+}

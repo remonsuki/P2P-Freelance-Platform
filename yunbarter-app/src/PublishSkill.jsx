@@ -71,9 +71,132 @@ export default function PublishSkill({ onAddTeacher, showNotification }) {
   };
 
   return (
-    <div style={{ backgroundColor: '#f4f7f6', minHeight: 'calc(100vh - 70px)', padding: '60px 20px', fontFamily: 'sans-serif', display: 'flex', justifyContent: 'center' }}>
-      
-      <div style={{ width: '100%', maxWidth: '750px' }}>
+    <div className="yb-publish-page" style={{ backgroundColor: '#f4f7f6', minHeight: 'calc(100vh - 70px)', padding: '60px 20px', fontFamily: 'sans-serif', display: 'flex', justifyContent: 'center' }}>
+      {/* ===== Step 5.7：發佈技能手機版 RWD ===== */}
+      <style>{`
+        @media (max-width: 768px) {
+
+          /* 頁面整體留白 */
+          .yb-publish-page {
+            padding: 24px 14px 40px !important;
+            box-sizing: border-box;
+            min-width: 0;
+            overflow-x: clip;
+          }
+
+          /* 主內容寬度 */
+          .yb-publish-container {
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: 0;
+            box-sizing: border-box;
+          }
+
+          /* 表單白色卡片 */
+          .yb-publish-card {
+            padding: 22px 18px !important;
+            border-radius: 16px !important;
+            min-width: 0;
+            box-sizing: border-box;
+          }
+
+          /* 表單各欄位間距 */
+          .yb-publish-card form {
+            gap: 22px !important;
+            min-width: 0;
+          }
+
+          /* 類別與定價改成上下排列 */
+          .yb-publish-fields {
+            flex-direction: column !important;
+            gap: 20px !important;
+            min-width: 0;
+          }
+
+          .yb-publish-fields > div {
+            flex: 0 0 auto !important;
+            width: 100% !important;
+            min-width: 0 !important;
+            box-sizing: border-box;
+          }
+
+          /* AI 標題與操作區上下排列 */
+          .yb-publish-ai-header {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 14px !important;
+          }
+
+          /* AI 風格與生成按鈕改成上下排列 */
+          .yb-publish-ai-controls {
+            display: grid !important;
+            grid-template-columns: minmax(0, 1fr);
+            width: 100%;
+            min-width: 0;
+            gap: 10px !important;
+          }
+
+          .yb-publish-ai-controls select {
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: 0 !important;
+            padding: 13px !important;
+            font-size: 16px !important;
+            box-sizing: border-box;
+          }
+
+          .yb-publish-ai-controls button {
+            width: 100% !important;
+            min-height: 46px;
+            justify-content: center;
+            font-size: 14px !important;
+            box-sizing: border-box;
+          }
+
+          /* 手機輸入框 */
+          .yb-publish-card input,
+          .yb-publish-card select,
+          .yb-publish-card textarea {
+            max-width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
+            font-size: 16px !important;
+          }
+
+          /* 提交按鈕 */
+          .yb-publish-card button[type="submit"] {
+            min-height: 50px;
+            touch-action: manipulation;
+          }
+
+          /* 防止長文字撐破 */
+          .yb-publish-page h2,
+          .yb-publish-card label,
+          .yb-publish-card p {
+            overflow-wrap: anywhere;
+          }
+
+          .yb-publish-page h2 {
+            font-size: 27px !important;
+          }
+        }
+
+        /* 特別窄的手機 */
+        @media (max-width: 360px) {
+          .yb-publish-page {
+            padding: 18px 10px 30px !important;
+          }
+
+          .yb-publish-card {
+            padding: 18px 14px !important;
+          }
+
+          .yb-publish-page h2 {
+            font-size: 24px !important;
+          }
+        }
+      `}</style>
+      <div className="yb-publish-container" style={{ width: '100%', maxWidth: '750px' }}>
         
         {/* 頂部標題區 */}
         <div style={{ textAlign: 'center', marginBottom: '35px' }}>
@@ -82,7 +205,7 @@ export default function PublishSkill({ onAddTeacher, showNotification }) {
         </div>
 
         {/* 核心表單大卡片 (已優化內邊距與整體呼吸感) */}
-        <div style={{ backgroundColor: 'white', borderRadius: '16px', padding: '45px', boxShadow: '0 10px 30px rgba(0,0,0,0.04)', border: '1px solid #e2e8f0', boxSizing: 'border-box' }}>
+        <div className="yb-publish-card" style={{ backgroundColor: 'white', borderRadius: '16px', padding: '45px', boxShadow: '0 10px 30px rgba(0,0,0,0.04)', border: '1px solid #e2e8f0', boxSizing: 'border-box' }}>
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
             
             {/* 技能名稱 */}
@@ -101,7 +224,7 @@ export default function PublishSkill({ onAddTeacher, showNotification }) {
             </div>
 
             {/* 雙欄位：類別與定價 */}
-            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+            <div className="yb-publish-fields" style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
               <div style={{ flex: 1, minWidth: '200px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', color: '#334155', fontWeight: 'bold', marginBottom: '10px' }}>
                   <Tags size={18} color="#9b59b6" /> 技能類別
@@ -143,13 +266,13 @@ export default function PublishSkill({ onAddTeacher, showNotification }) {
 
             {/* 內嵌式 AI 智慧說明欄位 */}
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '10px' }}>
+              <div className="yb-publish-ai-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '10px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', color: '#334155', fontWeight: 'bold' }}>
                   <AlignLeft size={18} color="#10b981" /> 課程詳細說明
                 </div>
                 
                 {/* 整合在右側的 AI 控制版面 */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div className="yb-publish-ai-controls" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <select 
                     value={aiStyle} 
                     onChange={(e) => setAiStyle(e.target.value)} 

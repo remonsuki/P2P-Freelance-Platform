@@ -7,151 +7,1188 @@ export default function Landing() {
     <div style={{ fontFamily: 'sans-serif', color: '#0f172a', backgroundColor: '#f8fafc' }}>
       
       {/* ================= 🌟 第一區：主視覺 (Hero Section) ================= */}
-      <div style={{ padding: '100px 20px', textAlign: 'center', background: 'linear-gradient(180deg, #f8fafc 0%, #eff6ff 100%)', position: 'relative', overflow: 'hidden' }}>
-        
-        {/* 背景裝飾光暈 */}
-        <div style={{ position: 'absolute', top: '-10%', left: '50%', transform: 'translateX(-50%)', width: '800px', height: '400px', background: 'radial-gradient(circle, rgba(52, 152, 219, 0.1) 0%, rgba(255,255,255,0) 70%)', zIndex: 0 }}></div>
+        <section
+          style={{
+            padding: '85px 20px 75px',
+            background:
+              'linear-gradient(135deg, #eff6ff 0%, #f8fafc 55%, #f5f3ff 100%)',
+            position: 'relative',
+            overflow: 'hidden',
+            textAlign: 'center',
+          }}
+        >
+          {/* 背景裝飾 */}
+          <div
+            style={{
+              position: 'absolute',
+              top: '-160px',
+              right: '-100px',
+              width: '400px',
+              height: '400px',
+              borderRadius: '50%',
+              background: 'rgba(59,130,246,0.07)',
+              pointerEvents: 'none',
+            }}
+          />
 
-        <div style={{ maxWidth: '800px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 16px', backgroundColor: '#e0e7ff', color: '#3b82f6', borderRadius: '30px', fontSize: '14px', fontWeight: 'bold', marginBottom: '25px' }}>
-            <Sparkles size={16} /> 全新校園 P2P 技能交換平台上線
+          <div
+            style={{
+              maxWidth: '900px',
+              margin: '0 auto',
+              position: 'relative',
+              zIndex: 1,
+            }}
+          >
+            {/* 頂部標籤 */}
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '9px 18px',
+                backgroundColor: '#dbeafe',
+                color: '#1d4ed8',
+                borderRadius: '30px',
+                fontSize: '13px',
+                fontWeight: 'bold',
+                marginBottom: '26px',
+              }}
+            >
+              <Sparkles size={16} />
+              校園 P2P 技能交流平台
+            </div>
+
+            {/* 主標題 */}
+            <h1
+              style={{
+                fontSize: 'clamp(32px, 5vw, 52px)',
+                fontWeight: '900',
+                lineHeight: 1.35,
+                letterSpacing: '-1px',
+                color: '#0f172a',
+                margin: '0 0 24px',
+              }}
+            >
+              你的專長，值得被看見。
+              <br />
+              <span
+                style={{
+                  background:
+                    'linear-gradient(135deg, #2563eb, #7c3aed)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                }}
+              >
+                你的好奇，值得被滿足。
+              </span>
+            </h1>
+
+            {/* 平台介紹 */}
+            <p
+              style={{
+                maxWidth: '650px',
+                margin: '0 auto 32px',
+                color: '#64748b',
+                fontSize: '17px',
+                lineHeight: 1.9,
+              }}
+            >
+              在 YunBarter，你可以探索同學分享的技能課程，
+              也能把自己的知識與專長分享給更多人。
+              從尋找老師到安排授課時間，開啟你的校園技能交流旅程。
+            </p>
+
+            {/* 主要操作按鈕 */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'center',
+                flexWrap: 'wrap',
+                gap: '14px',
+              }}
+            >
+              <Link
+                to="/search"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '9px',
+                  padding: '15px 30px',
+                  borderRadius: '12px',
+                  backgroundColor: '#0f172a',
+                  color: 'white',
+                  textDecoration: 'none',
+                  fontSize: '15px',
+                  fontWeight: 'bold',
+                  boxShadow: '0 8px 20px rgba(15,23,42,0.15)',
+                }}
+              >
+                <Search size={19} />
+                探索課程
+              </Link>
+
+              <Link
+                to="/register"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '9px',
+                  padding: '15px 30px',
+                  borderRadius: '12px',
+                  backgroundColor: 'white',
+                  border: '1px solid #cbd5e1',
+                  color: '#0f172a',
+                  textDecoration: 'none',
+                  fontSize: '15px',
+                  fontWeight: 'bold',
+                }}
+              >
+                立即註冊
+                <ArrowRight size={19} />
+              </Link>
+            </div>
+
+            {/* 三個核心功能 */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns:
+                  'repeat(auto-fit, minmax(min(100%, 190px), 1fr))',
+                gap: '14px',
+                maxWidth: '720px',
+                margin: '45px auto 0',
+              }}
+            >
+              {[
+                {
+                  Icon: Search,
+                  title: '尋找課程',
+                  desc: '探索各種技能領域',
+                },
+                {
+                  Icon: Repeat,
+                  title: '分享專長',
+                  desc: '成為老師分享知識',
+                },
+                {
+                  Icon: BookOpen,
+                  title: '交流學習',
+                  desc: '向其他同學學習',
+                },
+              ].map(({ Icon, title, desc }) => (
+                <div
+                  key={title}
+                  style={{
+                    backgroundColor: 'rgba(255,255,255,0.9)',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '16px',
+                    padding: '22px 15px',
+                    boxShadow: '0 6px 20px rgba(15,23,42,0.035)',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '46px',
+                      height: '46px',
+                      margin: '0 auto 12px',
+                      backgroundColor: '#eff6ff',
+                      borderRadius: '13px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Icon size={23} color="#2563eb" />
+                  </div>
+
+                  <h3
+                    style={{
+                      margin: '0 0 7px',
+                      fontSize: '16px',
+                      color: '#0f172a',
+                      fontWeight: '800',
+                    }}
+                  >
+                    {title}
+                  </h3>
+
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: '12px',
+                      color: '#64748b',
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    {desc}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
-          
-          <h1 style={{ fontSize: '54px', fontWeight: '900', margin: '0 0 24px 0', lineHeight: '1.2', letterSpacing: '-1px' }}>
-            校園裡的隱藏天賦<br />
-            <span style={{ background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-              等你來發掘與變現
+        </section>
+
+      {/* ================= 第二區：平台核心特色 ================= */}
+      <section
+        style={{
+          padding: '85px 20px',
+          backgroundColor: '#ffffff',
+        }}
+      >
+        <div style={{ maxWidth: '1150px', margin: '0 auto' }}>
+
+          {/* 區塊標題 */}
+          <div
+            style={{
+              textAlign: 'center',
+              marginBottom: '48px',
+            }}
+          >
+            <span
+              style={{
+                display: 'inline-block',
+                padding: '7px 15px',
+                backgroundColor: '#eff6ff',
+                borderRadius: '20px',
+                color: '#2563eb',
+                fontWeight: 'bold',
+                fontSize: '12px',
+                letterSpacing: '1px',
+                marginBottom: '16px',
+              }}
+            >
+              WHY YUNBARTER
             </span>
-          </h1>
-          
-          <p style={{ fontSize: '18px', color: '#475569', lineHeight: '1.7', margin: '0 auto 40px auto', maxWidth: '600px' }}>
-            YunBarter 是一個基於 P2P (點對點) 架構的校園時間銀行。我們不聘請師資，而是透過 Web3 虛擬代幣 (SKILL)，讓大學生能安全、流暢地互相交易彼此的閒置時間與專長。
-          </p>
 
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '15px', flexWrap: 'wrap' }}>
-            <Link to="/search" style={{ textDecoration: 'none' }}>
-              <button style={{ padding: '16px 32px', backgroundColor: '#0f172a', color: 'white', border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.3)', transition: 'all 0.2s' }} onMouseOver={e => e.currentTarget.style.transform = 'translateY(-2px)'} onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}>
-                <Search size={18} /> 探索課程
-              </button>
+            <h2
+              style={{
+                fontSize: 'clamp(26px, 4vw, 34px)',
+                fontWeight: '900',
+                color: '#0f172a',
+                margin: '0 0 15px',
+                letterSpacing: '-0.5px',
+              }}
+            >
+              為什麼選擇 YunBarter？
+            </h2>
+
+            <p
+              style={{
+                color: '#64748b',
+                fontSize: '16px',
+                lineHeight: 1.8,
+                margin: 0,
+              }}
+            >
+              讓技能交流更簡單，
+              也讓每個人的專長被更多人看見。
+            </p>
+          </div>
+
+          {/* 三張平台特色卡片 */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns:
+                'repeat(auto-fit, minmax(min(100%, 280px), 1fr))',
+              gap: '22px',
+            }}
+          >
+            {[
+              {
+                number: '01',
+                title: 'P2P 點對點技能媒合',
+                description:
+                  '不必透過傳統補習班，學生就能直接分享專長、尋找課程，讓知識在校園中自由交流。',
+                Icon: Repeat,
+                color: '#2563eb',
+                background: '#dbeafe',
+                label: '技能交流',
+              },
+              {
+                number: '02',
+                title: 'AI 智能文案輔助',
+                description:
+                  '不知道如何介紹自己的技能？透過 AI 文案輔助，協助整理課程特色，讓課程上架更輕鬆。',
+                Icon: Zap,
+                color: '#db2777',
+                background: '#fce7f3',
+                label: '智慧輔助',
+              },
+              {
+                number: '03',
+                title: 'Web3 區塊鏈交易設計',
+                description:
+                  '結合 MetaMask、SKILL 代幣與智慧合約託管機制，打造可追蹤的課程交易流程。',
+                Icon: ShieldCheck,
+                color: '#059669',
+                background: '#dcfce7',
+                label: '交易機制',
+              },
+            ].map((feature) => {
+              const FeatureIcon = feature.Icon;
+
+              return (
+                <article
+                  key={feature.number}
+                  style={{
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '20px',
+                    overflow: 'hidden',
+                    boxShadow: '0 5px 20px rgba(15,23,42,0.04)',
+                    transition:
+                      'transform 0.25s ease, box-shadow 0.25s ease',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    minWidth: 0,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform =
+                      'translateY(-6px)';
+                    e.currentTarget.style.boxShadow =
+                      '0 16px 36px rgba(15,23,42,0.10)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform =
+                      'translateY(0)';
+                    e.currentTarget.style.boxShadow =
+                      '0 5px 20px rgba(15,23,42,0.04)';
+                  }}
+                >
+                  {/* 頂部裝飾線 */}
+                  <div
+                    style={{
+                      height: '5px',
+                      backgroundColor: feature.color,
+                    }}
+                  />
+
+                  {/* 卡片內容 */}
+                  <div
+                    style={{
+                      padding: '30px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      flexGrow: 1,
+                    }}
+                  >
+                    {/* 圖示與編號 */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'flex-start',
+                        marginBottom: '26px',
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: '64px',
+                          height: '64px',
+                          borderRadius: '18px',
+                          backgroundColor: feature.background,
+                          display: 'flex',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <FeatureIcon
+                          size={30}
+                          color={feature.color}
+                          strokeWidth={2}
+                        />
+                      </div>
+
+                      <span
+                        style={{
+                          color: '#cbd5e1',
+                          fontSize: '28px',
+                          fontWeight: '900',
+                        }}
+                      >
+                        {feature.number}
+                      </span>
+                    </div>
+
+                    {/* 特色分類 */}
+                    <span
+                      style={{
+                        color: feature.color,
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        marginBottom: '10px',
+                      }}
+                    >
+                      {feature.label}
+                    </span>
+
+                    {/* 特色標題 */}
+                    <h3
+                      style={{
+                        color: '#0f172a',
+                        fontSize: '19px',
+                        fontWeight: '800',
+                        margin: '0 0 14px',
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {feature.title}
+                    </h3>
+
+                    {/* 特色介紹 */}
+                    <p
+                      style={{
+                        color: '#64748b',
+                        fontSize: '14px',
+                        lineHeight: 1.9,
+                        margin: 0,
+                        flexGrow: 1,
+                      }}
+                    >
+                      {feature.description}
+                    </p>
+
+                    {/* 底部分隔線 */}
+                    <div
+                      style={{
+                        height: '1px',
+                        backgroundColor: '#f1f5f9',
+                        marginTop: '26px',
+                      }}
+                    />
+
+                    <div
+                      style={{
+                        marginTop: '16px',
+                        fontSize: '12px',
+                        color: '#94a3b8',
+                        fontWeight: 'bold',
+                        letterSpacing: '0.5px',
+                      }}
+                    >
+                      YUNBARTER · FEATURE {feature.number}
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* ================= 第三區：技能交換三步驟 ================= */}
+      <section
+        style={{
+          padding: '90px 20px',
+          background:
+            'linear-gradient(180deg, #f8fafc 0%, #eff6ff 100%)',
+        }}
+      >
+        <div
+          style={{
+            maxWidth: '1150px',
+            margin: '0 auto',
+          }}
+        >
+          {/* 區塊標題 */}
+          <div
+            style={{
+              textAlign: 'center',
+              marginBottom: '50px',
+            }}
+          >
+            <span
+              style={{
+                display: 'inline-block',
+                padding: '7px 16px',
+                backgroundColor: '#dbeafe',
+                color: '#2563eb',
+                borderRadius: '20px',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                letterSpacing: '1px',
+                marginBottom: '18px',
+              }}
+            >
+              HOW IT WORKS
+            </span>
+
+            <h2
+              style={{
+                fontSize: 'clamp(26px, 4vw, 34px)',
+                fontWeight: '900',
+                color: '#0f172a',
+                margin: '0 0 16px',
+                letterSpacing: '-0.5px',
+              }}
+            >
+              簡單三步，開啟技能交換
+            </h2>
+
+            <p
+              style={{
+                color: '#64748b',
+                fontSize: '16px',
+                lineHeight: 1.8,
+                margin: 0,
+              }}
+            >
+              從探索課程到完成學習，
+              YunBarter 讓技能交流變得更簡單。
+            </p>
+          </div>
+
+          {/* 三步驟流程卡片 */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns:
+                'repeat(auto-fit, minmax(min(100%, 280px), 1fr))',
+              gap: '24px',
+              alignItems: 'stretch',
+            }}
+          >
+            {[
+              {
+                number: '01',
+                title: '探索與分享技能',
+                description:
+                  '瀏覽同學上架的課程，尋找感興趣的技能。你也可以設定授課時間，分享自己的專長。',
+                Icon: BookOpen,
+                color: '#2563eb',
+                background: '#dbeafe',
+                tag: '探索技能',
+              },
+              {
+                number: '02',
+                title: '選擇時段並預約',
+                description:
+                  '選擇老師開放的授課時段，依照平台流程使用 SKILL 代幣預約課程。',
+                Icon: CircleDollarSign,
+                color: '#7c3aed',
+                background: '#f3e8ff',
+                tag: '課程預約',
+              },
+              {
+                number: '03',
+                title: '完成技能交流',
+                description:
+                  '依照約定時間與同學交流學習，並透過預約管理查看課程狀態及後續流程。',
+                Icon: Sparkles,
+                color: '#059669',
+                background: '#dcfce7',
+                tag: '學習交流',
+              },
+            ].map((step, index) => {
+              const StepIcon = step.Icon;
+
+              return (
+                <article
+                  key={step.number}
+                  style={{
+                    backgroundColor: 'white',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '22px',
+                    padding: '30px',
+                    position: 'relative',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    minWidth: 0,
+                    boxShadow: '0 8px 24px rgba(15,23,42,0.05)',
+                    transition:
+                      'transform 0.25s ease, box-shadow 0.25s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform =
+                      'translateY(-6px)';
+                    e.currentTarget.style.boxShadow =
+                      '0 18px 36px rgba(15,23,42,0.10)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform =
+                      'translateY(0)';
+                    e.currentTarget.style.boxShadow =
+                      '0 8px 24px rgba(15,23,42,0.05)';
+                  }}
+                >
+                  {/* 圖示與步驟編號 */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      justifyContent: 'space-between',
+                      marginBottom: '28px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: '66px',
+                        height: '66px',
+                        borderRadius: '18px',
+                        backgroundColor: step.background,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <StepIcon
+                        size={30}
+                        color={step.color}
+                        strokeWidth={2}
+                      />
+                    </div>
+
+                    <div
+                      style={{
+                        fontSize: '42px',
+                        fontWeight: '900',
+                        color: '#e2e8f0',
+                        lineHeight: 1,
+                      }}
+                    >
+                      {step.number}
+                    </div>
+                  </div>
+
+                  {/* 步驟分類 */}
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      alignSelf: 'flex-start',
+                      padding: '6px 12px',
+                      backgroundColor: step.background,
+                      color: step.color,
+                      borderRadius: '20px',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      marginBottom: '17px',
+                    }}
+                  >
+                    STEP {step.number} · {step.tag}
+                  </span>
+
+                  {/* 步驟標題 */}
+                  <h3
+                    style={{
+                      fontSize: '20px',
+                      fontWeight: '800',
+                      color: '#0f172a',
+                      margin: '0 0 14px',
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    {step.title}
+                  </h3>
+
+                  {/* 步驟說明 */}
+                  <p
+                    style={{
+                      color: '#64748b',
+                      fontSize: '14px',
+                      lineHeight: 1.9,
+                      margin: '0 0 26px',
+                      flexGrow: 1,
+                    }}
+                  >
+                    {step.description}
+                  </p>
+
+                  {/* 底部流程標示 */}
+                  <div
+                    style={{
+                      borderTop: '1px solid #f1f5f9',
+                      paddingTop: '19px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                    }}
+                  >
+                    <span
+                      style={{
+                        color: '#94a3b8',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                      }}
+                    >
+                      {index === 2
+                        ? '完成流程'
+                        : '接續下一步'}
+                    </span>
+
+                    <div
+                      style={{
+                        width: '34px',
+                        height: '34px',
+                        borderRadius: '50%',
+                        backgroundColor: step.background,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      {index === 2 ? (
+                        <Sparkles
+                          size={16}
+                          color={step.color}
+                        />
+                      ) : (
+                        <ArrowRight
+                          size={17}
+                          color={step.color}
+                        />
+                      )}
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+
+          {/* 流程區域底部操作按鈕 */}
+          <div
+            style={{
+              textAlign: 'center',
+              marginTop: '45px',
+            }}
+          >
+            <Link
+              to="/search"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '10px',
+                padding: '15px 30px',
+                backgroundColor: '#2563eb',
+                color: 'white',
+                borderRadius: '12px',
+                textDecoration: 'none',
+                fontSize: '15px',
+                fontWeight: 'bold',
+                boxShadow: '0 8px 22px rgba(37,99,235,0.16)',
+              }}
+            >
+              <Search size={19} />
+              開始探索課程
+              <ArrowRight size={18} />
             </Link>
-            <Link to="/login" state={{ isRegister: true }} style={{ textDecoration: 'none' }}>
-              <button style={{ padding: '16px 32px', backgroundColor: 'white', color: '#0f172a', border: '1px solid #cbd5e1', borderRadius: '12px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s' }} onMouseOver={e => e.currentTarget.style.backgroundColor = '#f1f5f9'} onMouseOut={e => e.currentTarget.style.backgroundColor = 'white'}>
-                立即註冊 <ArrowRight size={18} />
-              </button>
+
+            <p
+              style={{
+                margin: '16px 0 0',
+                color: '#94a3b8',
+                fontSize: '13px',
+              }}
+            >
+              先瀏覽感興趣的課程，再開始你的技能交流旅程。
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ================= 第四區：加入 YunBarter ================= */}
+      <section
+        style={{
+          background:
+            'linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%)',
+          padding: '85px 20px',
+          color: 'white',
+          position: 'relative',
+          overflow: 'hidden',
+        }}
+      >
+        {/* 背景裝飾 */}
+        <div
+          style={{
+            position: 'absolute',
+            width: '380px',
+            height: '380px',
+            borderRadius: '50%',
+            right: '-130px',
+            top: '-170px',
+            background: 'rgba(59,130,246,0.1)',
+            pointerEvents: 'none',
+          }}
+        />
+
+        <div
+          style={{
+            maxWidth: '1120px',
+            margin: '0 auto',
+            position: 'relative',
+            zIndex: 1,
+          }}
+        >
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns:
+                'repeat(auto-fit, minmax(min(100%, 350px), 1fr))',
+              gap: '45px',
+              alignItems: 'center',
+            }}
+          >
+            {/* 左側：品牌與行動呼籲 */}
+            <div>
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  color: '#93c5fd',
+                  fontSize: '13px',
+                  fontWeight: 'bold',
+                  letterSpacing: '1px',
+                  marginBottom: '20px',
+                }}
+              >
+                <Sparkles size={16} />
+                START YOUR JOURNEY
+              </span>
+
+              <h2
+                style={{
+                  fontSize: 'clamp(29px, 4vw, 42px)',
+                  fontWeight: '900',
+                  lineHeight: 1.35,
+                  margin: '0 0 22px',
+                  letterSpacing: '-0.5px',
+                }}
+              >
+                不只學習，
+                <br />
+                <span style={{ color: '#93c5fd' }}>
+                  也能分享你的專長。
+                </span>
+              </h2>
+
+              <p
+                style={{
+                  maxWidth: '470px',
+                  fontSize: '16px',
+                  color: '#cbd5e1',
+                  lineHeight: 1.9,
+                  margin: '0 0 26px',
+                }}
+              >
+                在 YunBarter，你可以是學生，也可以是老師。
+                探索感興趣的技能課程，
+                或分享自己的知識與專長，
+                讓每一次交流都成為新的學習機會。
+              </p>
+
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '12px',
+                  alignItems: 'center',
+                  fontSize: '13px',
+                  color: '#cbd5e1',
+                }}
+              >
+                <span style={{
+                  padding: '7px 12px',
+                  borderRadius: '20px',
+                  border: '1px solid rgba(255,255,255,0.18)',
+                }}>
+                  P2P 技能交流
+                </span>
+
+                <span style={{
+                  padding: '7px 12px',
+                  borderRadius: '20px',
+                  border: '1px solid rgba(255,255,255,0.18)',
+                }}>
+                  校園課程媒合
+                </span>
+
+                <span style={{
+                  padding: '7px 12px',
+                  borderRadius: '20px',
+                  border: '1px solid rgba(255,255,255,0.18)',
+                }}>
+                  SKILL 代幣
+                </span>
+              </div>
+            </div>
+
+            {/* 右側：兩種使用者入口 */}
+            <div
+              style={{
+                display: 'grid',
+                gap: '16px',
+              }}
+            >
+              {/* 學習者入口 */}
+              <Link
+                to="/search"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '18px',
+                  backgroundColor: 'white',
+                  padding: '23px',
+                  borderRadius: '18px',
+                  textDecoration: 'none',
+                  color: '#0f172a',
+                  boxShadow: '0 12px 30px rgba(0,0,0,0.1)',
+                  transition: 'transform 0.2s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform =
+                    'translateY(-4px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform =
+                    'translateY(0)';
+                }}
+              >
+                <div
+                  style={{
+                    width: '58px',
+                    height: '58px',
+                    backgroundColor: '#dbeafe',
+                    borderRadius: '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  <Search size={27} color="#2563eb" />
+                </div>
+
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <h3
+                    style={{
+                      margin: '0 0 6px',
+                      fontSize: '20px',
+                      fontWeight: '800',
+                    }}
+                  >
+                    我想學習
+                  </h3>
+
+                  <p
+                    style={{
+                      margin: '0 0 8px',
+                      color: '#64748b',
+                      fontSize: '13px',
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    探索同學分享的技能課程
+                  </p>
+
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      color: '#2563eb',
+                      fontSize: '13px',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    探索課程
+                    <ArrowRight size={15} />
+                  </span>
+                </div>
+              </Link>
+
+              {/* 分享者入口 */}
+              <Link
+                to="/register"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '18px',
+                  backgroundColor: 'white',
+                  padding: '23px',
+                  borderRadius: '18px',
+                  textDecoration: 'none',
+                  color: '#0f172a',
+                  boxShadow: '0 12px 30px rgba(0,0,0,0.1)',
+                  transition: 'transform 0.2s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform =
+                    'translateY(-4px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform =
+                    'translateY(0)';
+                }}
+              >
+                <div
+                  style={{
+                    width: '58px',
+                    height: '58px',
+                    backgroundColor: '#f3e8ff',
+                    borderRadius: '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  <BookOpen size={27} color="#7c3aed" />
+                </div>
+
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <h3
+                    style={{
+                      margin: '0 0 6px',
+                      fontSize: '20px',
+                      fontWeight: '800',
+                    }}
+                  >
+                    我想分享
+                  </h3>
+
+                  <p
+                    style={{
+                      margin: '0 0 8px',
+                      color: '#64748b',
+                      fontSize: '13px',
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    註冊會員，開始分享你的專長
+                  </p>
+
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      color: '#7c3aed',
+                      fontSize: '13px',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    立即加入
+                    <ArrowRight size={15} />
+                  </span>
+                </div>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ================= Footer ================= */}
+      <footer
+        style={{
+          backgroundColor: '#020617',
+          color: '#94a3b8',
+          padding: '35px 20px',
+        }}
+      >
+        <div
+          style={{
+            maxWidth: '1120px',
+            margin: '0 auto',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '20px',
+          }}
+        >
+          {/* 品牌資訊 */}
+          <div>
+            <Link
+              to="/"
+              style={{
+                color: '#ffffff',
+                textDecoration: 'none',
+                fontSize: '21px',
+                fontWeight: '900',
+                letterSpacing: '-0.5px',
+              }}
+            >
+              YunBarter
             </Link>
+
+            <p
+              style={{
+                margin: '8px 0 0',
+                fontSize: '13px',
+                lineHeight: 1.7,
+              }}
+            >
+              分享技能，連結彼此。
+              <br />
+              讓知識在校園中持續流動。
+            </p>
           </div>
+
+          {/* 快速導覽 */}
+          <nav
+            aria-label="頁尾導覽"
+            style={{
+              display: 'flex',
+              gap: '22px',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+            }}
+          >
+            {/* 探索課程 */}
+            <Link
+              to="/search"
+              style={{
+                color: '#cbd5e1',
+                textDecoration: 'none',
+                fontSize: '14px',
+              }}
+            >
+              探索課程
+            </Link>
+
+            {/* 會員登入：進入登入畫面 */}
+            <Link
+              to="/login"
+              style={{
+                color: '#cbd5e1',
+                textDecoration: 'none',
+                fontSize: '14px',
+              }}
+            >
+              會員登入
+            </Link>
+
+            {/* 免費註冊：進入註冊畫面 */}
+            <Link
+              to="/register"
+              style={{
+                color: '#cbd5e1',
+                textDecoration: 'none',
+                fontSize: '14px',
+              }}
+            >
+              免費註冊
+            </Link>
+          </nav>
         </div>
-      </div>
 
-      {/* ================= 🌟 第二區：核心價值 (Features) - 補回來了！ ================= */}
-      <div style={{ padding: '80px 20px', backgroundColor: 'white' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: '60px' }}>
-            <h2 style={{ fontSize: '32px', fontWeight: '900', margin: '0 0 15px 0' }}>為什麼選擇 YunBarter？</h2>
-            <p style={{ fontSize: '16px', color: '#64748b', margin: 0 }}>打破傳統金錢限制，重塑知識的流通方式</p>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '30px' }}>
-            
-            {/* 特色 1 */}
-            <div style={{ padding: '40px 30px', backgroundColor: '#f8fafc', borderRadius: '24px', border: '1px solid #f1f5f9', transition: 'all 0.2s' }} onMouseOver={e => e.currentTarget.style.boxShadow = '0 20px 40px -10px rgba(0,0,0,0.05)'} onMouseOut={e => e.currentTarget.style.boxShadow = 'none'}>
-              <div style={{ width: '56px', height: '56px', backgroundColor: '#e0e7ff', borderRadius: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '20px' }}>
-                <Repeat size={28} color="#3b82f6" strokeWidth={2} />
-              </div>
-              <h3 style={{ fontSize: '20px', fontWeight: 'bold', margin: '0 0 10px 0' }}>P2P 點對點直接交易</h3>
-              <p style={{ color: '#64748b', lineHeight: '1.6', margin: 0 }}>沒有補習班抽成，沒有中間商賺差價。你的技能創造多少價值，你就獲得多少 SKILL 代幣，100% 價值回歸學生。</p>
-            </div>
-
-            {/* 特色 2 */}
-            <div style={{ padding: '40px 30px', backgroundColor: '#f8fafc', borderRadius: '24px', border: '1px solid #f1f5f9', transition: 'all 0.2s' }} onMouseOver={e => e.currentTarget.style.boxShadow = '0 20px 40px -10px rgba(0,0,0,0.05)'} onMouseOut={e => e.currentTarget.style.boxShadow = 'none'}>
-              <div style={{ width: '56px', height: '56px', backgroundColor: '#fce7f3', borderRadius: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '20px' }}>
-                <Zap size={28} color="#ec4899" strokeWidth={2} />
-              </div>
-              <h3 style={{ fontSize: '20px', fontWeight: 'bold', margin: '0 0 10px 0' }}>AI 智能文案生成</h3>
-              <p style={{ color: '#64748b', lineHeight: '1.6', margin: 0 }}>很會彈吉他卻不知道怎麼寫推銷文案？內建 AI 助手一鍵生成專業、幽默的高轉換率課程說明，輕鬆上架你的天賦。</p>
-            </div>
-
-            {/* 特色 3 */}
-            <div style={{ padding: '40px 30px', backgroundColor: '#f8fafc', borderRadius: '24px', border: '1px solid #f1f5f9', transition: 'all 0.2s' }} onMouseOver={e => e.currentTarget.style.boxShadow = '0 20px 40px -10px rgba(0,0,0,0.05)'} onMouseOut={e => e.currentTarget.style.boxShadow = 'none'}>
-              <div style={{ width: '56px', height: '56px', backgroundColor: '#fef3c7', borderRadius: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '20px' }}>
-                <ShieldCheck size={28} color="#d97706" strokeWidth={2} />
-              </div>
-              <h3 style={{ fontSize: '20px', fontWeight: 'bold', margin: '0 0 10px 0' }}>Web3 資產安全防護</h3>
-              <p style={{ color: '#64748b', lineHeight: '1.6', margin: 0 }}>串接 MetaMask 錢包與智慧合約邏輯。預約課程即鎖定代幣，完善的防呆退款機制，徹底消滅網路詐騙與放鳥行為。</p>
-            </div>
-
-          </div>
+        <div
+          style={{
+            maxWidth: '1120px',
+            margin: '26px auto 0',
+            paddingTop: '20px',
+            borderTop: '1px solid #1e293b',
+            fontSize: '12px',
+            textAlign: 'center',
+            color: '#64748b',
+          }}
+        >
+          © 2026 YunBarter · P2P Freelance Platform Project
         </div>
-      </div>
-
-      {/* ================= 🌟 第三區：運作流程 (How it Works) - 補回來了！ ================= */}
-      <div style={{ padding: '80px 20px', backgroundColor: '#f8fafc' }}>
-        <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: '60px' }}>
-            <h2 style={{ fontSize: '32px', fontWeight: '900', margin: '0 0 15px 0' }}>簡單三步，開啟技能交換</h2>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            
-            {/* 步驟 1 */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '30px', backgroundColor: 'white', padding: '30px 40px', borderRadius: '20px', boxShadow: '0 4px 15px rgba(0,0,0,0.02)' }}>
-              <div style={{ fontSize: '48px', fontWeight: '900', color: '#e2e8f0' }}>01</div>
-              <div style={{ width: '50px', height: '50px', backgroundColor: '#f1f5f9', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', flexShrink: 0 }}>
-                <BookOpen size={24} color="#475569" />
-              </div>
-              <div>
-                <h4 style={{ fontSize: '18px', fontWeight: 'bold', margin: '0 0 8px 0' }}>發佈專長 或 尋找課程</h4>
-                <p style={{ color: '#64748b', margin: 0, lineHeight: '1.6', fontSize: '15px' }}>設定你的有空時間並上架技能，或是到大廳搜尋你想學習的新知識。</p>
-              </div>
-            </div>
-
-            {/* 步驟 2 */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '30px', backgroundColor: 'white', padding: '30px 40px', borderRadius: '20px', boxShadow: '0 4px 15px rgba(0,0,0,0.02)' }}>
-              <div style={{ fontSize: '48px', fontWeight: '900', color: '#e2e8f0' }}>02</div>
-              <div style={{ width: '50px', height: '50px', backgroundColor: '#f1f5f9', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', flexShrink: 0 }}>
-                <CircleDollarSign size={24} color="#475569" />
-              </div>
-              <div>
-                <h4 style={{ fontSize: '18px', fontWeight: 'bold', margin: '0 0 8px 0' }}>使用 SKILL 代幣預約</h4>
-                <p style={{ color: '#64748b', margin: 0, lineHeight: '1.6', fontSize: '15px' }}>選擇適合的時段，使用平台專屬代幣 (SKILL) 進行沉浸式安全結帳，由智能合約託管課程費用。</p>
-              </div>
-            </div>
-
-            {/* 步驟 3 */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '30px', backgroundColor: 'white', padding: '30px 40px', borderRadius: '20px', boxShadow: '0 4px 15px rgba(0,0,0,0.02)' }}>
-              <div style={{ fontSize: '48px', fontWeight: '900', color: '#e2e8f0' }}>03</div>
-              <div style={{ width: '50px', height: '50px', backgroundColor: '#f1f5f9', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', flexShrink: 0 }}>
-                <Sparkles size={24} color="#475569" />
-              </div>
-              <div>
-                <h4 style={{ fontSize: '18px', fontWeight: 'bold', margin: '0 0 8px 0' }}>線下學習，累積資產</h4>
-                <p style={{ color: '#64748b', margin: 0, lineHeight: '1.6', fontSize: '15px' }}>與同學見面交換技能！完成教學後賺取 SKILL 代幣，再去兌換其他你想學的課程。</p>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </div>
-
-      {/* ================= 🌟 第四區：行動呼籲 (Bottom CTA) ================= */}
-      <div style={{ padding: '80px 20px', backgroundColor: '#0f172a', color: 'white', textAlign: 'center' }}>
-        <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-          <h2 style={{ fontSize: '36px', fontWeight: '900', margin: '0 0 20px 0' }}>準備好加入我們了嗎？</h2>
-          <p style={{ fontSize: '18px', color: '#94a3b8', margin: '0 0 40px 0', lineHeight: '1.6' }}>
-            註冊並綁定 MetaMask，即可使用 SKILL 預約課程。<br />
-            開啟你在 YunBarter 的知識交換旅程。
-          </p>
-          <Link to="/login" state={{ isRegister: true }} style={{ textDecoration: 'none' }}>
-            <button style={{ padding: '16px 40px', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '12px', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 10px 25px -5px rgba(59, 130, 246, 0.4)', transition: 'all 0.2s' }} onMouseOver={e => e.currentTarget.style.backgroundColor = '#2563eb'} onMouseOut={e => e.currentTarget.style.backgroundColor = '#3b82f6'}>
-              免費註冊帳號
-            </button>
-          </Link>
-        </div>
-      </div>
-
-      {/* 簡單的 Footer - 補回來了！ */}
-      <footer style={{ backgroundColor: '#020617', padding: '30px 20px', textAlign: 'center', color: '#475569', fontSize: '14px' }}>
-        <p style={{ margin: 0 }}>© 2026 YunBarter. P2P Freelance Platform Project. All rights reserved.</p>
       </footer>
 
     </div>

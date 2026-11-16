@@ -255,7 +255,7 @@ export default function Profile({
   };
 
   return (
-    <div style={{
+    <div className="profile-page" style={{
       background: '#f4f7f6',
       minHeight: 'calc(100vh - 70px)',
       padding: '40px 20px',
@@ -376,7 +376,7 @@ export default function Profile({
             )}
 
             {/* 三項統計 */}
-            <div style={{
+            <div className="profile-stats" style={{
               display: 'grid',
               gridTemplateColumns:
                 'repeat(auto-fit, minmax(150px, 1fr))',
@@ -593,7 +593,7 @@ export default function Profile({
                 我的授課時間
               </h3>
 
-              <div style={{
+              <div className="profile-schedule-form" style={{
                 display: 'flex',
                 flexWrap: 'wrap',
                 gap: '12px',
@@ -763,6 +763,7 @@ export default function Profile({
               {myTeachers.map(teacher => (
                 <div
                   key={teacher.id}
+                  className="profile-course-row"
                   style={{
                     display: 'flex',
                     flexWrap: 'wrap',
@@ -781,7 +782,7 @@ export default function Profile({
                     {teacher.skill}
                   </strong>
 
-                  <div style={{
+                  <div className="profile-course-actions" style={{
                     display: 'flex',
                     gap: '8px',
                   }}>
@@ -844,7 +845,7 @@ export default function Profile({
 
       {/* ===== 編輯課程視窗 ===== */}
       {editingCourse && (
-        <div style={{
+        <div className="profile-edit-overlay" style={{
           position: 'fixed',
           inset: 0,
           background: 'rgba(15,23,42,.6)',
@@ -855,6 +856,7 @@ export default function Profile({
           padding: '20px',
         }}>
           <form
+            className="profile-edit-dialog"
             onSubmit={saveCourse}
             style={{
               background: 'white',
@@ -942,7 +944,7 @@ export default function Profile({
 
       {/* ===== 編輯個人名片視窗 ===== */}
       {isEditing && (
-        <div style={{
+        <div className="profile-edit-overlay" style={{
           position: 'fixed',
           inset: 0,
           background: 'rgba(15,23,42,.6)',
@@ -952,7 +954,7 @@ export default function Profile({
           zIndex: 2000,
           padding: '20px',
         }}>
-          <div style={{
+          <div className="profile-edit-dialog" style={{
             background: 'white',
             maxWidth: '500px',
             width: '100%',

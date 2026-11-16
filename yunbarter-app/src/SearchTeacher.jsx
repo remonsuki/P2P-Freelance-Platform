@@ -126,7 +126,18 @@ export default function SearchTeacher({ isLoggedIn, teachers, userId, showNotifi
   };
 
   return (
-    <div style={{ backgroundColor: '#f8fafc', minHeight: 'calc(100vh - 70px)', padding: '40px 20px', fontFamily: 'sans-serif', position: 'relative' }}>
+    
+    <div
+      className="search-page"
+      style={{
+        backgroundColor: '#f8fafc',
+        minHeight: 'calc(100vh - 70px)',
+        padding: '40px 20px',
+        fontFamily: 'sans-serif',
+        position: 'relative'
+      }}
+    >
+
     <div className="search-layout">
 
         
@@ -280,6 +291,7 @@ export default function SearchTeacher({ isLoggedIn, teachers, userId, showNotifi
 
           {/* 課程探索 Banner */}
         <section
+          className="search-page-banner"
           style={{
             position: 'relative',
             overflow: 'hidden',
@@ -344,9 +356,19 @@ export default function SearchTeacher({ isLoggedIn, teachers, userId, showNotifi
             </span>
           </div>
         </section>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
+          <div
+            className="search-toolbar"
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '15px'
+            }}
+          >
           {/* 優化搜尋欄 */}
           <div
+            className="search-input-wrap"
             style={{
               position: 'relative',
               flex: '1 1 300px',
@@ -832,138 +854,473 @@ export default function SearchTeacher({ isLoggedIn, teachers, userId, showNotifi
         </div>
       </div>
 
-      {/* Modal 內容... (已保留先前優化邏輯) */}
-      {selectedTeacher && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(6px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000, padding: '20px', boxSizing: 'border-box' }}>
-          
-          <div style={{ backgroundColor: 'white', width: '100%', maxWidth: '1000px', maxHeight: '90vh', borderRadius: '24px', overflow: 'hidden', display: 'flex', flexDirection: 'row', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.3)', position: 'relative' }}>
-            
-            <button onClick={() => setSelectedTeacher(null)} style={{ position: 'absolute', top: '20px', right: '20px', background: 'white', border: '1px solid #e2e8f0', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', zIndex: 10, transition: 'all 0.2s' }} onMouseOver={e => e.currentTarget.style.backgroundColor = '#f1f5f9'} onMouseOut={e => e.currentTarget.style.backgroundColor = 'white'}>
-              <X size={20} color="#64748b" />
-            </button>
 
-            <div style={{ flex: '1.5', overflowY: 'auto', display: 'flex', flexDirection: 'column', backgroundColor: 'white' }}>
-              <div style={{ height: '220px', background: getGradientForCategory(selectedTeacher.category), display: 'flex', justifyContent: 'center', alignItems: 'center', flexShrink: 0 }}>
-                <div style={{ transform: 'scale(1.8)', opacity: 0.9 }}>{getIconForCategory(selectedTeacher.category)}</div>
+{/* ===== Step 5.2：課程詳情視窗 RWD ===== */}
+{selectedTeacher && (
+  <div
+    className="yb-modal-overlay"
+    style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      width: '100vw',
+      height: '100vh',
+      backgroundColor: 'rgba(15, 23, 42, 0.7)',
+      backdropFilter: 'blur(6px)',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 2000,
+      padding: '20px',
+      boxSizing: 'border-box'
+    }}
+  >
+    <div
+      className="yb-modal-card"
+      role="dialog"
+      aria-modal="true"
+      aria-label="課程詳情與預約"
+      style={{
+        backgroundColor: 'white',
+        width: '100%',
+        maxWidth: '1000px',
+        maxHeight: '90vh',
+        borderRadius: '24px',
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'row',
+        boxShadow: '0 25px 50px -12px rgba(0,0,0,0.3)',
+        position: 'relative'
+      }}
+    >
+      {/* 關閉按鈕 */}
+      <button
+        type="button"
+        className="yb-modal-close"
+        aria-label="關閉課程詳情"
+        onClick={() => setSelectedTeacher(null)}
+        style={{
+          position: 'absolute',
+          top: '20px',
+          right: '20px',
+          background: 'white',
+          border: '1px solid #e2e8f0',
+          borderRadius: '50%',
+          width: '36px',
+          height: '36px',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          cursor: 'pointer',
+          boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
+          zIndex: 10
+        }}
+      >
+        <X size={20} color="#64748b" />
+      </button>
+
+      {/* ===== 左側：課程介紹 ===== */}
+      <div
+        className="yb-modal-info"
+        style={{
+          flex: '1.5',
+          overflowY: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          backgroundColor: 'white'
+        }}
+      >
+        {/* 課程封面 */}
+        <div
+          className="yb-modal-cover"
+          style={{
+            height: '220px',
+            background: getGradientForCategory(
+              selectedTeacher.category
+            ),
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            flexShrink: 0
+          }}
+        >
+          <div style={{
+            transform: 'scale(1.8)',
+            opacity: 0.9
+          }}>
+            {getIconForCategory(selectedTeacher.category)}
+          </div>
+        </div>
+
+        {/* 課程內容 */}
+        <div
+          className="yb-modal-description"
+          style={{ padding: '40px' }}
+        >
+          <div style={{ marginBottom: '15px' }}>
+            <span style={{
+              backgroundColor: '#f1f5f9',
+              color: '#334155',
+              padding: '6px 12px',
+              borderRadius: '8px',
+              fontSize: '13px',
+              fontWeight: 'bold'
+            }}>
+              {selectedTeacher.category} 課程
+            </span>
+          </div>
+
+          <h2 style={{
+            margin: '0 0 20px',
+            fontSize: '32px',
+            color: '#0f172a',
+            lineHeight: 1.3,
+            fontWeight: '900'
+          }}>
+            {selectedTeacher.skill}
+          </h2>
+
+          {/* 老師及評價 */}
+          <div
+            className="yb-modal-meta"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '20px',
+              marginBottom: '40px',
+              paddingBottom: '30px',
+              borderBottom: '1px solid #f1f5f9'
+            }}
+          >
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              color: '#475569',
+              fontSize: '16px',
+              fontWeight: 'bold'
+            }}>
+              <div style={{
+                width: '32px',
+                height: '32px',
+                backgroundColor: '#e2e8f0',
+                borderRadius: '50%',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                flexShrink: 0
+              }}>
+                <User size={18} color="#64748b" />
               </div>
-
-              <div style={{ padding: '40px' }}>
-                <div style={{ marginBottom: '15px' }}>
-                  <span style={{ backgroundColor: '#f1f5f9', color: '#334155', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold' }}>
-                    {selectedTeacher.category} 課程
-                  </span>
-                </div>
-                
-                <h2 style={{ margin: '0 0 20px 0', fontSize: '32px', color: '#0f172a', lineHeight: '1.3', fontWeight: '900' }}>
-                  {selectedTeacher.skill}
-                </h2>
-                
-                <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '40px', paddingBottom: '30px', borderBottom: '1px solid #f1f5f9' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#475569', fontSize: '16px', fontWeight: 'bold' }}>
-                    <div style={{ width: '32px', height: '32px', backgroundColor: '#e2e8f0', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                      <User size={18} color="#64748b" />
-                    </div>
-                    {selectedTeacher.name} 老師
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#d97706', fontSize: '15px', fontWeight: 'bold' }}>
-                    <Star size={18} fill="#d97706" color="#d97706" /> {selectedTeacher.rating == null ? '尚無評價' : selectedTeacher.rating.toFixed(1)} ({selectedTeacher.reviewCount || 0} 則評價)
-                  </div>
-                </div>
-
-                <div>
-                  <h3 style={{ fontSize: '20px', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '15px' }}>
-                    <AlignLeft size={20} color="#3b82f6" /> 關於這堂課程
-                  </h3>
-                  <div style={{ color: '#475569', fontSize: '16px', lineHeight: '1.8', whiteSpace: 'pre-wrap' }}>
-                    {selectedTeacher.description || '這堂課的老師很神秘，還沒有為課程寫下詳細的介紹說明。不過別擔心，您可以先預約一堂課來體驗看看！'}
-                  </div>
-                </div>
-
-              </div>
+              {selectedTeacher.name} 老師
             </div>
 
-            <div
-              style={{
-                flex: 1,
-                backgroundColor: '#f8fafc',
-                borderLeft: '1px solid #e2e8f0',
-                padding: '40px 30px',
-                display: 'flex',
-                flexDirection: 'column',
-                minHeight: 0,
-                overflowY: 'auto',
-              }}
-            >
-              <h3 style={{ margin: '0 0 20px 0', fontSize: '20px', color: '#0f172a', fontWeight: 'bold' }}>預約資訊</h3>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              color: '#d97706',
+              fontSize: '15px',
+              fontWeight: 'bold'
+            }}>
+              <Star
+                size={18}
+                fill="#d97706"
+                color="#d97706"
+              />
+              {selectedTeacher.rating == null
+                ? '尚無評價'
+                : Number(selectedTeacher.rating).toFixed(1)}
+              {' '}
+              ({selectedTeacher.reviewCount || 0} 則評價)
+            </div>
+          </div>
 
-              <div style={{ backgroundColor: 'white', borderRadius: '16px', padding: '24px', border: '1px solid #e2e8f0', marginBottom: '30px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '10px' }}>
-                  <span style={{ fontSize: '36px', color: '#0f172a', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <CircleDollarSign size={32} strokeWidth={2.5} color="#0f172a" /> {selectedTeacher.price}
-                  </span>
-                  <span style={{ fontSize: '16px', color: '#64748b', fontWeight: 'bold' }}>SKILL / 堂</span>
-                </div>
-                <div style={{ fontSize: '13px', color: '#94a3b8' }}>課程費全額結算，另需 ETH 網路費</div>
-              </div>
+          {/* 課程說明 */}
+          <div>
+            <h3 style={{
+              fontSize: '20px',
+              color: '#0f172a',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              marginBottom: '15px'
+            }}>
+              <AlignLeft size={20} color="#3b82f6" />
+              關於這堂課程
+            </h3>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '30px' }}>
-                <p style={{fontSize:'13px',color:'#475569',lineHeight:1.7}}>使用 SKILL 鏈上託管付款，網路費以 ETH 支付。付款時段最多保留約 10 分鐘，請依序完成 MetaMask 的授權與付款。</p>
-                {!chainConfig?.enabled&&<p role="alert">{chainConfig?.message||'鏈上交易尚未就緒'}</p>}
-                <div>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', color: '#475569', fontWeight: 'bold', marginBottom: '8px' }}>
-                    <Calendar size={16} /> 選擇老師有空時段
-                  </label>
-                  <select 
-                    value={selectedTimeSlot} 
-                    onChange={(e) => setSelectedTimeSlot(e.target.value)}
-                    style={{ width: '100%', padding: '14px', borderRadius: '10px', border: '1px solid #cbd5e1', backgroundColor: 'white', color: '#0f172a', fontSize: '15px', outlineColor: '#3b82f6', cursor: 'pointer' }}
-                  >
-                    <option value="">請選擇時段</option>
-                    {selectedTeacher.availableTimes && selectedTeacher.availableTimes.length > 0 ? (
-                      selectedTeacher.availableTimes.map(timeKey => (
-                        <option key={timeKey} value={timeKey}>{formatTimeSlot(timeKey)}</option>
-                      ))
-                    ) : (
-                      <option disabled value="">目前沒有可預約時段</option>
-                    )}
-                  </select>
-                </div>
-                
-                <div>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', color: '#475569', fontWeight: 'bold', marginBottom: '8px' }}>
-                    <Clock size={16} /> 課程時長
-                  </label>
-                  <select style={{ width: '100%', padding: '14px', borderRadius: '10px', border: '1px solid #cbd5e1', backgroundColor: 'white', color: '#0f172a', fontSize: '15px', outlineColor: '#3b82f6', cursor: 'pointer' }}>
-                    <option>1 小時 (標準)</option>
-                  </select>
-                </div>
-              </div>
-
-              {isTrading && loadingMessage && (
-                <div style={{ padding: '12px', backgroundColor: '#eff6ff', borderRadius: '10px', color: '#1d4ed8', fontSize: '14px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                  <Loader2 size={18} className="animate-spin" />
-                  {loadingMessage}
-                </div>
-              )}
-
-              <div style={{ marginTop: 'auto' }}>
-                <button 
-                  onClick={confirmBooking}
-                  disabled={isTrading || isBooking || !chainConfig?.enabled || !selectedTeacher.availableTimes?.length}
-                  style={{ width: '100%', padding: '16px', backgroundColor: '#0f172a', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', fontSize: '16px', cursor: isTrading ? 'not-allowed' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', boxShadow: '0 10px 20px -5px rgba(15, 23, 42, 0.3)', transition: 'background-color 0.2s', opacity: isTrading ? 0.7 : 1 }}
-                  onMouseOver={e => { if (!isTrading) e.currentTarget.style.backgroundColor = '#1e293b'; }}
-                  onMouseOut={e => e.currentTarget.style.backgroundColor = '#0f172a'}
-                >
-                  {isTrading ? <Loader2 size={20} className="animate-spin" /> : <ShieldCheck size={20} />}
-                  {isTrading || isBooking ? (loadingMessage || '處理中...') : '確認預約並扣款'}
-                </button>
-
-              </div>
-
+            <div style={{
+              color: '#475569',
+              fontSize: '16px',
+              lineHeight: 1.8,
+              whiteSpace: 'pre-wrap',
+              overflowWrap: 'anywhere'
+            }}>
+              {selectedTeacher.description ||
+                '這堂課的老師還沒有填寫詳細介紹，歡迎查看可預約時段。'}
             </div>
           </div>
         </div>
-      )}
+      </div>
+
+      {/* ===== 右側：預約資訊 ===== */}
+      <div
+        className="yb-modal-booking"
+        style={{
+          flex: 1,
+          backgroundColor: '#f8fafc',
+          borderLeft: '1px solid #e2e8f0',
+          padding: '40px 30px',
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 0,
+          overflowY: 'auto'
+        }}
+      >
+        <h3 style={{
+          margin: '0 0 20px',
+          fontSize: '20px',
+          color: '#0f172a',
+          fontWeight: 'bold'
+        }}>
+          預約資訊
+        </h3>
+
+        {/* 課程價格 */}
+        <div style={{
+          backgroundColor: 'white',
+          borderRadius: '16px',
+          padding: '24px',
+          border: '1px solid #e2e8f0',
+          marginBottom: '30px',
+          boxShadow: '0 4px 6px rgba(0,0,0,0.02)'
+        }}>
+          <div
+            className="yb-modal-price"
+            style={{
+              display: 'flex',
+              alignItems: 'baseline',
+              gap: '8px',
+              marginBottom: '10px'
+            }}
+          >
+            <span style={{
+              fontSize: '36px',
+              color: '#0f172a',
+              fontWeight: '900',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}>
+              <CircleDollarSign
+                size={32}
+                strokeWidth={2.5}
+                color="#0f172a"
+              />
+              {selectedTeacher.price}
+            </span>
+            <span style={{
+              fontSize: '16px',
+              color: '#64748b',
+              fontWeight: 'bold'
+            }}>
+              SKILL / 堂
+            </span>
+          </div>
+
+          <div style={{
+            fontSize: '13px',
+            color: '#94a3b8'
+          }}>
+            課程費全額結算，另需 ETH 網路費
+          </div>
+        </div>
+
+        {/* 預約提示與時段 */}
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '20px',
+          marginBottom: '30px'
+        }}>
+          <p style={{
+            fontSize: '13px',
+            color: '#475569',
+            lineHeight: 1.7
+          }}>
+            使用 SKILL 鏈上託管付款，網路費以 ETH 支付。
+            付款時段最多保留約 10 分鐘，請依序完成
+            MetaMask 的授權與付款。
+          </p>
+
+          {!chainConfig?.enabled && (
+            <p role="alert">
+              {chainConfig?.message || '鏈上交易尚未就緒'}
+            </p>
+          )}
+
+          {/* 選擇老師時段 */}
+          <div>
+            <label style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '14px',
+              color: '#475569',
+              fontWeight: 'bold',
+              marginBottom: '8px'
+            }}>
+              <Calendar size={16} />
+              選擇老師有空時段
+            </label>
+
+            <select
+              value={selectedTimeSlot}
+              onChange={(e) =>
+                setSelectedTimeSlot(e.target.value)
+              }
+              style={{
+                width: '100%',
+                padding: '14px',
+                borderRadius: '10px',
+                border: '1px solid #cbd5e1',
+                backgroundColor: 'white',
+                color: '#0f172a',
+                fontSize: '15px',
+                outlineColor: '#3b82f6',
+                cursor: 'pointer'
+              }}
+            >
+              <option value="">請選擇時段</option>
+
+              {selectedTeacher.availableTimes &&
+              selectedTeacher.availableTimes.length > 0 ? (
+                selectedTeacher.availableTimes.map(timeKey => (
+                  <option key={timeKey} value={timeKey}>
+                    {formatTimeSlot(timeKey)}
+                  </option>
+                ))
+              ) : (
+                <option disabled value="">
+                  目前沒有可預約時段
+                </option>
+              )}
+            </select>
+          </div>
+
+          {/* 課程時長 */}
+          <div>
+            <label style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '14px',
+              color: '#475569',
+              fontWeight: 'bold',
+              marginBottom: '8px'
+            }}>
+              <Clock size={16} />
+              課程時長
+            </label>
+
+            <select style={{
+              width: '100%',
+              padding: '14px',
+              borderRadius: '10px',
+              border: '1px solid #cbd5e1',
+              backgroundColor: 'white',
+              color: '#0f172a',
+              fontSize: '15px',
+              outlineColor: '#3b82f6',
+              cursor: 'pointer'
+            }}>
+              <option>1 小時 (標準)</option>
+            </select>
+          </div>
+        </div>
+
+        {/* 交易處理提示 */}
+        {isTrading && loadingMessage && (
+          <div style={{
+            padding: '12px',
+            backgroundColor: '#eff6ff',
+            borderRadius: '10px',
+            color: '#1d4ed8',
+            fontSize: '14px',
+            fontWeight: 'bold',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            marginBottom: '12px'
+          }}>
+            <Loader2
+              size={18}
+              className="animate-spin"
+            />
+            {loadingMessage}
+          </div>
+        )}
+
+        {/* 確認預約按鈕：維持原本扣款邏輯 */}
+        <div style={{ marginTop: 'auto' }}>
+          <button
+            type="button"
+            onClick={confirmBooking}
+            disabled={
+              isTrading ||
+              isBooking ||
+              !chainConfig?.enabled ||
+              !selectedTeacher.availableTimes?.length
+            }
+            style={{
+              width: '100%',
+              padding: '16px',
+              backgroundColor: '#0f172a',
+              color: 'white',
+              border: 'none',
+              borderRadius: '12px',
+              fontWeight: 'bold',
+              fontSize: '16px',
+              cursor: isTrading ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: '10px',
+              boxShadow:
+                '0 10px 20px -5px rgba(15,23,42,0.3)',
+              opacity: isTrading ? 0.7 : 1
+            }}
+            onMouseOver={(e) => {
+              if (!isTrading) {
+                e.currentTarget.style.backgroundColor =
+                  '#1e293b';
+              }
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.backgroundColor =
+                '#0f172a';
+            }}
+          >
+            {isTrading ? (
+              <Loader2
+                size={20}
+                className="animate-spin"
+              />
+            ) : (
+              <ShieldCheck size={20} />
+            )}
+
+            {isTrading || isBooking
+              ? (loadingMessage || '處理中...')
+              : '確認預約並扣款'}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
 
     </div>
   );

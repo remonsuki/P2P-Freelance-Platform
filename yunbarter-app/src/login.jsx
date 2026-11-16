@@ -140,7 +140,91 @@ export default function Login({ setIsLoggedIn, setUserId, setUserName, showNotif
 
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 'calc(100vh - 70px)', backgroundColor: '#f4f7f6', padding: '40px 20px', fontFamily: 'sans-serif' }}>
+    <div
+      className="yb-auth-page"
+      style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: 'calc(100vh - 70px)',
+        backgroundColor: '#f4f7f6',
+        padding: '40px 20px',
+        fontFamily: 'sans-serif',
+      }}
+    >
+{/* ===== Step 5.4：登入與註冊頁面 RWD ===== */}
+<style>{`
+  @media (max-width: 960px) {
+    /* 整個頁面 */
+    .yb-auth-page {
+      padding: 24px 16px !important;
+      align-items: flex-start !important;
+      box-sizing: border-box;
+      min-width: 0;
+    }
+
+    /* 登入／註冊主卡片 */
+    .yb-auth-page > div {
+      width: 100% !important;
+      max-width: 540px !important;
+      min-width: 0 !important;
+      margin: 0 auto;
+      flex-direction: column !important;
+      border-radius: 18px !important;
+      box-sizing: border-box;
+    }
+
+    /* 左側表單改成完整寬度 */
+    .yb-auth-page > div > div:first-child {
+      width: 100% !important;
+      min-width: 0 !important;
+      flex: none !important;
+      padding: 32px 26px !important;
+      box-sizing: border-box;
+    }
+
+    /* 隱藏右側品牌宣傳區 */
+    .yb-auth-page > div > div:last-child {
+      display: none !important;
+    }
+
+    /* 表單標題 */
+    .yb-auth-page h2 {
+      overflow-wrap: anywhere;
+    }
+
+    /* 輸入框 */
+    .yb-auth-page input {
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+      font-size: 16px !important;
+    }
+
+    /* 避免長文字撐破卡片 */
+    .yb-auth-page p,
+    .yb-auth-page span {
+      overflow-wrap: anywhere;
+    }
+  }
+
+  /* 小尺寸手機 */
+  @media (max-width: 360px) {
+    .yb-auth-page {
+      padding: 16px 12px !important;
+    }
+
+    .yb-auth-page > div > div:first-child {
+      padding: 26px 18px !important;
+    }
+
+    .yb-auth-page h2 {
+      font-size: 24px !important;
+    }
+  }
+`}</style>
+
       <div style={{ display: 'flex', width: '100%', maxWidth: '900px', backgroundColor: 'white', borderRadius: '20px', boxShadow: '0 15px 35px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
         
         {/* ================= 左側：表單區塊 ================= */}
