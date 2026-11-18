@@ -12,7 +12,7 @@
 6. 開課後、完課後 7 天內，學生可提出鏈上爭議，凍結撥款。老師可同意全額退款。爭議一旦成立，7 天後也不會自動撥款。
 7. 沒有爭議、學生也未確認完課時，老師可在完課後 7 天領取款項。
 
-目前爭議採老師同意全額退款的規則，沒有第三方仲裁或部分退款。此版本只允許 Sepolia（11155111）與本機測試鏈（1337、31337），不接受主網。合約沒有管理者提走託管款項的介面。
+目前爭議由老師同意全額退款。平台的新交易使用 Ethereum Sepolia（`11155111`），自動化測試使用獨立的 Ganache 鏈。
 
 ## 安裝與驗證
 
@@ -40,13 +40,13 @@ npm run build
 
 ## 部署至 Sepolia
 
-若要查看這次已完成的本機鏈驗收，請開啟 `.local-backups/chain-test/report.md`。其 Chain ID 為 1337、RPC 為 `http://127.0.0.1:18545`；在錢包頁或預約管理登入任一測試帳號，可看到該帳號的 2 筆 SKILL 課程交易。重新開機後須先在 `blockchain` 執行 `npm run local:node` 啟動原資料鏈。後端 `.env` 目前已指向本機鏈；以下 Sepolia 步驟需改用自己的 RPC，另行部署合約並取得測試幣。
+從 Ganache 切換前，先在原網路同步並結清所有待付款、託管中或爭議中的交易。已結算的舊付款及收據會保留原 Chain ID，可在預約管理及錢包頁查閱。切到 Sepolia 後，會員使用原綁定錢包地址，餘額及新交易均以 Sepolia 為準。
 
 ### 1. 確認既有代幣
 
-確認 `0xF3A9Ad79A8bCDF5F58C4d79BADebB3F47715B009` 在你指定的 Sepolia RPC 上確實是 18 位小數、symbol 為 SKILL 的合約。地址格式正確不代表已部署；部署預覽會實際檢查。若地址不對，先用 `file/SkillToken.sol` 部署測試代幣，並在以下設定使用真正地址。
+沿用 Sepolia 上的 18 位小數 SKILL 代幣 `0xF3A9Ad79A8bCDF5F58C4d79BADebB3F47715B009`。部署預覽會再次向設定的 RPC 查驗網路、合約、代幣代號和小數位數。若已有相容的 SkillEscrow，可驗證它的代幣及報價簽章地址後直接設定後端。
 
-學生錢包需要 SKILL；由代幣持有人轉入，或由代幣合約 owner 呼叫 mint。測試網 ETH 只用於 gas，不能當作 SKILL。
+學生錢包需要 SKILL，可由代幣持有人轉入，或由代幣合約 owner 呼叫 `mint`。每個會送出鏈上操作的錢包也需要 Sepolia ETH 支付網路費，可從 [Ethereum 官方文件列出的 Sepolia 水龍頭](https://ethereum.org/developers/docs/networks/#sepolia)取得。
 
 ### 2. 建立專用報價簽章金鑰
 
@@ -55,25 +55,25 @@ cd D:\二技專題\P2P-Freelance-Platform\blockchain
 npm run create-quote-key
 ```
 
-此工具將金鑰寫入已被 Git 忽略的 `yunbarter-backend/.env.chain.local`，只顯示公鑰地址，不會顯示私鑰，也不會覆寫既有檔案。後端會自動載入這個檔案。將顯示的 `QUOTE_SIGNER_ADDRESS` 填入部署設定。保留並備份此金鑰；合約驗證的報價地址部署後不可變更。
+若已有 `yunbarter-backend/.env.chain.local`，使用原本的金鑰，此指令只用於初次建立。工具會顯示公開的 `QUOTE_SIGNER_ADDRESS`，請填入部署設定。後端自動載入此檔案，部署後合約固定使用這個簽章地址。
 
 ### 3. 設定並預覽部署
 
 ```powershell
-Copy-Item .env.example .env
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 ```
 
 編輯 `blockchain/.env`：
 
 ```dotenv
-CHAIN_RPC_URL=你的Sepolia_RPC網址
+CHAIN_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com
 CHAIN_ID=11155111
-SKILL_TOKEN_ADDRESS=已確認的SKILL合約地址
+SKILL_TOKEN_ADDRESS=0xF3A9Ad79A8bCDF5F58C4d79BADebB3F47715B009
 QUOTE_SIGNER_ADDRESS=上一步顯示的公鑰地址
 DEPLOYER_PRIVATE_KEY=只用於測試網部署的錢包私鑰
 ```
 
-請在本機編輯私鑰，不需要貼到聊天。部署錢包需要少量 Sepolia ETH。報價簽章錢包與部署錢包用途不同；報價簽章本身不上鏈，因此不需要 ETH。
+請把專用測試部署錢包的私鑰填在本機的 `blockchain/.env`，並在該錢包備妥 Sepolia ETH。報價簽章錢包負責在後端簽發報價，部署錢包負責付部署費。
 
 ```powershell
 npm run deploy
@@ -85,7 +85,7 @@ npm run deploy
 npm run deploy -- --send
 ```
 
-部署成功會顯示 `escrowAddress`，並記錄在 `blockchain/artifacts/deployment-11155111.json`。若流程中斷，先依已顯示的部署交易雜湊確認結果，避免重複部署。
+部署成功會將 `escrowAddress` 和交易雜湊寫入 `blockchain/artifacts/deployment-11155111.json`。請在 Etherscan 或 RPC 收據查閱部署區塊。若流程中斷，先依已顯示的交易雜湊確認結果。
 
 ### 4. 啟用後端
 
@@ -94,13 +94,15 @@ npm run deploy -- --send
 ```dotenv
 CHAIN_ENABLED=true
 CHAIN_ID=11155111
-CHAIN_RPC_URL=你的Sepolia_RPC網址
+CHAIN_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com
+CHAIN_WALLET_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com
 CHAIN_CONFIRMATIONS=2
-SKILL_TOKEN_ADDRESS=已確認的SKILL合約地址
-SKILL_ESCROW_ADDRESS=剛部署的escrowAddress
+CHAIN_START_BLOCK=託管合約部署區塊
+SKILL_TOKEN_ADDRESS=0xF3A9Ad79A8bCDF5F58C4d79BADebB3F47715B009
+SKILL_ESCROW_ADDRESS=已查驗的託管合約地址
 ```
 
-`CHAIN_QUOTE_PRIVATE_KEY` 已由 `.env.chain.local` 提供，不需要再次複製。前端不接觸私鑰，也不用另填合約地址；付款設定由後端 API 提供。先執行 `npm run db:migrate`，再啟動或重啟後端與前端。未啟用時，YTC 可繼續使用，SKILL 選項顯示暫未開放。
+`CHAIN_QUOTE_PRIVATE_KEY` 由 `.env.chain.local` 提供。先執行 `npm run db:migrate`，再啟動或重啟後端。用 `GET /api/chain/config` 檢查回傳的 `enabled: true`、`chainId: 11155111` 和託管地址。準備期間設定 `CHAIN_ENABLED=false`，付款會暫停。舊 YTC 只供查閱，原點數交易 API 回傳 `410`。
 
 有未結束付款時不要更換鏈、代幣、託管合約或報價金鑰；每筆付款保存原合約與錢包快照，必須在原設定下同步。老師與學生的已綁定錢包不能更換；切換 MetaMask 帳戶只會造成錢包不符，不會改寫綁定或交易地址。
 
@@ -109,7 +111,7 @@ SKILL_ESCROW_ADDRESS=剛部署的escrowAddress
 使用兩個平台帳號與兩個不同錢包，一個學生、一個老師：
 
 - 新帳號註冊時即完成錢包綁定；舊帳號須先在錢包頁補綁一次。老師設定排班並發佈課程。
-- 學生選 SKILL，完成授權與付款。在區塊瀏覽器確認代幣進入託管合約，兩邊 YTC 餘額保持不變。
+- 學生使用 SKILL 授權及付款。確認 Sepolia 的代幣轉入託管合約，等到設定的確認數後，預約管理顯示「SKILL 託管中」。
 - 在「預約管理」同步付款，測試課前取消，SKILL 應回到原學生錢包。
 - 另建預約，等課程結束後由學生完課，SKILL 應轉入原老師錢包。
 - 測試提出爭議、老師同意退款，以及多次按同步時不會重複結算。
@@ -134,27 +136,23 @@ SKILL_ESCROW_ADDRESS=剛部署的escrowAddress
 - `users` 不含 `cached_points` 或其他剩餘金額欄位。課程價格與每筆成交金額仍需保存。
 - `chain_transaction_records` 以 `(chain_id, tx_hash)` 唯一儲存區塊號、區塊雜湊、時間、發送與接收地址、交易結果、ERC-20 Transfer／Approval、Gas 用量及費用、完整交易與收據 JSON。
 - 後端只信任設定的 RPC／代幣／託管合約，達到 `CHAIN_CONFIRMATIONS` 並核對正式區塊雜湊後才備份；重複同步不會新增重複紀錄。
-- 每次付款同步會補齊該付款全部狀態事件，不會只保留最後一筆。錢包頁同步轉帳與授權，`CHAIN_START_BLOCK` 應設為代幣部署區塊。每次最多掃描 20,000 區塊，可續傳。
+- 每次付款同步會補齊該付款的全部狀態事件。錢包頁從 `CHAIN_START_BLOCK` 開始同步轉帳及授權。可使用託管部署區塊，或指定更早的區塊帶入既有代幣歷史。每次最多掃描 20,000 區塊，可續傳。
 - `npm run db:sync-chain` 可補齊既有已結算付款及所有綁定錢包的歷史備份。鏈關閉或 RPC 暫時無法使用時，交易備份仍可查閱。
 - 006 遷移保留舊 YTC 流水帳於 `legacy_point_transactions`，舊預約增加 `archived_at`，不再占用可預約時段。移除餘額前可先使用 `pg_dump` 保存舊版資料庫以便還原。
 
-## MetaMask 顯示「請切換至測試鏈 1337」
+## MetaMask 切換到 Sepolia
 
-這表示錢包目前的網路與後端不同。先重新整理前端，前往錢包頁按「新增／切換至交易網路」，並在 MetaMask 確認。付款、退款與完課撥款也會先引導切換，再重新建立 Provider／Signer 並檢查合約；取消切換時不會繼續付款。切換網路不會自動重新整理頁面。
-
-本專案持久化測試鏈的設定：
+在錢包頁按「新增／切換至交易網路」，並在 MetaMask 使用會員原綁定的地址確認。付款、退款與完課撥款也會引導切換並重新建立錢包連線。
 
 | 欄位 | 值 |
 | --- | --- |
-| 網路名稱 | YunBarter 本機測試鏈 1337 |
-| RPC | `http://127.0.0.1:18545` |
-| Chain ID | `1337`（十六進位 `0x539`） |
+| 網路名稱 | Ethereum Sepolia |
+| RPC | `https://ethereum-sepolia-rpc.publicnode.com` |
+| Chain ID | `11155111`（十六進位 `0xaa36a7`） |
 | 貨幣符號 | `ETH` |
-| 區塊瀏覽器 | 留白 |
+| 區塊瀏覽器 | [Sepolia Etherscan](https://sepolia.etherscan.io/) |
 
-若 MetaMask 已有 Chain ID 1337 的網路，請確認 RPC 使用 **18545** 埠；相同 Chain ID 不保證連到同一個本機節點。錢包須使用會員原本綁定的地址。原生貨幣 ETH 支付網路費，SKILL 是另外的課程付款代幣。
-
-後端以 `/api/chain/config` 的 `walletNetwork` 提供錢包設定。本機無帳密的 loopback RPC 會自動提供；遠端 RPC 請另設可公開的 `CHAIN_WALLET_RPC_URL`，不會自動公開後端的私密 RPC URL。修改後端程式或設定後需重啟 API。若重新開機，先於 `blockchain` 執行 `npm run local:node` 啟動原節點，保留原本的 ganache 資料目錄。
+後端以 `/api/chain/config` 的 `walletNetwork` 提供錢包設定。`CHAIN_WALLET_RPC_URL` 使用可公開的 RPC，服務端私密 RPC 請填在 `CHAIN_RPC_URL`。修改設定後重啟 API。
 
 ## MetaMask 4100／could not coalesce error
 

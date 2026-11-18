@@ -1,5 +1,5 @@
-創造你自己的虛擬貨幣 (發行 ERC-20 代幣)
-在 Ethereum 或 Polygon 等相容區塊鏈上，虛擬貨幣通常遵循 ERC-20 標準。我們不需要從頭寫，使用 OpenZeppelin 的官方安全範本即可。
+在 Ethereum Sepolia 發行 SKILL 測試代幣
+專案已有一份 Sepolia SKILL 代幣，地址見「部屬合約地址.txt」。日常付款部署請沿用該代幣並部署 SkillEscrow，步驟見 docs/SKILL-交易與部署.md。本文件適用於需要另建測試代幣時，合約原始碼見 file/SkillToken.sol。
 
 1. 撰寫智能合約
 你可以直接打開瀏覽器，進入 Remix Ethereum IDE，建立一個名為 SkillToken.sol 的檔案，並貼上以下程式碼：
@@ -30,7 +30,7 @@ contract SkillToken is ERC20, Ownable {
 
 切換到 Deploy & Run Transactions 頁面。
 
-將 Environment 切換為 Injected Provider - MetaMask（此時 MetaMask 會跳出視窗，請將網路切換至測試網，例如 Arbitrum Sepolia 或 Polygon Amoy，以免花費真實金錢）。
+將 Environment 切換為 Injected Provider - MetaMask，在 MetaMask 選擇 Ethereum Sepolia（Chain ID 11155111）。部署需要 Sepolia ETH 支付網路費。
 
 在 Deploy 按鈕旁輸入你的錢包地址作為 initialOwner，點擊 Deploy 並在 MetaMask 簽章同意。
 

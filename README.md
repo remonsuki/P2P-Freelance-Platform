@@ -43,9 +43,9 @@ npm run db:seed
 
 這個指令只接受空白資料庫；已有資料會停止，不會執行 TRUNCATE。正式環境禁止匯入。測試帳號為 `test@email.com`、`axian@email.com`、`link@email.com`，開發密碼皆為 `123456`，SQL 中已儲存為不同的 scrypt 雜湊。一般新註冊帳號密碼至少 8 個字元。
 
-需要在已有資料的開發資料庫建立具備永久錢包綁定的測試帳號，可在後端執行 `npm run db:create-test-accounts`。它會先套用遷移，再建立 2 位學生、2 位老師與範例課程，每個帳號透過一次性簽章註冊、分別綁定獨立測試錢包。帳號工具不發放代幣或建立資料庫餘額；重跑不會重設密碼或既有排班。登入資料與 MetaMask 匯入用私鑰保存於已被 Git 忽略的 `.local-backups/test-accounts/accounts.json`；公開摘要在同目錄 `README.md`。測試錢包不含 Sepolia ETH 或 SKILL，此工具不會發送鏈上交易。
+需要在已有資料的開發資料庫建立具備永久錢包綁定的測試帳號，可在後端執行 `npm run db:create-test-accounts`。它會先套用遷移，再建立 2 位學生、2 位老師與範例課程，每個帳號透過一次性簽章註冊、分別綁定獨立測試錢包。重跑會沿用既有密碼和排班。登入資料與 MetaMask 匯入用私鑰保存在 Git 忽略的 `.local-backups/test-accounts/accounts.json`。若要在 Sepolia 測試付款，請另行準備 SKILL 與支付網路費用的 Sepolia ETH。
 
-這次本機鏈驗收另提供 `blockchain` 中的 `npm run local:prepare`、`npm run local:node`，以及後端的 `npm run test:local-transactions`。它們只使用持久化的 Ganache 本機鏈（RPC `http://127.0.0.1:18545`、Chain ID `1337`），讓 4 個測試帳號各參與 2 筆課程交易並查驗付款、完課撥款、取消與爭議退款；結果與收據在 `.local-backups/chain-test/report.md` 和 `report.json`。完成後後端會切換至此本機鏈，錢包與預約管理頁會明確顯示網路。這不代表已完成 Sepolia 公開測試網驗收。
+平台的交易環境使用 **Ethereum Sepolia（Chain ID `11155111`）**。先驗證代幣和託管合約並設定後端，再啟用 SKILL 付款，完整步驟見 [SKILL 交易與 Sepolia 部署](docs/SKILL-交易與部署.md)。舊 Ganache 驗收報告位於 `.local-backups/chain-test/`，已備份的交易可在錢包與預約管理查閱。自動化測試使用隔離的 Ganache 測試鏈。
 
 ## 前端
 
@@ -77,7 +77,7 @@ npm run dev
 | `blockchain/protocol.json` | 前後端共用的 EIP-712 型別及託管 ABI。 |
 | `yunbarter-backend/chain.js` | 錢包持有者驗證、付款報價、鏈上收據查驗與資料庫同步。 |
 
-新增前端 ethers 或 MetaMask 操作時，請放在 `services/blockchain.js`，頁面透過 Context / Hook 使用。所有新交易只使用鏈上 SKILL。餘額由 MetaMask Provider 直接讀取，資料庫沒有餘額欄位。後端驗證足夠確認深度的合約狀態、事件與收據後才同步預約，並備份完整收據、轉帳、授權及 Gas 費。舊 YTC 紀錄封存供查閱。SKILL 預設關閉，需先遷移資料庫、部署測試網託管合約並設定後端。完整操作見 [SKILL 交易與 Sepolia 部署](docs/SKILL-交易與部署.md)。
+新增前端 ethers 或 MetaMask 操作時，請放在 `services/blockchain.js`，頁面透過 Context / Hook 使用。所有新交易只使用鏈上 SKILL。餘額由 MetaMask Provider 直接讀取。後端驗證足夠確認深度的合約狀態、事件與收據後才同步預約，並備份完整收據、轉帳、授權及 Gas 費。舊 YTC 紀錄封存供查閱，點數交易 API 回傳 `410`。
 
 ## 本次登入與權限規則
 
