@@ -44,6 +44,11 @@ function createChainService(env = process.env, overrides = {}) {
   }
   function config() { return { enabled:true, chainId, confirmations, tokenAddress, escrowAddress, symbol:'SKILL', decimals:18,
     explorer:chainId===11155111?'https://sepolia.etherscan.io':'', quoteSigner:signer.address,walletNetwork:browserNetwork }; }
+  function matchesPayment(p) {
+    return Number(p.chain_id) === chainId
+      && getAddress(p.escrow_address) === escrowAddress
+      && getAddress(p.token_address) === tokenAddress;
+  }
   function dto(p, userId) {
     return { paymentId:p.payment_id, courseId:Number(p.course_id), courseTitle:p.course_title, teacherName:p.teacher_name, studentName:p.student_name,
       amount:String(p.price), status:p.status, role:String(p.student_id)===String(userId)?'student':'teacher',
@@ -61,11 +66,11 @@ function createChainService(env = process.env, overrides = {}) {
     return receipt.hash;
   }
   async function sync(db, paymentId, userId = null) {
-    await ready();
     const { rows:[original] } = await db.query('SELECT * FROM chain_payments WHERE payment_id=$1',[reference(paymentId)]);
     if (!original) throw new HttpError(404,'找不到鏈上付款');
     if (userId !== null && ![String(original.student_id),String(original.teacher_id)].includes(String(userId))) throw new HttpError(403,'無法查看其他人的付款');
-    if (Number(original.chain_id)!==chainId || getAddress(original.escrow_address)!==escrowAddress || getAddress(original.token_address)!==tokenAddress) throw new HttpError(409,'請恢復此筆付款原本的鏈與合約設定後再同步');
+    if (!matchesPayment(original)) throw new HttpError(409,'請恢復此筆付款原本的鏈與合約設定後再同步');
+    await ready();
     const head = await provider.getBlock('latest');
     const blockNumber = Math.max(0, head.number - confirmations + 1);
     const confirmedBlock = await provider.getBlock(blockNumber);
@@ -150,26 +155,60 @@ function createChainService(env = process.env, overrides = {}) {
       return dto(p,userId);
     });
   }
-  return {config,ready,quote,sync,reconcile,provider,history};
+  return {config,ready,quote,sync,reconcile,provider,history,matchesPayment};
+}
+
+function backgroundRefresh(run) {
+  const jobs = new Map();
+  return (userId) => {
+    const previous = jobs.get(userId);
+    if (previous?.running || Date.now() < (previous?.retryAt ?? 0)) return previous;
+    clearTimeout(previous?.expiry);
+
+    const job = { state: previous?.state ?? null, error: previous?.error ?? null, running: true };
+    jobs.set(userId, job);
+    void Promise.resolve()
+      .then(() => run(userId))
+      .then(state => {
+        job.state = state;
+        job.error = null;
+      }, error => {
+        job.error = error instanceof HttpError ? error.message : '目前無法同步鏈上資料';
+      })
+      .finally(() => {
+        job.running = false;
+        job.retryAt = Date.now() + 15_000;
+        job.expiry = setTimeout(() => jobs.delete(userId), 120_000).unref();
+      });
+    return job;
+  };
 }
 
 function installChainRoutes(app,db,chain) {
   const enabled=()=>{if(!chain) throw new HttpError(503,'SKILL 交易尚未啟用，請先部署託管合約並設定後端');};
+  const refreshPayments = chain ? backgroundRefresh(userId => chain.reconcile(db, userId)) : null;
+  const refreshTransactions = chain ? backgroundRefresh(async userId => {
+    await chain.ready();
+    return chain.history.syncWallet(db, userId);
+  }) : null;
+
   app.get('/api/chain/transactions',async(req,res)=>{
-    let syncError=null,syncState=null;
-    if(chain) { try {await chain.ready();syncState=await chain.history.syncWallet(db,req.user.user_id);} catch(e) {syncError=e.message;} }
-    res.json({transactions:await historyForUser(db,req.user.user_id),syncError,syncState});
+    const userId = req.user.user_id;
+    const transactions = await historyForUser(db, userId);
+    const refresh = refreshTransactions?.(userId);
+    res.json({ transactions, syncError: refresh?.error ?? null, syncState: refresh?.state ?? null });
   });
   app.post('/api/chain/transactions/sync',async(req,res)=>{enabled();await chain.ready();res.json(await chain.history.backup(db,req.body?.txHash,req.user.user_id));});
   app.post('/api/chain/quotes',async(req,res)=>{enabled();res.status(201).json(await chain.quote(db,req.user.user_id,req.body||{}));});
   app.get('/api/chain/payments',async(req,res)=>{
-    if(!chain) return res.json({payments:[],syncErrors:[]});
-    const syncErrors=await chain.reconcile(db,req.user.user_id);
     const {rows}=await db.query('SELECT * FROM chain_payments WHERE student_id=$1 OR teacher_id=$1 ORDER BY created_at DESC',[req.user.user_id]);
+    const refresh = refreshPayments?.(req.user.user_id);
+    const syncErrors = refresh?.error ? [refresh.error] : refresh?.state ?? [];
     // Quote/signature are public authorizations bound to the student's wallet, never secret keys.
     res.json({payments:rows.map(p=>({paymentId:p.payment_id,courseTitle:p.course_title,amount:String(p.price),status:p.status,
       role:String(p.student_id)===String(req.user.user_id)?'student':'teacher',quote:p.quote,signature:p.signature,
       chainId:Number(p.chain_id),tokenAddress:p.token_address,escrowAddress:p.escrow_address,expiresAt:p.expires_at,txHash:p.last_tx_hash,
+      canOperate:chain?.matchesPayment(p) ?? false,
       teacherName:p.teacher_name,studentName:p.student_name,disputeReason:p.dispute_reason||'',explorer:Number(p.chain_id)===11155111?'https://sepolia.etherscan.io':''})),syncErrors});
   });
   app.post('/api/chain/payments/:id/sync',async(req,res)=>{enabled();res.json(await chain.sync(db,req.params.id,req.user.user_id));});

@@ -2,6 +2,7 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const {randomBytes}=require('node:crypto');
 const {once}=require('node:events');
+const {setTimeout:delay}=require('node:timers/promises');
 const {Pool}=require('pg');
 const {connectionOptions,assertConfigured}=require('../../db');
 const {migrate}=require('../../scripts/migrate');
@@ -85,6 +86,7 @@ test('SKILL end-to-end: wallet proofs, reserved quotes, confirmed escrow and rec
     assert.equal((await sync(p)).status,'quoted');
     assert.equal((await bookings(student)).length,0);
     await mine();assert.equal((await sync(p)).status,'funded');
+    assert.equal(ok(await request('GET','/api/chain/payments',undefined,student.cookie)).payments.find(order=>order.paymentId===p.paymentId).canOperate,true);
     await Promise.all([sync(p),sync(p)]);
     const orders=await bookings(student);assert.equal(orders.length,1);assert.equal(orders[0].paymentMethod,'skill');
     assert.equal(Object.hasOwn(await wallet(student),'balance'),false);assert.equal(Object.hasOwn(await wallet(teacher),'balance'),false);
@@ -98,8 +100,15 @@ test('SKILL end-to-end: wallet proofs, reserved quotes, confirmed escrow and rec
     await new Promise(resolve=>server.close(resolve));
     await (await f.escrow.connect(f.actors[1]).cancel(p.paymentId)).wait();await mine();
     await start();
-    const list=ok(await request('GET','/api/chain/payments',undefined,student.cookie));
-    assert.equal(list.payments[0].status,'refunded');
+    const deadline=Date.now()+8000;
+    let payment;
+    do {
+      const list=ok(await request('GET','/api/chain/payments',undefined,student.cookie));
+      payment=list.payments.find(order=>order.paymentId===p.paymentId);
+      if(payment?.status==='refunded')break;
+      await delay(100);
+    } while(Date.now()<deadline);
+    assert.equal(payment?.status,'refunded');
     await sync(p);assert.equal((await bookings(student))[0].status,'REFUNDED');
     assert.equal(Object.hasOwn(await wallet(student),'balance'),false);
     assert.equal((await db.query('SELECT COUNT(*)::int n FROM legacy_point_transactions')).rows[0].n,0);
@@ -163,5 +172,9 @@ test('SKILL end-to-end: wallet proofs, reserved quotes, confirmed escrow and rec
     await new Promise(resolve=>server.close(resolve));
     server=createApp({db,chain:null,secureCookies:false}).listen(0,'127.0.0.1');await once(server,'listening');base='http://127.0.0.1:'+server.address().port;
     assert.equal(ok(await request('GET','/api/chain/transactions',undefined,student.cookie)).transactions.length,hist.transactions.length);
+    const archivedPayments=ok(await request('GET','/api/chain/payments',undefined,student.cookie)).payments;
+    assert.ok(archivedPayments.some(payment=>payment.status==='released'));
+    assert.ok(archivedPayments.some(payment=>payment.status==='refunded'));
+    assert.ok(archivedPayments.every(payment=>payment.canOperate===false));
   });
 });

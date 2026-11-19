@@ -40,6 +40,15 @@ npm run build
 
 ## 部署至 Sepolia
 
+### 目前的 Sepolia 合約
+
+| 項目 | 已驗證的部署資料 |
+| --- | --- |
+| Chain ID | `11155111` |
+| SKILL 代幣 | [`0xF3A9Ad79A8bCDF5F58C4d79BADebB3F47715B009`](https://sepolia.etherscan.io/address/0xF3A9Ad79A8bCDF5F58C4d79BADebB3F47715B009) |
+| SkillEscrow | [`0xE6B8B50E94C81ab8eb9eaeEC958ED164d33120b5`](https://sepolia.etherscan.io/address/0xE6B8B50E94C81ab8eb9eaeEC958ED164d33120b5) |
+| 託管合約部署 | [區塊 `12161778` 的部署交易](https://sepolia.etherscan.io/tx/0x614ddea007b3db4d4478fba7ed95a0845dd4e51a6530f63427ecb5df7c5c19a5) |
+
 從 Ganache 切換前，先在原網路同步並結清所有待付款、託管中或爭議中的交易。已結算的舊付款及收據會保留原 Chain ID，可在預約管理及錢包頁查閱。切到 Sepolia 後，會員使用原綁定錢包地址，餘額及新交易均以 Sepolia 為準。
 
 ### 1. 確認既有代幣

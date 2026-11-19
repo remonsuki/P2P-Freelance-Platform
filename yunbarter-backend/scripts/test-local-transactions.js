@@ -26,7 +26,7 @@ async function run() {
   const config=await readJson(path.join(directory,'node-private.json'));
   const manifest=await readJson(path.join(directory,'../test-accounts/accounts.json'));
   if(!config||!manifest||config.chainId!==1337)throw new Error('Prepare the local node and test accounts first');
-  if(process.env.CHAIN_ENABLED==='true'&&process.env.CHAIN_ID!=='1337')throw new Error('An existing non-local chain is enabled; it will not be replaced');
+  if(process.env.CHAIN_ID&&process.env.CHAIN_ID!=='1337')throw new Error('The legacy Ganache test requires a separate local-chain environment');
   const provider=new JsonRpcProvider(`http://127.0.0.1:${config.port}`,undefined,{cacheTimeout:-1});provider.pollingInterval=25;
   let server;
   let endSessions;
@@ -182,15 +182,9 @@ async function run() {
     }
     state.checks={twoOrdersPerAccount:true,allReceiptsSuccessful:true,minimumConfirmations:2,replayRejected:true,disputeBlocksCompletion:true,databaseHasNoBalance:true,receiptsBackedUp:true,escrowBalanceZero:true,tokenBalancesExact:true,originalUsersPreserved:true};
     state.completedAt=state.completedAt||new Date().toISOString();state.lastVerifiedAt=new Date().toISOString();await save();
-    // Only enable this explicitly labelled local network after all checks have passed.
-    const envPath=path.join(__dirname,'../.env');let env=await fs.readFile(envPath,'utf8');
-    for(const [key,value] of Object.entries({CHAIN_ENABLED:'true',CHAIN_ID:'1337',CHAIN_RPC_URL:state.rpcUrl,CHAIN_CONFIRMATIONS:'2',SKILL_TOKEN_ADDRESS:deployment.tokenAddress,SKILL_ESCROW_ADDRESS:deployment.escrowAddress})) {
-      const pattern=new RegExp('^'+key+'=.*$','m');env=pattern.test(env)?env.replace(pattern,key+'='+value):env.trimEnd()+'\n'+key+'='+value+'\n';
-    }
-    await fs.writeFile(envPath,env);
     const rows=state.orders.map(p=>`| ${p.student} | ${p.teacher} | ${formatUnits(p.quote.amount,18)} SKILL | ${p.status} | ${p.finalTxHash} |`);
     const report=['# 本機區塊鏈交易測試結果','',`完成時間：${state.completedAt}`,'','此報告驗證的是持久化 Ganache 本機 EVM 測試鏈，並非 Sepolia 公開測試網。',`RPC：${state.rpcUrl}；Chain ID：1337；貨幣：ETH。`,'',`代幣合約：${deployment.tokenAddress}`,`託管合約：${deployment.escrowAddress}`,'','測試使用鏈上時間前進模擬上課與完課，不需實際等待。4 筆課程交易讓每個帳號各參與 2 筆；approve、fund、退款等底層鏈上操作另有獨立收據。','','| 學生 | 老師 | 金額 | 最終狀態 | 結算交易雜湊 |','| --- | --- | --- | --- | --- |',...rows,'','| 帳號 | 交易紀錄 | SKILL |','| --- | --- | --- |',...state.accounts.map(a=>`| ${a.email} | ${a.transactions} | ${a.skillBalance} |`),'',`共 ${state.transactions.length} 筆鏈上交易收據驗證成功，皆至少 2 個確認。已確認重複付款遭拒、爭議凍結撥款、退款正確、託管餘額歸零、資料庫不保存餘額、收據已備份及原使用者資料保留。`,'','所有測試帳號登入密碼：`YunTest!2026`。MetaMask 匯入私鑰在 `../test-accounts/accounts.json`，本報告不包含私鑰。','在 MetaMask 新增本機網路後匯入對應測試私鑰，即可查看該錢包的本機 ETH 與 SKILL。此地址在 Sepolia 上的餘額與本機鏈分開。','',
-      '重新開機後，在 blockchain 執行 `npm run local:node` 啟動原測試鏈；資料保存在同目錄 ganache 資料夾。不要刪除該資料夾後繼續使用資料庫內既有合約地址。','後端 .env 已設定為此本機測試網；重啟後端後，錢包與預約管理頁均可查看兩筆 SKILL 紀錄。',''];
+      '舊測試鏈的資料保存在同目錄 ganache 資料夾。交易收據可從平台查閱，鏈上查驗須使用原本的 Ganache 節點。',''];
     await fs.writeFile(path.join(directory,'report.md'),report.join('\n'));
     console.log(JSON.stringify({network:state.network,chainId:1337,rpcUrl:state.rpcUrl,accounts:state.accounts,courseTransactions:state.orders.length,chainReceipts:state.transactions.length,checks:state.checks,reportPath:path.join(directory,'report.md')},null,2));
   } finally {

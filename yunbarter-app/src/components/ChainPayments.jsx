@@ -66,7 +66,8 @@ export default function ChainPayments({showNotification,readOnly=false}) {
         {p.txHash&&p.explorer&&<p><a href={`${p.explorer}/tx/${p.txHash}`} target="_blank" rel="noreferrer">查看鏈上交易</a></p>}
         {p.txHash&&!p.explorer&&<p style={{fontSize:'12px',overflowWrap:'anywhere'}}>結算交易雜湊：{p.txHash}</p>}
         {p.disputeReason&&<p>爭議原因：{p.disputeReason}</p>}
-        {!readOnly&&<div style={{display:'flex',flexWrap:'wrap',gap:'9px'}}>
+        {!readOnly&&!p.canOperate&&<p style={{fontSize:'13px',color:'#64748b'}}>此筆紀錄目前僅供查閱。</p>}
+        {!readOnly&&p.canOperate&&<div style={{display:'flex',flexWrap:'wrap',gap:'9px'}}>
           <button style={button} disabled={busy} onClick={()=>void perform(p,'sync')}>同步鏈上狀態</button>
           {student&&p.status==='quoted'&&now<deadline&&<button style={button} disabled={busy} onClick={()=>open(p,'fund')}>繼續付款</button>}
           {student&&p.status==='funded'&&now<start&&<button style={button} disabled={busy} onClick={()=>open(p,'cancel')}>取消並退回 SKILL</button>}

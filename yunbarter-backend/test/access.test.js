@@ -3,6 +3,94 @@ const assert = require('node:assert/strict');
 const { once } = require('node:events');
 const { createApp } = require('../server');
 
+test('the public course catalog responds while a shared chain reconciliation is pending', async (t) => {
+  const db = {
+    async query() {
+      return {
+        rows: [{
+          course_id: '1', teacher_id: '2', username: 'Teacher', title: 'Test course',
+          price: '1', category: '程式', rating: null, slots: [],
+        }],
+      };
+    },
+  };
+  const reconciliation = Promise.withResolvers();
+  let syncCalls = 0;
+  const chain = {
+    reconcile() {
+      syncCalls += 1;
+      return reconciliation.promise;
+    },
+  };
+  const server = createApp({ db, chain }).listen(0, '127.0.0.1');
+  t.after(async () => {
+    reconciliation.resolve([]);
+    await new Promise(resolve => server.close(resolve));
+  });
+  await once(server, 'listening');
+  const url = 'http://127.0.0.1:' + server.address().port + '/api/teachers';
+
+  for (let request = 0; request < 2; request += 1) {
+    const response = await fetch(url, { signal: AbortSignal.timeout(3000) });
+    assert.equal(response.status, 200);
+    const courses = await response.json();
+    assert.equal(courses.length, 1);
+    assert.equal(courses[0].skill, 'Test course');
+  }
+  assert.equal(syncCalls, 1);
+});
+
+test('authenticated SKILL lists return saved records while Sepolia refreshes once in the background', async (t) => {
+  const paymentRefresh = Promise.withResolvers();
+  const walletRefresh = Promise.withResolvers();
+  const calls = { payments: 0, wallet: 0 };
+  const payment = { payment_id: 'payment-1', student_id: '1', status: 'funded', chain_id: 11155111 };
+  const receipt = { tx_hash: 'receipt-1' };
+  const db = {
+    async query(sql) {
+      if (sql.includes('FROM user_sessions')) return { rows: [{ user_id: '1' }] };
+      if (sql.includes('SELECT * FROM chain_payments')) return { rows: [payment] };
+      if (sql.includes('FROM chain_transaction_records')) return { rows: [receipt] };
+      throw new Error('Unexpected query in SKILL list test');
+    },
+  };
+  const chain = {
+    async ready() {},
+    matchesPayment: () => true,
+    reconcile() { calls.payments += 1; return paymentRefresh.promise; },
+    history: { syncWallet() { calls.wallet += 1; return walletRefresh.promise; } },
+  };
+  const server = createApp({ db, chain }).listen(0, '127.0.0.1');
+  t.after(async () => {
+    paymentRefresh.resolve([]);
+    walletRefresh.resolve({ complete: true });
+    await new Promise(resolve => server.close(resolve));
+  });
+  await once(server, 'listening');
+  const base = 'http://127.0.0.1:' + server.address().port;
+  const get = async route => {
+    const response = await fetch(base + route, {
+      headers: { Cookie: 'yunbarter_session=' + 'a'.repeat(64) },
+      signal: AbortSignal.timeout(3000),
+    });
+    assert.equal(response.status, 200);
+    return response.json();
+  };
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const results = await Promise.all([get('/api/chain/payments'), get('/api/chain/transactions')]);
+    assert.equal(results[0].payments[0].status, 'funded');
+    assert.deepEqual(results[1].transactions, [receipt]);
+  }
+  assert.deepEqual(calls, { payments: 1, wallet: 1 });
+  payment.status = 'released';
+  paymentRefresh.resolve([]);
+  walletRefresh.resolve({ complete: true });
+  assert.equal((await get('/api/chain/payments')).payments[0].status, 'released');
+  assert.deepEqual((await get('/api/chain/transactions')).syncState, { complete: true });
+  assert.deepEqual(calls, { payments: 1, wallet: 1 });
+});
+
 test('private APIs reject missing, forged and expired sessions', async (t) => {
   let queries = 0;
   const db = { async query() { queries += 1; return { rows: [], rowCount: 0 }; } };

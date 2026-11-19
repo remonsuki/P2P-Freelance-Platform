@@ -87,9 +87,21 @@ function createApp({ db = pool, allowedOrigins, secureCookies = process.env.NODE
     try { await chain.ready(); res.json(chain.config()); }
     catch { res.json({enabled:false,message:'SKILL 託管交易暫時無法使用，請檢查後端鏈上設定'}); }
   });
+
+  let catalogReconciliation = null;
+  let nextCatalogReconciliationAt = 0;
   app.get('/api/teachers', async (req, res) => {
-    if (chain) await chain.reconcile(db);
     res.json(await courseCards(db));
+
+    // Catalog reads use the latest database snapshot. Booking mutations recheck the chain.
+    if (!chain || catalogReconciliation || Date.now() < nextCatalogReconciliationAt) return;
+    catalogReconciliation = Promise.resolve()
+      .then(() => chain.reconcile(db))
+      .catch(error => console.error('課程時段鏈上同步失敗:', error.code || error.name))
+      .finally(() => {
+        nextCatalogReconciliationAt = Date.now() + 15_000;
+        catalogReconciliation = null;
+      });
   });
 
   // Everything below this point requires a database-backed session.
