@@ -1,75 +1,170 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { formatUnits } from 'ethers';
-import { useWallet } from './hooks/useWallet';
-import { useLiveData } from './hooks/useLiveData';
-import { fetchChainConfig, fetchChainTransactions, fetchWallet } from './services/api';
+import { ArrowDownRight, ArrowRightLeft, ArrowUpRight, Eye, EyeOff, History, Minus } from 'lucide-react';
 import ConnectWalletButton from './components/ConnectWalletButton';
-import TransactionWallet from './components/TransactionWallet';
+import { useLiveData } from './hooks/useLiveData';
+import { useWallet } from './hooks/useWallet';
+import { fetchChainConfig, fetchChainTransactions, fetchWallet, verifyTransactionWallet } from './services/api';
+import { walletErrorMessage } from './services/blockchain';
+import './wallet.css';
 
-const actions={approve:'代幣授權',fund:'課程付款',cancel:'課前取消退款',complete:'完課撥款',dispute:'提出爭議',refund:'爭議退款',claim:'老師領款',transfer:'SKILL 轉帳',deploy:'合約部署'};
-const card={background:'white',padding:'26px',border:'1px solid #e2e8f0',borderRadius:'18px'};
+const actions = {
+  approve: '代幣授權',
+  fund: '課程付款',
+  cancel: '取消預約退款',
+  complete: '完課撥款',
+  dispute: '提出爭議',
+  refund: '爭議退款',
+  claim: '老師領款',
+  deploy: '合約部署',
+};
+const dateFormat = new Intl.DateTimeFormat('zh-TW', {
+  timeZone: 'Asia/Taipei',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
 
-export default function Wallet({showNotification}) {
-  const {address,signer,isConnected,isConnecting,chainBalance,nativeBalance,balanceError,refreshChainBalance,connectWallet}=useWallet();
-  const {data:config}=useLiveData(fetchChainConfig);
-  const {data:account}=useLiveData(fetchWallet);
-  const {data,loading,error,refresh}=useLiveData(fetchChainTransactions);
-  const [refreshing,setRefreshing]=useState(false);
-  async function reauthorize() {
+async function fetchRecentTransactions() {
+  const result = await fetchChainTransactions();
+  const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  return {
+    ...result,
+    transactions: result.transactions.filter(tx => Date.parse(tx.block_time) >= cutoff),
+  };
+}
+
+function WalletTransaction({ transaction, wallet }) {
+  const amount = transaction.token_transfers.reduce((net, transfer) => {
+    const value = BigInt(transfer.amountRaw);
+    if (transfer.from.toLowerCase() === wallet) net -= value;
+    if (transfer.to.toLowerCase() === wallet) net += value;
+    return net;
+  }, 0n);
+  const direction = amount > 0n ? 'incoming' : amount < 0n ? 'outgoing' : 'neutral';
+  const Icon = direction === 'incoming' ? ArrowDownRight : direction === 'outgoing' ? ArrowUpRight : Minus;
+  const transferLabel = direction === 'incoming' ? 'SKILL 轉入' : direction === 'outgoing' ? 'SKILL 轉出' : 'SKILL 轉帳';
+  const title = transaction.action === 'transfer' ? transferLabel : actions[transaction.action] || '合約交易';
+  const [whole, fraction] = formatUnits(amount < 0n ? -amount : amount, 18).split('.');
+  const displayAmount = amount === 0n ? '—' : `${amount > 0n ? '+' : '−'}${whole}.${fraction.padEnd(2, '0')} SKILL`;
+  const status = transaction.status === 1 ? '已確認' : '交易失敗';
+
+  return <li className="wallet-transaction" data-direction={direction}>
+    <span className="wallet-transaction-icon"><Icon size={19} aria-hidden="true" /></span>
+    <div className="wallet-transaction-summary">
+      <strong>{title}</strong>
+      <span><time dateTime={transaction.block_time}>{dateFormat.format(new Date(transaction.block_time))}</time> · {status}</span>
+    </div>
+    <strong className="wallet-transaction-amount">{displayAmount}</strong>
+  </li>;
+}
+
+export default function Wallet({ showNotification }) {
+  const { address, signer, isConnected, isConnecting, chainBalance, balanceError, refreshChainBalance, connectWallet } = useWallet();
+  const { data: config } = useLiveData(fetchChainConfig);
+  const { data: account, error: accountError, refresh: refreshAccount } = useLiveData(fetchWallet);
+  const { data, loading, error, refresh } = useLiveData(fetchRecentTransactions);
+  const [refreshing, setRefreshing] = useState(false);
+  const [binding, setBinding] = useState(false);
+  const [revealedWallet, setRevealedWallet] = useState(null);
+  const addressId = useId();
+  const wallet = account?.verifiedWalletAddress;
+  const paymentNetwork = config?.enabled ? config : undefined;
+  const showAddress = Boolean(wallet && revealedWallet === wallet);
+  const addressAction = showAddress ? '隱藏綁定地址' : '顯示綁定地址';
+  const transactions = data?.transactions ?? [];
+  const historyLoading = loading || (!account && !accountError);
+  const historyError = error || data?.syncError || (!account && accountError);
+  const syncPending = data?.syncState?.complete === false;
+
+  async function authorizeWallet() {
+    if (binding || isConnecting) return;
+    setBinding(true);
     try {
-      await connectWallet({reauthorize:true,paymentNetwork:config?.enabled?config:undefined});
-      showNotification('success','錢包授權已更新','已確認原本綁定錢包的網站授權，現在可以重新操作預約。');
-    } catch(error) {showNotification('error','錢包授權尚未完成',error.message);}
+      const { signer: walletSigner } = await connectWallet({ reauthorize: Boolean(wallet), paymentNetwork });
+      if (wallet) {
+        showNotification('success', '錢包授權已更新', '已確認原本綁定錢包的網站授權，現在可以重新操作預約。');
+      } else {
+        await verifyTransactionWallet(walletSigner);
+        await refreshAccount();
+        showNotification('success', '已綁定錢包', '此地址將用於付款與收款。');
+      }
+    } catch (err) {
+      showNotification('error', wallet ? '錢包授權尚未完成' : '錢包綁定未完成', walletErrorMessage(err));
+    } finally {
+      setBinding(false);
+    }
   }
-  async function switchNetwork() {
-    try {await connectWallet({paymentNetwork:config});showNotification('success','交易網路已就緒','已連接本專案的交易網路與綁定錢包，可以開始預約。');}
-    catch(error) {showNotification('error','網路設定尚未完成',error.message);}
-  }
+
   async function reload() {
-    if(refreshing)return;
+    if (refreshing) return;
     setRefreshing(true);
-    try {await Promise.all([refresh(),refreshChainBalance(signer,address)]);}
-    finally {setRefreshing(false);}
+    try {
+      await Promise.all([refresh(), refreshChainBalance(signer, address)]);
+    } finally {
+      setRefreshing(false);
+    }
   }
-  const wallet=account?.verifiedWalletAddress;
-  return <main style={{background:'#f8fafc',minHeight:'calc(100vh - 70px)',padding:'36px 20px'}}>
-    <div style={{maxWidth:'1020px',margin:'auto',display:'grid',gap:'24px'}}>
-      <section style={card}>
-        <h1>我的鏈上錢包</h1>
-        <p>使用 SKILL 支付課程費用，ETH 支付網路費。餘額即時從區塊鏈讀取。</p>
-        <ConnectWalletButton onError={message=>showNotification('error','錢包連線',message)}/>
-        <button disabled={isConnecting} onClick={()=>void reauthorize()} style={{marginTop:'12px'}}>{isConnecting?'請回覆 MetaMask…':'重新授權綁定錢包'}</button>
-        <p style={{overflowWrap:'anywhere'}}>綁定地址：{wallet||'尚未綁定'}</p>
-        <p>交易網路：{config?.enabled?(config.chainId===11155111?'Sepolia':`本機測試鏈 ${config.chainId}`):'尚未就緒'}</p>
-        {config?.enabled&&<div style={{padding:'16px',background:'#f1f5f9',borderRadius:'10px'}}>
-          <p style={{marginTop:0}}>Chain ID：{config.chainId} · 網路貨幣：ETH</p>
-          {config.walletNetwork?.rpcUrls?.[0]&&<p style={{overflowWrap:'anywhere'}}>RPC：{config.walletNetwork.rpcUrls[0]}</p>}
-          <button disabled={isConnecting} onClick={()=>void switchNetwork()}>{isConnecting?'請回覆 MetaMask…':'新增／切換至交易網路'}</button>
-        </div>}
-        <div style={{display:'flex',gap:'36px',flexWrap:'wrap',margin:'24px 0'}}>
-          <div><div>可用 SKILL</div><strong style={{fontSize:'30px'}}>{isConnected?chainBalance??'—':'請連接錢包'}</strong></div>
-          <div><div>網路費用 ETH</div><strong style={{fontSize:'24px'}}>{isConnected?nativeBalance??'—':'—'}</strong></div>
+
+  return <main className="wallet-page">
+    <div className="wallet-content">
+      <section className="wallet-card" aria-labelledby="wallet-title">
+        <h1 id="wallet-title">我的鏈上錢包</h1>
+        <div className="wallet-actions">
+          <ConnectWalletButton
+            showAddress={false}
+            paymentNetwork={paymentNetwork}
+            onError={message => showNotification('error', '錢包連線', message)}
+          />
+          {account && <button type="button" className="wallet-button" disabled={binding || isConnecting} onClick={authorizeWallet}>
+            {binding ? '請回覆 MetaMask…' : wallet ? '重新授權綁定錢包' : '綁定錢包（限一次）'}
+          </button>}
         </div>
-        {balanceError&&<p role="alert">{balanceError}</p>}
-        <button disabled={refreshing} onClick={()=>void reload()}>{refreshing?'同步中…':'更新鏈上餘額與交易紀錄'}</button>
+        <div className="wallet-address">
+          <div className="wallet-address-label">
+            <span>綁定地址</span>
+            {wallet && <button
+              type="button"
+              className="wallet-eye-button"
+              aria-label={addressAction}
+              title={addressAction}
+              aria-expanded={showAddress}
+              aria-controls={addressId}
+              onClick={() => setRevealedWallet(showAddress ? null : wallet)}
+            >
+              {showAddress ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
+            </button>}
+            {account && !wallet && <span className="wallet-muted">尚未綁定</span>}
+          </div>
+          {wallet && <div className="wallet-address-value" id={addressId} hidden={!showAddress}>{showAddress && wallet}</div>}
+          {accountError && <p role="alert" className="wallet-message">暫時無法讀取綁定地址。</p>}
+        </div>
+        <div className="wallet-balance">
+          <div className="wallet-muted">可用 SKILL</div>
+          <strong>{isConnected ? chainBalance ?? '—' : '請連接錢包'}</strong>
+        </div>
+        {balanceError && <p role="alert" className="wallet-message">{balanceError}</p>}
+        <button type="button" className="wallet-button" disabled={refreshing} onClick={() => void reload()}>
+          {refreshing ? '同步中…' : '更新餘額與交易'}
+        </button>
       </section>
-      <TransactionWallet showNotification={showNotification}/>
-      <section style={card}>
-        <h2>鏈上交易備份</h2>
-        <p>付款、授權、撥款與退款各有獨立紀錄。達到確認數並通過鏈上收據核對後才會顯示。</p>
-        {loading&&<p>正在讀取交易紀錄…</p>}
-        {error&&<p role="alert">{error}</p>}
-        {data?.syncError&&<p role="alert">同步暫停：{data.syncError}。下方仍可查看已備份紀錄。</p>}
-        {data?.syncState?.complete===false&&<p>歷史交易同步中，請繼續更新以讀取較新的區塊。</p>}
-        {!loading&&!error&&!data?.transactions?.length&&<p>目前沒有已確認的交易備份。</p>}
-        {data?.transactions?.map(tx=><article key={`${tx.chain_id}:${tx.tx_hash}`} style={{borderTop:'1px solid #e2e8f0',padding:'18px 0',overflowWrap:'anywhere'}}>
-          <strong>{actions[tx.action]||'合約交易'} · {tx.status===1?'成功':'失敗'}</strong>
-          <p>{new Date(tx.block_time).toLocaleString('zh-TW',{timeZone:'Asia/Taipei'})} · 鏈 {tx.chain_id} · 區塊 {tx.block_number}</p>
-          {tx.token_transfers.filter(t=>t.from===wallet||t.to===wallet).map(t=><p key={t.logIndex}>{t.from===wallet?'轉出':'轉入'} {formatUnits(t.amountRaw,18)} SKILL</p>)}
-          {tx.approvals.filter(a=>a.owner===wallet).map(a=><p key={a.logIndex}>授權金額 {formatUnits(a.amountRaw,18)} SKILL</p>)}
-          <p>網路費：{formatUnits(tx.fee_wei,18)} ETH（由交易發送者支付）</p>
-          <small>{Number(tx.chain_id)===11155111?<a href={`https://sepolia.etherscan.io/tx/${tx.tx_hash}`} target="_blank" rel="noreferrer">{tx.tx_hash}</a>:tx.tx_hash}</small>
-        </article>)}
+      <section className="wallet-card" aria-labelledby="wallet-history-title">
+        <div className="wallet-history-heading">
+          <h2 id="wallet-history-title"><History size={22} aria-hidden="true" />交易明細</h2>
+          <span><ArrowRightLeft size={16} aria-hidden="true" />最近 30 天</span>
+        </div>
+        {historyError && <p role="alert" className="wallet-message">暫時無法更新交易明細，請稍後再試。</p>}
+        {historyLoading && <p role="status" className="wallet-message">正在讀取交易明細…</p>}
+        {syncPending && !historyLoading && !historyError && <p role="status" className="wallet-message">交易明細同步中…</p>}
+        {!historyLoading && account && !historyError && !syncPending && !transactions.length &&
+          <p className="wallet-message">最近 30 天沒有交易紀錄。</p>}
+        {account && transactions.length > 0 && <ul className="wallet-history-list">
+          {transactions.map(transaction => <WalletTransaction
+            key={`${transaction.chain_id}:${transaction.tx_hash}`}
+            transaction={transaction}
+            wallet={wallet?.toLowerCase()}
+          />)}
+        </ul>}
       </section>
     </div>
   </main>;

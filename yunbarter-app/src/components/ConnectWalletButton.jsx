@@ -5,7 +5,7 @@ import { useWallet } from '../hooks/useWallet';
  * 連線錢包按鈕
  * 未連線時顯示「連線錢包」，連線後顯示縮短地址
  */
-export default function ConnectWalletButton({ onError, style = {} }) {
+export default function ConnectWalletButton({ onError, style = {}, showAddress = true, paymentNetwork }) {
   const {
     isConnected,
     shortAddress,
@@ -21,7 +21,7 @@ export default function ConnectWalletButton({ onError, style = {} }) {
       return;
     }
     try {
-      await connectWallet();
+      await connectWallet({ paymentNetwork });
     } catch (err) {
       onError?.(err.message);
     }
@@ -69,7 +69,7 @@ export default function ConnectWalletButton({ onError, style = {} }) {
           }}
         >
           <span>已連接錢包</span>
-          <span
+          {showAddress && <span
             style={{
               fontSize: '11px',
               fontWeight: 'normal',
@@ -77,7 +77,7 @@ export default function ConnectWalletButton({ onError, style = {} }) {
             }}
           >
             {shortAddress}
-          </span>
+          </span>}
         </span>
       ) : (
         error ? '重新連接綁定錢包' : '連線錢包'

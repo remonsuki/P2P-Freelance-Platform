@@ -33,6 +33,37 @@ React / Vite 前端、Express API 與 PostgreSQL。後端的使用者、課程�
 
 API 啟動前會確認資料庫及 Session 資料表可用；連線失敗會明確停止，不會退回假資料。
 
+## 團隊共用資料庫
+
+若要讓大家使用同一批課程、會員和預約，讓每位組員的 Express 後端連到同一座 PostgreSQL 開發庫。GitHub 用來同步程式、`db/migrations/` 和 `db/seed.sql`。請將連線憑證留在各自的 `yunbarter-backend/.env`，資料庫備份留在 `.local-backups/`。
+
+### 雲端共用開發庫
+
+1. 建立獨立的 PostgreSQL 開發庫，例如以 Neon Free 建立 `yunbarter_team` 專案，資料庫名稱以 Neon Connect 畫面為準。由資料庫負責人用管理帳號執行 `npm run db:migrate`，需要範例時，對空庫執行一次 `npm run db:seed`。[Neon Free 方案與用量限制](https://neon.com/pricing)
+2. 從服務商取得啟用 TLS 的連線字串，透過私下管道發給有權限的組員。團隊可為每位組員建立獨立的登入角色，日常執行後端使用可讀寫專案資料的角色，遷移由資料表擁有者執行。
+3. 每位組員在 `yunbarter-backend/.env` 設定 `DATABASE_URL`，接著執行 `npm start`，前端照原本方式啟動。`DATABASE_URL` 優先於 `PGHOST` 等設定。環境中若已設定 `DATABASE_URL`，或同一設定已填在優先載入的 `.env.chain.local`，也要確認它指向預期的開發庫。
+4. 後端啟動後檢查 `http://localhost:5000/api/health`，再由一位組員新增測試課程，另一位重新整理課程列表確認可見。套用新的 migration 時，請先同步 `main`，由負責人更新共用庫。
+
+需要保留本機已有的資料時，先確認哪些紀錄適合共用，再用 `pg_dump` 備份要搬的資料並還原到新的空庫。開發庫建議使用測試或去識別化資料，並排除現有登入 Session 與一次性錢包驗證資料。還原後再執行 `npm run db:migrate`。若要切換現有測試資料，請在最後一次匯出和連線切換期間暫停寫入。[Neon 匯入指南](https://neon.com/docs/import/migrate-from-postgres)
+
+### 共用 Windows 主機上的 `yunbarter`
+
+這個方式直接使用主機現有的 `yunbarter` 資料。主機要保持開機，並執行 PostgreSQL 和 Tailscale。組員可以各自在自己的電腦啟動前端和後端，或用 pgAdmin 連線。
+
+1. 主機安裝並登入 Tailscale。在管理後台將主機分享給指定組員，每人使用一個單次邀請。存取政策對受邀者僅開放主機的 `15432/TCP`，並確認沒有其他規則授予他們額外的存取權。[Tailscale 裝置分享](https://tailscale.com/docs/features/sharing) · [Tailscale 存取規則](https://tailscale.com/docs/features/access-control/grants)
+2. PostgreSQL 繼續使用本機 `5432`。在主機 PowerShell 將 Tailscale 的 `15432/TCP` 轉送至 `127.0.0.1:5432`。這個轉送只在 Tailscale 私有網路使用。[Tailscale Serve 指令](https://tailscale.com/docs/reference/tailscale-cli/serve)
+
+   ```powershell
+   tailscale serve --bg --tcp=15432 tcp://127.0.0.1:5432
+   tailscale serve status
+   ```
+
+3. 主機私下交付各自的 PostgreSQL 帳號。組員在 `yunbarter-backend/.env` 設 `PGHOST` 為主機的 Tailscale IP、`PGPORT=15432`、`PGDATABASE=yunbarter`，並填入自己的 `PGUSER` 和 `PGPASSWORD`。若原本的設定有 `DATABASE_URL`，請移除它以使用這組 `PG` 設定。pgAdmin 可填入同一組連線資料。
+4. 在 `yunbarter-backend` 執行 `npm start`，開啟 `http://localhost:5000/api/health` 驗證，再照原本步驟啟動前端。共用庫的 `npm run db:migrate` 由主機管理者執行。若新遷移新增資料表或序列，管理者也要授予 `yunbarter_team_access` 所需的權限。
+5. 結束分享時，在主機執行 `tailscale serve --bg --tcp=15432 off`。若只停用一位組員，可撤銷該組員的裝置分享並停用其 PostgreSQL 登入角色。
+
+如果大家只需要相同的表結構和初始測試資料，各自建立本機開發庫，再執行 `npm run db:migrate` 與 `npm run db:seed` 即可。後續各自新增的資料會留在各自的資料庫。
+
 ## 選用的開發測試資料
 
 完成遷移後，空白的開發資料庫可以執行：

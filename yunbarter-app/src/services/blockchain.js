@@ -44,7 +44,7 @@ export function walletErrorMessage(error) {
   if(code===4100) return 'MetaMask 尚未授權此網站使用綁定錢包（4100）。請到錢包頁按「重新授權綁定錢包」，勾選原本綁定的地址後確認。';
   if(code===4001||nodes.some(node=>node.code==='ACTION_REJECTED'))return '你已取消 MetaMask 操作，可在準備好後重試。';
   if(code===-32002)return 'MetaMask 已有待處理的要求，請先開啟擴充套件完成或取消該要求。';
-  if(code===4900||code===4901)return 'MetaMask 尚未連上交易網路，請確認本機節點已啟動，再從錢包頁重新連線。';
+  if(code===4900||code===4901)return 'MetaMask 尚未連上交易網路，請檢查 MetaMask 的網路連線後，再從錢包頁重新連線。';
   for(const node of nodes) {
     for(const message of [node.reason,node.shortMessage,node.message]) {
       if(typeof message==='string'&&message.trim()&&!/could not coalesce error|unknown error|internal json-rpc error|missing revert data/i.test(message)) return message.split(' (')[0].slice(0,500);
@@ -154,7 +154,7 @@ export async function switchPaymentNetwork(config,ethereum=getEthereum()) {
       const code=error.code??error.data?.originalError?.code;
       if(Number(code)!==4902) throw error;
       const network=config.walletNetwork;
-      if(!network?.rpcUrls?.length||BigInt(network.chainId)!==BigInt(chainId)) throw new Error('MetaMask 尚未加入此網路，請依錢包頁的 RPC 與 Chain ID 手動新增；若未顯示 RPC，請先重啟後端',{cause:error});
+      if(!network?.rpcUrls?.length||BigInt(network.chainId)!==BigInt(chainId)) throw new Error('MetaMask 尚未加入指定的測試網路。請在 MetaMask 中啟用或手動新增該網路後再試。',{cause:error});
       await ethereum.request({method:'wallet_addEthereumChain',params:[network]});
       // Adding a chain does not guarantee it became the active chain.
       if(BigInt(await ethereum.request({method:'eth_chainId'}))!==BigInt(chainId)) await ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId}]});
@@ -177,7 +177,7 @@ export async function ensurePaymentNetwork(signer, networkConfig) {
   if (network.chainId !== BigInt(chainId)) throw new Error(`請在 MetaMask 切換至 ${Number(chainId) === 11155111 ? 'Sepolia' : `測試鏈 ${chainId}`}，重新連線後再試`);
   if(config) {
     const code=await Promise.all([signer.provider.getCode(config.tokenAddress),signer.provider.getCode(config.escrowAddress)]);
-    if(code.some(value=>value==='0x')) throw new Error(`網路編號正確，但找不到本專案合約。請確認 MetaMask 的 RPC 設為 ${config.walletNetwork?.rpcUrls?.[0]||'錢包頁顯示的交易 RPC'}，再重新連線`);
+    if(code.some(value=>value==='0x')) throw new Error('網路編號正確，但找不到本專案合約。請檢查 MetaMask 的網路設定後，再重新連線。');
   }
 }
 

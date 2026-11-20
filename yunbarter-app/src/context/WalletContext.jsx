@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { formatEther } from 'ethers';
 import { WalletContext } from './walletState';
 import { formatAddress } from '../utils/formatAddress';
 import { syncWalletAddress, fetchChainConfig, fetchWallet } from '../services/api';
@@ -38,7 +37,6 @@ export function WalletProvider({ children }) {
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState(null);
   const [chainBalance, setChainBalance] = useState(null);
-  const [nativeBalance, setNativeBalance] = useState(null);
   const [balanceError, setBalanceError] = useState('');
   const balanceRequest = useRef(0);
 
@@ -55,16 +53,14 @@ export function WalletProvider({ children }) {
       const network = await rpc.getNetwork();
       if (network.chainId !== BigInt(config.chainId)) throw new Error('請切換至交易使用的測試網路');
       const block=await rpc.getBlockNumber();
-      const [formatted,native]=await Promise.all([
-        readSkillBalance(signerOrProvider,userAddress,config.tokenAddress,block),rpc.getBalance(userAddress,block),
-      ]);
+      const formatted=await readSkillBalance(signerOrProvider,userAddress,config.tokenAddress,block);
       if (canConnectRef.current && request===balanceRequest.current) {
-        setChainBalance(formatted);setNativeBalance(formatEther(native));setBalanceError('');
+        setChainBalance(formatted);setBalanceError('');
       }
       return formatted;
     } catch (err) {
       if (canConnectRef.current && request===balanceRequest.current) {
-        setChainBalance(null);setNativeBalance(null);setBalanceError(walletErrorMessage(err));
+        setChainBalance(null);setBalanceError(walletErrorMessage(err));
       }
       return null;
     }
@@ -140,7 +136,6 @@ export function WalletProvider({ children }) {
       setSigner(null);
       balanceRequest.current+=1;
       setChainBalance(null);
-      setNativeBalance(null);
       setError(msg);
       throw new Error(msg, { cause: err });
     } finally {
@@ -157,7 +152,6 @@ export function WalletProvider({ children }) {
     setProvider(null);
     setSigner(null);
     setChainBalance(null);
-    setNativeBalance(null);
     setBalanceError('');
     setError(null);
     localStorage.removeItem(STORAGE_KEY);
@@ -219,7 +213,6 @@ export function WalletProvider({ children }) {
         isConnecting,
         error,
         chainBalance,
-        nativeBalance,
         balanceError,
         connectWallet,
         disconnectWallet,

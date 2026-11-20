@@ -953,6 +953,7 @@ function AppContent() {
               isAuthLoading={isAuthLoading}
             >
               <Wallet
+                key={userId}
                 showNotification={showNotification}
               />
             </ProtectedRoute>

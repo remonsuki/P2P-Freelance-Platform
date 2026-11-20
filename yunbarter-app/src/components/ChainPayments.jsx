@@ -80,7 +80,7 @@ export default function ChainPayments({showNotification,readOnly=false}) {
   return <section style={{display:'flex',flexDirection:'column',gap:'16px'}}>
     <h2 style={{marginBottom:0}}>{readOnly?'SKILL 交易紀錄':'SKILL 鏈上交易'}</h2>
     <p style={{margin:0,color:'#64748b',lineHeight:1.7}}>{readOnly?'每筆紀錄代表一堂課程的付款與結算結果；授權、付款與退款會有各自的鏈上交易。需要操作時請前往預約管理。':'款項由合約託管。學生可在課前取消、完課後撥款，或在完課後 7 天內提出爭議；沒有爭議且超過 7 天時，老師可以領取款項。爭議退款須由老師同意。'}</p>
-    {data.syncErrors?.length>0&&<p role="alert" style={{color:'#b91c1c'}}>部分交易暫時無法確認：{data.syncErrors[0]}。請稍後同步，勿重複付款。</p>}
+    {data.syncErrors?.length>0&&<p role="alert" style={{color:'#b91c1c'}}>部分交易暫時無法確認。請稍後同步，勿重複付款。</p>}
     {data.payments.map(p=>{
       const student=p.role==='student';
       const start=Number(p.quote.startsAt),end=Number(p.quote.endsAt),deadline=Number(p.quote.deadline);
