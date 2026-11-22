@@ -239,6 +239,12 @@ export default function PublishSkill({ onAddTeacher, showNotification }) {
                   <option value="音樂">音樂藝術</option>
                   <option value="設計">視覺設計</option>
                   <option value="運動">健身運動</option>
+                  <option value="飲食">飲食</option>
+                  <option value="影像">影像</option>
+                  <option value="手作">手作</option>
+                  <option value="職場">職場</option>
+                  <option value="園藝">園藝</option>
+                  <option value="生活">生活</option>
                   <option value="綜合">其他綜合</option>
                 </select>
               </div>
