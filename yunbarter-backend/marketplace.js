@@ -126,7 +126,7 @@ function installMarketplace(app, db) {
     const courseId=await transaction(db,async client=>{
       const {rows:[teacher]}=await client.query("UPDATE users SET role='teacher' WHERE user_id=$1 RETURNING schedule_configured",[req.user.user_id]);
       const {rows:[skill]}=await client.query('INSERT INTO skills(category,name) VALUES ($1,$2) RETURNING skill_id',[category,Array.from(title).slice(0,100).join('')]);
-      await client.query("INSERT INTO entity_skills(owner_type,owner_id,skill_id,skill_level) VALUES ('user',$1,$2,'中級')",[req.user.user_id,skill.skill_id]);
+      await client.query("INSERT INTO entity_skills(owner_id,skill_id,skill_level) VALUES ($1,$2,'中級')",[req.user.user_id,skill.skill_id]);
       const {rows:[o]}=await client.query('INSERT INTO courses(teacher_id,skill_id,title,price,description) VALUES ($1,$2,$3,$4,$5) RETURNING course_id',
         [req.user.user_id,skill.skill_id,title,price,body.description||'']);
       // Retain the original default slot for a new teacher; saved schedules otherwise take priority.

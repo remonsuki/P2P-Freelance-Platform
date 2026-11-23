@@ -130,7 +130,9 @@ test('SKILL end-to-end: wallet proofs, reserved quotes, confirmed escrow and rec
     await (await f.escrow.connect(f.actors[1]).complete(p.paymentId)).wait();await mine();
     assert.equal((await sync(p)).status,'released');
     const order=(await bookings(student)).find(b=>b.chainPaymentId===p.paymentId);assert.equal(order.status,'COMPLETED');
+    assert.equal(ok(await request('GET','/api/user/profile',undefined,teacher.cookie)).teacherRating,null);
     ok(await request('POST',`/api/chain/payments/${p.paymentId}/review`,{rating:5,review:'真實鏈上完課'},student.cookie));
+    assert.equal(ok(await request('GET','/api/user/profile',undefined,teacher.cookie)).teacherRating,5);
     assert.equal((await bookings(student)).find(b=>b.id===order.id).review,'真實鏈上完課');
     assert.equal((await request('POST',`/api/bookings/${order.id}/complete`,{rating:5},student.cookie)).status,410);
     assert.equal(Object.hasOwn(await wallet(teacher),'balance'),false);

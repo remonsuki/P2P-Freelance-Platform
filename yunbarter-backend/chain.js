@@ -222,7 +222,6 @@ function installChainRoutes(app,db,chain) {
       if(!b) throw new HttpError(409,'只有已完課的學生能留下評價');
       await client.query(`INSERT INTO reviews(booking_id,sender_id,receiver_id,reviewer_role,rating_stars,comment) VALUES($1,$2,$3,'student_to_teacher',$4,$5)
         ON CONFLICT(booking_id,sender_id) DO UPDATE SET rating_stars=$4,comment=$5`,[b.booking_id,b.student_id,b.teacher_id,req.body.rating,req.body.review||'']);
-      await client.query("UPDATE users SET teacher_rating=(SELECT AVG(rating_stars) FROM reviews WHERE receiver_id=$1 AND reviewer_role='student_to_teacher') WHERE user_id=$1",[b.teacher_id]);
     });
     res.json({success:true});
   });

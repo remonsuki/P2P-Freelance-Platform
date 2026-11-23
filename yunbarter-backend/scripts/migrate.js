@@ -7,12 +7,13 @@ const { hashPassword, isPasswordHash } = require('../passwords');
 async function migrate(db = pool) {
   return transaction(db, async (client) => {
     await client.query('SELECT pg_advisory_xact_lock(92610431)');
-    await client.query(`CREATE TABLE IF NOT EXISTS schema_migrations (
-      name TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )`);
     const { rows: [existing] } = await client.query("SELECT to_regclass('users') AS users_table");
     if (!existing.users_table) {
       await client.query(await fs.readFile(path.join(__dirname, '../../db/schema.sql'), 'utf8'));
+    } else {
+      await client.query(`CREATE TABLE IF NOT EXISTS schema_migrations (
+        name TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )`);
     }
     const directory = path.join(__dirname, '../../db/migrations');
     const files = (await fs.readdir(directory)).filter((name) => name.endsWith('.sql')).sort();

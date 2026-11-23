@@ -1,0 +1,408 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1540" height="1432" viewBox="0 0 1540 1432" fill="#22334b" role="img" aria-labelledby="erd-title erd-description">
+<title id="erd-title">YunBarter 資料庫 ERD</title>
+<desc id="erd-description">本機 PostgreSQL public schema 的 16 張資料表與 23 個外鍵，反映遷移 007。每張表標示主鍵、外鍵、部分欄位與查詢當下的資料筆數。三張管理或驗證表沒有實體外鍵。</desc>
+<style>
+  text { font-family: "Microsoft JhengHei", "Noto Sans TC", system-ui, sans-serif; }
+  .heading { font-size: 43px; font-weight: 750; letter-spacing: -.8px; fill: #152a46; }
+  .subtitle { font-size: 17px; fill: #475b75; }
+  .legend { font-size: 14px; fill: #455972; }
+  .card { fill: #fff; stroke: #c4cfdd; stroke-width: 1.2px; rx: 13px; }
+  .table-name, .field, .key, .multiplicity { font-family: Consolas, "DejaVu Sans Mono", monospace; }
+  .table-name { font-weight: 700; }
+  .table-note, .count { font-size: 13px; font-weight: 600; }
+  .key { font-size: 10.7px; font-weight: 700; }
+  .field { fill: #273a53; }
+  .halo, .connector { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .halo { stroke: #f5f7fb; stroke-width: 7px; }
+  .connector { stroke-width: 1.65px; }
+  .multiplicity { font-size: 10.5px; font-weight: 700; }
+  .footnote { font-size: 14px; fill: #455972; }
+</style>
+<rect width="100%" height="100%" fill="#f5f7fb"/>
+<text x="52" y="71" class="heading">YunBarter 資料庫 ERD</text>
+<text x="54" y="108" class="subtitle">本機 PostgreSQL · public · 2026-11-23 · 遷移 007 · 16 張表 · 23 個外鍵</text>
+<path d="M52 151 H85" stroke="#52657e" stroke-width="1.5"/><g transform="translate(52 151) rotate(0)" fill="none" stroke="#52657e" stroke-width="1.8"><path d="M7 -6V6 M13 -6V6"/></g><text x="95" y="156" class="legend">1 必須一筆</text>
+<path d="M217 151 H250" stroke="#52657e" stroke-width="1.5"/><g transform="translate(217 151) rotate(0)" fill="none" stroke="#52657e" stroke-width="1.8"><path d="M7 -6V6"/><circle cx="17" cy="0" r="4.4" fill="#f5f7fb"/></g><text x="260" y="156" class="legend">0..1 至多一筆</text>
+<path d="M391 151 H424" stroke="#52657e" stroke-width="1.5"/><g transform="translate(391 151) rotate(0)" fill="none" stroke="#52657e" stroke-width="1.8"><path d="M1 -6L12 0L1 6"/><circle cx="18" cy="0" r="4.4" fill="#f5f7fb"/></g><text x="434" y="156" class="legend">0..* 可有多筆</text>
+<text x="594" y="156" class="legend">PK 主鍵　 FK 外鍵　 UQ 唯一　 ? 可空　 ×2 兩表間有兩個外鍵</text>
+<text x="1480" y="156" class="legend" text-anchor="end">欄位擇要列出</text>
+<g data-from="users" data-to="user_sessions">
+<title>users → user_sessions：登入使用者</title>
+<path d="M400 282 L354 282" class="halo"/>
+<path d="M400 282 L354 282" class="connector" stroke="#3566a2"/>
+<g transform="translate(400 282) rotate(180)" fill="none" stroke="#3566a2" stroke-width="1.8"><path d="M7 -6V6 M13 -6V6"/></g>
+<g transform="translate(354 282) rotate(0)" fill="none" stroke="#3566a2" stroke-width="1.8"><path d="M1 -6L12 0L1 6"/><circle cx="18" cy="0" r="4.4" fill="#f5f7fb"/></g>
+
+</g>
+<g data-from="users" data-to="wallet_challenges">
+<title>users → wallet_challenges：會員錢包驗證</title>
+<path d="M400 370 L383 370 L383 499 L354 499" class="halo"/>
+<path d="M400 370 L383 370 L383 499 L354 499" class="connector" stroke="#3566a2"/>
+<g transform="translate(400 370) rotate(180)" fill="none" stroke="#3566a2" stroke-width="1.8"><path d="M7 -6V6 M13 -6V6"/></g>
+<g transform="translate(354 499) rotate(0)" fill="none" stroke="#3566a2" stroke-width="1.8"><path d="M7 -6V6"/><circle cx="17" cy="0" r="4.4" fill="#f5f7fb"/></g>
+
+</g>
+<g data-from="users" data-to="teacher_availability">
+<title>users → teacher_availability：教師可用時段</title>
+<path d="M400 411 L373 411 L373 1102 L400 1102" class="halo"/>
+<path d="M400 411 L373 411 L373 1102 L400 1102" class="connector" stroke="#3566a2"/>
+<g transform="translate(400 411) rotate(180)" fill="none" stroke="#3566a2" stroke-width="1.8"><path d="M7 -6V6 M13 -6V6"/></g>
+<g transform="translate(400 1102) rotate(180)" fill="none" stroke="#3566a2" stroke-width="1.8"><path d="M1 -6L12 0L1 6"/><circle cx="18" cy="0" r="4.4" fill="#f5f7fb"/></g>
+
+</g>
+<g data-from="users" data-to="entity_skills">
+<title>users → entity_skills：技能持有人</title>
+<path d="M655 435 L655 483 L712 483 L712 758 L755 758 L755 840 L702 840" class="halo"/>
+<path d="M655 435 L655 483 L712 483 L712 758 L755 758 L755 840 L702 840" class="connector" stroke="#3566a2"/>
+<g transform="translate(655 435) rotate(90)" fill="none" stroke="#3566a2" stroke-width="1.8"><path d="M7 -6V6 M13 -6V6"/></g>
+<g transform="translate(702 840) rotate(0)" fill="none" stroke="#3566a2" stroke-width="1.8"><path d="M1 -6L12 0L1 6"/><circle cx="18" cy="0" r="4.4" fill="#f5f7fb"/></g>
+
+</g>
+<g data-from="users" data-to="courses">
+<title>users → courses：授課教師</title>
+<path d="M702 280 L788 280" class="halo"/>
+<path d="M702 280 L788 280" class="connector" stroke="#3566a2"/>
+<g transform="translate(702 280) rotate(0)" fill="none" stroke="#3566a2" stroke-width="1.8"><path d="M7 -6V6 M13 -6V6"/></g>
+<g transform="translate(788 280) rotate(180)" fill="none" stroke="#3566a2" stroke-width="1.8"><path d="M1 -6L12 0L1 6"/><circle cx="18" cy="0" r="4.4" fill="#f5f7fb"/></g>
+
+</g>
+<g data-from="users" data-to="classes">
+<title>users → classes：場次教師</title>
+<path d="M702 334 L753 334 L753 580 L788 580" class="halo"/>
+<path d="M702 334 L753 334 L753 580 L788 580" class="connector" stroke="#3566a2"/>
+<g transform="translate(702 334) rotate(0)" fill="none" stroke="#3566a2" stroke-width="1.8"><path d="M7 -6V6 M13 -6V6"/></g>
+<g transform="translate(788 580) rotate(180)" fill="none" stroke="#3566a2" stroke-width="1.8"><path d="M1 -6L12 0L1 6"/><circle cx="18" cy="0" r="4.4" fill="#f5f7fb"/></g>
+
+</g>
+<g data-from="users" data-to="chain_payments">
+<title>users → chain_payments：付款學生及授課教師（兩個外鍵）</title>
+<path d="M702 365 L731 365 L731 856 L788 856" class="halo"/>
+<path d="M702 365 L731 365 L731 856 L788 856" class="connector" stroke="#3566a2"/>
+<g transform="translate(702 365) rotate(0)" fill="none" stroke="#3566a2" stroke-width="1.8"><path d="M7 -6V6 M13 -6V6"/></g>
+<g transform="translate(788 856) rotate(180)" fill="none" stroke="#3566a2" stroke-width="1.8"><path d="M1 -6L12 0L1 6"/><circle cx="18" cy="0" r="4.4" fill="#f5f7fb"/></g>
+<rect x="747" y="847" width="24" height="18" rx="6" fill="#fff" stroke="#3566a2"/><text x="759" y="860" text-anchor="middle" fill="#3566a2" class="multiplicity">×2</text>
+</g>
+<g data-from="users" data-to="bookings">
+<title>users → bookings：預約學生</title>
+<path d="M702 396 L770 396 L770 469 L1273 469 L1273 540" class="halo"/>
+<path d="M702 396 L770 396 L770 469 L1273 469 L1273 540" class="connector" stroke="#3566a2"/>
+<g transform="translate(702 396) rotate(0)" fill="none" stroke="#3566a2" stroke-width="1.8"><path d="M7 -6V6 M13 -6V6"/></g>
+<g transform="translate(1273 540) rotate(-90)" fill="none" stroke="#3566a2" stroke-width="1.8"><path d="M1 -6L12 0L1 6"/><circle cx="18" cy="0" r="4.4" fill="#f5f7fb"/></g>
+
+</g>
+<g data-from="users" data-to="reviews">
+<title>users → reviews：評價送出者及接收者（兩個外鍵）</title>
+<path d="M575 238 L575 202 L1278 202 L1278 246" class="halo"/>
+<path d="M575 238 L575 202 L1278 202 L1278 246" class="connector" stroke="#3566a2"/>
+<g transform="translate(575 238) rotate(-90)" fill="none" stroke="#3566a2" stroke-width="1.8"><path d="M7 -6V6 M13 -6V6"/></g>
+<g transform="translate(1278 246) rotate(-90)" fill="none" stroke="#3566a2" stroke-width="1.8"><path d="M1 -6L12 0L1 6"/><circle cx="18" cy="0" r="4.4" fill="#f5f7fb"/></g>
+<rect x="916" y="193" width="24" height="18" rx="6" fill="#fff" stroke="#3566a2"/><text x="928" y="206" text-anchor="middle" fill="#3566a2" class="multiplicity">×2</text>
+</g>
+<g data-from="users" data-to="legacy_point_transactions">
+<title>users → legacy_point_transactions：舊點數紀錄使用者</title>
+<path d="M518 238 L518 181 L1508 181 L1508 935 L1478 935" class="halo"/>
+<path d="M518 238 L518 181 L1508 181 L1508 935 L1478 935" class="connector" stroke="#3566a2"/>
+<g transform="translate(518 238) rotate(-90)" fill="none" stroke="#3566a2" stroke-width="1.8"><path d="M7 -6V6 M13 -6V6"/></g>
+<g transform="translate(1478 935) rotate(0)" fill="none" stroke="#3566a2" stroke-width="1.8"><path d="M1 -6L12 0L1 6"/><circle cx="18" cy="0" r="4.4" fill="#f5f7fb"/></g>
+
+</g>
+<g data-from="skills" data-to="courses">
+<title>skills → courses：課程技能</title>
+<path d="M624 540 L624 513 L840 513 L840 443" class="halo"/>
+<path d="M624 540 L624 513 L840 513 L840 443" class="connector" stroke="#168271"/>
+<g transform="translate(624 540) rotate(-90)" fill="none" stroke="#168271" stroke-width="1.8"><path d="M7 -6V6 M13 -6V6"/></g>
+<g transform="translate(840 443) rotate(90)" fill="none" stroke="#168271" stroke-width="1.8"><path d="M1 -6L12 0L1 6"/><circle cx="18" cy="0" r="4.4" fill="#f5f7fb"/></g>
+
+</g>
+<g data-from="skills" data-to="classes">
+<title>skills → classes：場次技能</title>
+<path d="M702 634 L788 634" class="halo"/>
+<path d="M702 634 L788 634" class="connector" stroke="#168271"/>
+<g transform="translate(702 634) rotate(0)" fill="none" stroke="#168271" stroke-width="1.8"><path d="M7 -6V6 M13 -6V6"/></g>
+<g transform="translate(788 634) rotate(180)" fill="none" stroke="#168271" stroke-width="1.8"><path d="M1 -6L12 0L1 6"/><circle cx="18" cy="0" r="4.4" fill="#f5f7fb"/></g>
+
+</g>
+<g data-from="skills" data-to="entity_skills">
+<title>skills → entity_skills：技能關聯</title>
+<path d="M552 677 L552 800" class="halo"/>
+<path d="M552 677 L552 800" class="connector" stroke="#168271"/>
+<g transform="translate(552 677) rotate(90)" fill="none" stroke="#168271" stroke-width="1.8"><path d="M7 -6V6 M13 -6V6"/></g>
+<g transform="translate(552 800) rotate(-90)" fill="none" stroke="#168271" stroke-width="1.8"><path d="M1 -6L12 0L1 6"/><circle cx="18" cy="0" r="4.4" fill="#f5f7fb"/></g>
+
+</g>
+<g data-from="courses" data-to="classes">
+<title>courses → classes：課程與場次的複合外鍵</title>
+<path d="M934 443 L934 540" class="halo"/>
+<path d="M934 443 L934 540" class="connector" stroke="#168271"/>
+<g transform="translate(934 443) rotate(90)" fill="none" stroke="#168271" stroke-width="1.8"><path d="M7 -6V6 M13 -6V6"/></g>
+<g transform="translate(934 540) rotate(-90)" fill="none" stroke="#168271" stroke-width="1.8"><path d="M1 -6L12 0L1 6"/><circle cx="18" cy="0" r="4.4" fill="#f5f7fb"/></g>
+
+</g>
+<g data-from="courses" data-to="chain_payments">
+<title>courses → chain_payments：付款課程</title>
+<path d="M1090 313 L1116 313 L1116 877 L1090 877" class="halo"/>
+<path d="M1090 313 L1116 313 L1116 877 L1090 877" class="connector" stroke="#168271"/>
+<g transform="translate(1090 313) rotate(0)" fill="none" stroke="#168271" stroke-width="1.8"><path d="M7 -6V6 M13 -6V6"/></g>
+<g transform="translate(1090 877) rotate(0)" fill="none" stroke="#168271" stroke-width="1.8"><path d="M1 -6L12 0L1 6"/><circle cx="18" cy="0" r="4.4" fill="#f5f7fb"/></g>
+
+</g>
+<g data-from="classes" data-to="bookings">
+<title>classes → bookings：場次與授課教師複合外鍵</title>
+<path d="M1090 601 L1176 601" class="halo"/>
+<path d="M1090 601 L1176 601" class="connector" stroke="#168271"/>
+<g transform="translate(1090 601) rotate(0)" fill="none" stroke="#168271" stroke-width="1.8"><path d="M7 -6V6 M13 -6V6"/></g>
+<g transform="translate(1176 601) rotate(180)" fill="none" stroke="#168271" stroke-width="1.8"><path d="M1 -6L12 0L1 6"/><circle cx="18" cy="0" r="4.4" fill="#f5f7fb"/></g>
+</g>
+<g data-from="classes" data-to="chain_payments">
+<title>classes → chain_payments：付款場次</title>
+<path d="M931 737 L931 830" class="halo"/>
+<path d="M931 737 L931 830" class="connector" stroke="#168271"/>
+<g transform="translate(931 737) rotate(90)" fill="none" stroke="#168271" stroke-width="1.8"><path d="M7 -6V6 M13 -6V6"/></g>
+<g transform="translate(931 830) rotate(-90)" fill="none" stroke="#168271" stroke-width="1.8"><path d="M1 -6L12 0L1 6"/><circle cx="18" cy="0" r="4.4" fill="#f5f7fb"/></g>
+
+</g>
+<g data-from="chain_payments" data-to="bookings">
+<title>chain_payments → bookings：選填且唯一的鏈上付款</title>
+<path d="M1090 935 L1145 935 L1145 702 L1176 702" class="halo"/>
+<path d="M1090 935 L1145 935 L1145 702 L1176 702" class="connector" stroke="#a97130"/>
+<g transform="translate(1090 935) rotate(0)" fill="none" stroke="#a97130" stroke-width="1.8"><path d="M7 -6V6"/><circle cx="17" cy="0" r="4.4" fill="#f5f7fb"/></g>
+<g transform="translate(1176 702) rotate(180)" fill="none" stroke="#a97130" stroke-width="1.8"><path d="M7 -6V6"/><circle cx="17" cy="0" r="4.4" fill="#f5f7fb"/></g>
+
+</g>
+<g data-from="chain_payments" data-to="chain_transaction_records">
+<title>chain_payments → chain_transaction_records：選填的付款來源</title>
+<path d="M931 1051 L931 1135" class="halo"/>
+<path d="M931 1051 L931 1135" class="connector" stroke="#a97130"/>
+<g transform="translate(931 1051) rotate(90)" fill="none" stroke="#a97130" stroke-width="1.8"><path d="M7 -6V6"/><circle cx="17" cy="0" r="4.4" fill="#f5f7fb"/></g>
+<g transform="translate(931 1135) rotate(-90)" fill="none" stroke="#a97130" stroke-width="1.8"><path d="M1 -6L12 0L1 6"/><circle cx="18" cy="0" r="4.4" fill="#f5f7fb"/></g>
+
+</g>
+<g data-from="bookings" data-to="reviews">
+<title>bookings → reviews：評價預約</title>
+<path d="M1370 540 L1370 443" class="halo"/>
+<path d="M1370 540 L1370 443" class="connector" stroke="#8a50a3"/>
+<g transform="translate(1370 540) rotate(-90)" fill="none" stroke="#8a50a3" stroke-width="1.8"><path d="M7 -6V6 M13 -6V6"/></g>
+<g transform="translate(1370 443) rotate(90)" fill="none" stroke="#8a50a3" stroke-width="1.8"><path d="M1 -6L12 0L1 6"/><circle cx="18" cy="0" r="4.4" fill="#f5f7fb"/></g>
+
+</g>
+<g data-from="bookings" data-to="legacy_point_transactions">
+<title>bookings → legacy_point_transactions：選填的歷史預約</title>
+<path d="M1327 761 L1327 895" class="halo"/>
+<path d="M1327 761 L1327 895" class="connector" stroke="#8a50a3"/>
+<g transform="translate(1327 761) rotate(90)" fill="none" stroke="#8a50a3" stroke-width="1.8"><path d="M7 -6V6"/><circle cx="17" cy="0" r="4.4" fill="#f5f7fb"/></g>
+<g transform="translate(1327 895) rotate(-90)" fill="none" stroke="#8a50a3" stroke-width="1.8"><path d="M1 -6L12 0L1 6"/><circle cx="18" cy="0" r="4.4" fill="#f5f7fb"/></g>
+
+</g>
+<g class="table" id="user_sessions" transform="translate(52 246)">
+<title>user_sessions，登入工作階段，6 筆</title>
+<rect width="302" height="158" class="card"/>
+<path d="M13 1H289Q301 1 301 13V65H1V13Q1 1 13 1" fill="#eaf2fc"/>
+<line x1="1" y1="65" x2="301" y2="65" stroke="#3566a2" opacity=".25"/>
+<text x="15" y="27" fill="#285992" class="table-name" style="font-size:19px">user_sessions</text>
+<text x="15" y="51" class="table-note">登入工作階段</text>
+<text x="287" y="51" text-anchor="end" fill="#285992" class="count">6 筆</text>
+<text x="15" y="89" fill="#285992" class="key">PK</text><text x="62" y="89" class="field" style="font-size:13.2px">token_hash</text>
+<text x="15" y="112" fill="#285992" class="key">FK</text><text x="62" y="112" class="field" style="font-size:13.2px">user_id</text>
+<text x="62" y="135" class="field" style="font-size:13.2px">created_at · expires_at</text>
+</g>
+<g class="table" id="wallet_challenges" transform="translate(52 453)">
+<title>wallet_challenges，會員錢包驗證，1 筆</title>
+<rect width="302" height="158" class="card"/>
+<path d="M13 1H289Q301 1 301 13V65H1V13Q1 1 13 1" fill="#eaf2fc"/>
+<line x1="1" y1="65" x2="301" y2="65" stroke="#3566a2" opacity=".25"/>
+<text x="15" y="27" fill="#285992" class="table-name" style="font-size:19px">wallet_challenges</text>
+<text x="15" y="51" class="table-note">會員錢包驗證</text>
+<text x="287" y="51" text-anchor="end" fill="#285992" class="count">1 筆</text>
+<text x="15" y="89" fill="#285992" class="key">PK/FK</text><text x="62" y="89" class="field" style="font-size:13.2px">user_id</text>
+<text x="62" y="112" class="field" style="font-size:13.2px">wallet_address · session_hash</text>
+<text x="62" y="135" class="field" style="font-size:13.2px">message · expires_at</text>
+</g>
+<g class="table" id="registration_wallet_challenges" transform="translate(52 663)">
+<title>registration_wallet_challenges，註冊錢包驗證，0 筆</title>
+<rect width="302" height="170" class="card"/>
+<path d="M13 1H289Q301 1 301 13V65H1V13Q1 1 13 1" fill="#eaf2fc"/>
+<line x1="1" y1="65" x2="301" y2="65" stroke="#3566a2" opacity=".25"/>
+<text x="15" y="27" fill="#285992" class="table-name" style="font-size:15px">registration_wallet_challenges</text>
+<text x="15" y="51" class="table-note">註冊錢包驗證</text>
+<text x="287" y="51" text-anchor="end" fill="#285992" class="count">0 筆</text>
+<text x="15" y="89" fill="#285992" class="key">PK</text><text x="62" y="89" class="field" style="font-size:13.2px">challenge_id</text>
+<text x="62" y="112" class="field" style="font-size:13.2px">browser_hash · expires_at</text>
+<text x="62" y="135" class="field" style="font-size:13.2px">email · wallet_address</text>
+<text x="62" y="158" class="field" style="font-size:13.2px">message · origin</text>
+</g>
+<g class="table" id="schema_migrations" transform="translate(52 865)">
+<title>schema_migrations，資料庫遷移紀錄，7 筆</title>
+<rect width="302" height="137" class="card"/>
+<path d="M13 1H289Q301 1 301 13V65H1V13Q1 1 13 1" fill="#edf1f5"/>
+<line x1="1" y1="65" x2="301" y2="65" stroke="#617389" opacity=".25"/>
+<text x="15" y="27" fill="#48596f" class="table-name" style="font-size:19px">schema_migrations</text>
+<text x="15" y="51" class="table-note">資料庫遷移紀錄</text>
+<text x="287" y="51" text-anchor="end" fill="#48596f" class="count">7 筆</text>
+<text x="15" y="89" fill="#48596f" class="key">PK</text><text x="62" y="89" class="field" style="font-size:13.2px">name</text>
+<text x="62" y="112" class="field" style="font-size:13.2px">applied_at</text>
+</g>
+<g class="table" id="chain_history_cursors" transform="translate(52 1050)">
+<title>chain_history_cursors，鏈上歷史同步進度，9 筆</title>
+<rect width="302" height="164" class="card"/>
+<path d="M13 1H289Q301 1 301 13V65H1V13Q1 1 13 1" fill="#fcf1df"/>
+<line x1="1" y1="65" x2="301" y2="65" stroke="#a97130" opacity=".25"/>
+<text x="15" y="27" fill="#835012" class="table-name" style="font-size:19px">chain_history_cursors</text>
+<text x="15" y="51" class="table-note">鏈上歷史同步進度</text>
+<text x="287" y="51" text-anchor="end" fill="#835012" class="count">9 筆</text>
+<text x="15" y="89" fill="#835012" class="key">PK</text><text x="62" y="89" class="field" style="font-size:13.2px">chain_id · token_address</text>
+<text x="15" y="112" fill="#835012" class="key">PK</text><text x="62" y="112" class="field" style="font-size:13.2px">wallet_address</text>
+<text x="62" y="135" class="field" style="font-size:13.2px">block_number</text>
+</g>
+<g class="table" id="users" transform="translate(400 238)">
+<title>users，使用者，25 筆</title>
+<rect width="302" height="197" class="card"/>
+<path d="M13 1H289Q301 1 301 13V65H1V13Q1 1 13 1" fill="#eaf2fc"/>
+<line x1="1" y1="65" x2="301" y2="65" stroke="#3566a2" opacity=".25"/>
+<text x="15" y="27" fill="#285992" class="table-name" style="font-size:19px">users</text>
+<text x="15" y="51" class="table-note">使用者</text>
+<text x="287" y="51" text-anchor="end" fill="#285992" class="count">25 筆</text>
+<text x="15" y="89" fill="#285992" class="key">PK</text><text x="62" y="89" class="field" style="font-size:13.2px">user_id</text>
+<text x="15" y="112" fill="#285992" class="key">UQ</text><text x="62" y="112" class="field" style="font-size:13.2px">email</text>
+<text x="15" y="135" fill="#285992" class="key">UQ</text><text x="62" y="135" class="field" style="font-size:13.2px">verified_wallet_address ?</text>
+<text x="62" y="158" class="field" style="font-size:13.2px">username · role</text>
+<text x="62" y="181" class="field" style="font-size:13.2px">department · bio</text>
+</g>
+<g class="table" id="skills" transform="translate(400 540)">
+<title>skills，課程技能與分類，37 筆</title>
+<rect width="302" height="137" class="card"/>
+<path d="M13 1H289Q301 1 301 13V65H1V13Q1 1 13 1" fill="#e6f5f0"/>
+<line x1="1" y1="65" x2="301" y2="65" stroke="#168271" opacity=".25"/>
+<text x="15" y="27" fill="#0c695c" class="table-name" style="font-size:19px">skills</text>
+<text x="15" y="51" class="table-note">課程技能與分類</text>
+<text x="287" y="51" text-anchor="end" fill="#0c695c" class="count">37 筆</text>
+<text x="15" y="89" fill="#0c695c" class="key">PK</text><text x="62" y="89" class="field" style="font-size:13.2px">skill_id</text>
+<text x="62" y="112" class="field" style="font-size:13.2px">category · name</text>
+</g>
+<g class="table" id="entity_skills" transform="translate(400 800)">
+<title>entity_skills，使用者技能關聯，37 筆</title>
+<rect width="302" height="172" class="card"/>
+<path d="M13 1H289Q301 1 301 13V65H1V13Q1 1 13 1" fill="#e6f5f0"/>
+<line x1="1" y1="65" x2="301" y2="65" stroke="#168271" opacity=".25"/>
+<text x="15" y="27" fill="#0c695c" class="table-name" style="font-size:19px">entity_skills</text>
+<text x="15" y="51" class="table-note">使用者技能關聯</text>
+<text x="287" y="51" text-anchor="end" fill="#0c695c" class="count">37 筆</text>
+<text x="15" y="89" fill="#0c695c" class="key">PK</text><text x="62" y="89" class="field" style="font-size:13.2px">entity_skill_id</text>
+<text x="15" y="112" fill="#0c695c" class="key">FK</text><text x="62" y="112" class="field" style="font-size:13.2px">owner_id · skill_id</text>
+<text x="62" y="135" class="field" style="font-size:13.2px">skill_level</text>
+<text x="15" y="158" fill="#0c695c" class="key">UQ</text><text x="62" y="158" class="field" style="font-size:13.2px">(owner_id, skill_id)</text>
+</g>
+<g class="table" id="teacher_availability" transform="translate(400 1050)">
+<title>teacher_availability，教師可用時段，248 筆</title>
+<rect width="302" height="164" class="card"/>
+<path d="M13 1H289Q301 1 301 13V65H1V13Q1 1 13 1" fill="#e6f5f0"/>
+<line x1="1" y1="65" x2="301" y2="65" stroke="#168271" opacity=".25"/>
+<text x="15" y="27" fill="#0c695c" class="table-name" style="font-size:19px">teacher_availability</text>
+<text x="15" y="51" class="table-note">教師可用時段</text>
+<text x="287" y="51" text-anchor="end" fill="#0c695c" class="count">248 筆</text>
+<text x="15" y="89" fill="#0c695c" class="key">PK/FK</text><text x="62" y="89" class="field" style="font-size:13.2px">teacher_id</text>
+<text x="15" y="112" fill="#0c695c" class="key">PK</text><text x="62" y="112" class="field" style="font-size:13.2px">available_date · slot_type</text>
+<text x="62" y="135" class="field" style="font-size:13.2px">start_time · end_time</text>
+</g>
+<g class="table" id="courses" transform="translate(788 246)">
+<title>courses，課程，37 筆</title>
+<rect width="302" height="197" class="card"/>
+<path d="M13 1H289Q301 1 301 13V65H1V13Q1 1 13 1" fill="#e6f5f0"/>
+<line x1="1" y1="65" x2="301" y2="65" stroke="#168271" opacity=".25"/>
+<text x="15" y="27" fill="#0c695c" class="table-name" style="font-size:19px">courses</text>
+<text x="15" y="51" class="table-note">課程</text>
+<text x="287" y="51" text-anchor="end" fill="#0c695c" class="count">37 筆</text>
+<text x="15" y="89" fill="#0c695c" class="key">PK</text><text x="62" y="89" class="field" style="font-size:13.2px">course_id</text>
+<text x="15" y="112" fill="#0c695c" class="key">FK</text><text x="62" y="112" class="field" style="font-size:13.2px">teacher_id · skill_id</text>
+<text x="62" y="135" class="field" style="font-size:13.2px">title · price</text>
+<text x="62" y="158" class="field" style="font-size:13.2px">description · is_active</text>
+<text x="62" y="181" class="field" style="font-size:13.2px">created_at · updated_at</text>
+</g>
+<g class="table" id="classes" transform="translate(788 540)">
+<title>classes，課程場次，335 筆</title>
+<rect width="302" height="197" class="card"/>
+<path d="M13 1H289Q301 1 301 13V65H1V13Q1 1 13 1" fill="#e6f5f0"/>
+<line x1="1" y1="65" x2="301" y2="65" stroke="#168271" opacity=".25"/>
+<text x="15" y="27" fill="#0c695c" class="table-name" style="font-size:19px">classes</text>
+<text x="15" y="51" class="table-note">課程場次</text>
+<text x="287" y="51" text-anchor="end" fill="#0c695c" class="count">335 筆</text>
+<text x="15" y="89" fill="#0c695c" class="key">PK</text><text x="62" y="89" class="field" style="font-size:13.2px">class_id</text>
+<text x="15" y="112" fill="#0c695c" class="key">FK</text><text x="62" y="112" class="field" style="font-size:13.2px">course_id · teacher_id · skill_id</text>
+<text x="62" y="135" class="field" style="font-size:13.2px">class_date · slot_type</text>
+<text x="62" y="158" class="field" style="font-size:13.2px">start_time · end_time · is_booked</text>
+<text x="62" y="181" class="field" style="font-size:13.2px">price · description</text>
+</g>
+<g class="table" id="chain_payments" transform="translate(788 830)">
+<title>chain_payments，鏈上付款與報價，135 筆</title>
+<rect width="302" height="221" class="card"/>
+<path d="M13 1H289Q301 1 301 13V65H1V13Q1 1 13 1" fill="#fcf1df"/>
+<line x1="1" y1="65" x2="301" y2="65" stroke="#a97130" opacity=".25"/>
+<text x="15" y="27" fill="#835012" class="table-name" style="font-size:19px">chain_payments</text>
+<text x="15" y="51" class="table-note">鏈上付款與報價</text>
+<text x="287" y="51" text-anchor="end" fill="#835012" class="count">135 筆</text>
+<text x="15" y="89" fill="#835012" class="key">PK</text><text x="62" y="89" class="field" style="font-size:13.2px">payment_id</text>
+<text x="15" y="112" fill="#835012" class="key">FK</text><text x="62" y="112" class="field" style="font-size:13.2px">student_id · teacher_id</text>
+<text x="15" y="135" fill="#835012" class="key">FK</text><text x="62" y="135" class="field" style="font-size:13.2px">course_id · class_id</text>
+<text x="62" y="158" class="field" style="font-size:13.2px">scheduled_date · slot_type</text>
+<text x="62" y="181" class="field" style="font-size:13.2px">price · status · expires_at</text>
+<text x="62" y="204" class="field" style="font-size:12.2px">quote · funded_tx_hash · last_tx_hash</text>
+</g>
+<g class="table" id="chain_transaction_records" transform="translate(788 1135)">
+<title>chain_transaction_records，鏈上交易收據備份，309 筆</title>
+<rect width="302" height="197" class="card"/>
+<path d="M13 1H289Q301 1 301 13V65H1V13Q1 1 13 1" fill="#fcf1df"/>
+<line x1="1" y1="65" x2="301" y2="65" stroke="#a97130" opacity=".25"/>
+<text x="15" y="27" fill="#835012" class="table-name" style="font-size:16px">chain_transaction_records</text>
+<text x="15" y="51" class="table-note">鏈上交易收據備份</text>
+<text x="287" y="51" text-anchor="end" fill="#835012" class="count">309 筆</text>
+<text x="15" y="89" fill="#835012" class="key">PK</text><text x="62" y="89" class="field" style="font-size:13.2px">chain_id · tx_hash</text>
+<text x="15" y="112" fill="#835012" class="key">FK</text><text x="62" y="112" class="field" style="font-size:13.2px">payment_id ?</text>
+<text x="62" y="135" class="field" style="font-size:13.2px">block_number · block_hash</text>
+<text x="62" y="158" class="field" style="font-size:13.2px">receipt_json · transaction_json</text>
+<text x="62" y="181" class="field" style="font-size:13.2px">token_transfers · approvals</text>
+</g>
+<g class="table" id="reviews" transform="translate(1176 246)">
+<title>reviews，預約雙向評價，112 筆</title>
+<rect width="302" height="197" class="card"/>
+<path d="M13 1H289Q301 1 301 13V65H1V13Q1 1 13 1" fill="#f4ebf8"/>
+<line x1="1" y1="65" x2="301" y2="65" stroke="#8a50a3" opacity=".25"/>
+<text x="15" y="27" fill="#6c3e83" class="table-name" style="font-size:19px">reviews</text>
+<text x="15" y="51" class="table-note">預約雙向評價</text>
+<text x="287" y="51" text-anchor="end" fill="#6c3e83" class="count">112 筆</text>
+<text x="15" y="89" fill="#6c3e83" class="key">PK</text><text x="62" y="89" class="field" style="font-size:13.2px">review_id</text>
+<text x="15" y="112" fill="#6c3e83" class="key">FK</text><text x="62" y="112" class="field" style="font-size:13.2px">booking_id</text>
+<text x="15" y="135" fill="#6c3e83" class="key">FK</text><text x="62" y="135" class="field" style="font-size:13.2px">sender_id · receiver_id</text>
+<text x="62" y="158" class="field" style="font-size:13.2px">reviewer_role · rating_stars</text>
+<text x="15" y="181" fill="#6c3e83" class="key">UQ</text><text x="62" y="181" class="field" style="font-size:13.2px">(booking_id, sender_id)</text>
+</g>
+<g class="table" id="bookings" transform="translate(1176 540)">
+<title>bookings，預約，135 筆</title>
+<rect width="302" height="221" class="card"/>
+<path d="M13 1H289Q301 1 301 13V65H1V13Q1 1 13 1" fill="#f4ebf8"/>
+<line x1="1" y1="65" x2="301" y2="65" stroke="#8a50a3" opacity=".25"/>
+<text x="15" y="27" fill="#6c3e83" class="table-name" style="font-size:19px">bookings</text>
+<text x="15" y="51" class="table-note">預約</text>
+<text x="287" y="51" text-anchor="end" fill="#6c3e83" class="count">135 筆</text>
+<text x="15" y="89" fill="#6c3e83" class="key">PK</text><text x="62" y="89" class="field" style="font-size:13.2px">booking_id</text>
+<text x="15" y="112" fill="#6c3e83" class="key">FK</text><text x="62" y="112" class="field" style="font-size:13.2px">student_id</text>
+<text x="15" y="135" fill="#6c3e83" class="key">FK</text><text x="62" y="135" class="field" style="font-size:13.2px">class_id · teacher_id</text>
+<text x="15" y="158" fill="#6c3e83" class="key">FK/UQ</text><text x="62" y="158" class="field" style="font-size:13.2px">chain_payment_id ?</text>
+<text x="62" y="181" class="field" style="font-size:13.2px">status · payment_status</text>
+<text x="62" y="204" class="field" style="font-size:11.3px">points_spent · payment_method · archived_at</text>
+</g>
+<g class="table" id="legacy_point_transactions" transform="translate(1176 895)">
+<title>legacy_point_transactions，舊版 YTC 點數紀錄，0 筆</title>
+<rect width="302" height="172" class="card"/>
+<path d="M13 1H289Q301 1 301 13V65H1V13Q1 1 13 1" fill="#edf1f5"/>
+<line x1="1" y1="65" x2="301" y2="65" stroke="#617389" opacity=".25"/>
+<text x="15" y="27" fill="#48596f" class="table-name" style="font-size:16px">legacy_point_transactions</text>
+<text x="15" y="51" class="table-note">舊版 YTC 點數紀錄</text>
+<text x="287" y="51" text-anchor="end" fill="#48596f" class="count">0 筆</text>
+<text x="15" y="89" fill="#48596f" class="key">PK</text><text x="62" y="89" class="field" style="font-size:13.2px">transaction_id</text>
+<text x="15" y="112" fill="#48596f" class="key">FK</text><text x="62" y="112" class="field" style="font-size:13.2px">user_id</text>
+<text x="15" y="135" fill="#48596f" class="key">FK</text><text x="62" y="135" class="field" style="font-size:13.2px">booking_id ?</text>
+<text x="62" y="158" class="field" style="font-size:13.2px">amount · transaction_type</text>
+</g>
+<line x1="52" y1="1359" x2="1480" y2="1359" stroke="#d4dde8"/>
+<text x="52" y="1385" class="footnote">複合外鍵：classes 以 (course_id, teacher_id, skill_id) 連到 courses，bookings 以 (class_id, teacher_id) 連到 classes。</text>
+<text x="52" y="1408" class="footnote">同場次可有多筆歷史預約，部分唯一索引將未封存的 confirmed、disputed、completed 預約合計限制為一筆。</text>
+</svg>

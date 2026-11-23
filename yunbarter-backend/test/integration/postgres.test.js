@@ -30,7 +30,7 @@ test('PostgreSQL: migrated history, schedules, course content, archived history 
     return db;
   }
   const db=await scoped('yunbarter_test_'+randomBytes(8).toString('hex'));
-  await db.query(await fs.readFile(path.join(__dirname,'../../../db/schema.sql'),'utf8'));
+  await db.query(await fs.readFile(path.join(__dirname,'../fixtures/legacy-schema.sql'),'utf8'));
   await db.query("INSERT INTO users(email,password_hash,username,role,hourly_points,cached_points) VALUES ('LEGACY@example.com','old-password','Legacy','student',NULL,42),('oldteacher@example.com','old-password','Old Teacher','teacher',2,50)");
   await db.query("INSERT INTO skills(category,name) VALUES ('程式','Legacy Course')");
   await db.query("INSERT INTO classes(teacher_id,skill_id,class_date,slot_type,start_time,end_time,is_booked) VALUES (2,1,CURRENT_DATE+30,'morning','09:00','10:00',TRUE)");
@@ -44,6 +44,18 @@ test('PostgreSQL: migrated history, schedules, course content, archived history 
     const {rows:[b]}=await db.query('SELECT b.*,c.course_id FROM bookings b JOIN classes c USING(class_id) WHERE booking_id=1');
     assert.equal(b.course_title,'Legacy Course');assert.equal(Number(b.points_spent),2);assert.ok(b.course_id);assert.ok(b.archived_at);
     assert.equal((await migrate(db)).upgradedPasswords,0);
+  });
+
+  await t.test('migration removes redundant columns and retains the booking class and teacher constraint',async()=>{
+    const {rows:columns}=await db.query(`SELECT column_name FROM information_schema.columns
+      WHERE table_schema=current_schema() AND (
+        (table_name='users' AND column_name IN ('wallet_address','student_rating','teacher_rating'))
+        OR (table_name='entity_skills' AND column_name='owner_type')
+      )`);
+    assert.deepEqual(columns,[]);
+    const {rows:foreignKeys}=await db.query(`SELECT conname FROM pg_constraint
+      WHERE contype='f' AND conrelid='bookings'::regclass AND confrelid='classes'::regclass`);
+    assert.deepEqual(foreignKeys,[{conname:'bookings_class_teacher_fk'}]);
   });
 
   let base;
@@ -135,6 +147,8 @@ test('PostgreSQL: migrated history, schedules, course content, archived history 
     await assert.rejects(db.query("UPDATE courses SET price='NaN'::numeric WHERE course_id=$1",[courseA.id]),e=>e.code==='23514');
     await assert.rejects(db.query('UPDATE classes SET end_time=start_time WHERE course_id=$1',[courseA.id]),e=>e.code==='23514');
     await assert.rejects(db.query('UPDATE bookings SET archived_at=NULL WHERE booking_id=1'),e=>e.code==='23514');
+    await assert.rejects(db.query('UPDATE bookings SET teacher_id=$1 WHERE booking_id=1',[a.body.userId]),
+      e=>e.code==='23503'&&e.constraint==='bookings_class_teacher_fk');
   });
 
   await t.test('empty schedules persist and do not silently reappear when publishing another course',async()=>{
@@ -162,5 +176,14 @@ test('PostgreSQL: migrated history, schedules, course content, archived history 
     const {rows:[counts]}=await empty.query('SELECT (SELECT COUNT(*)::int FROM courses) AS courses,(SELECT COUNT(*)::int FROM bookings) AS bookings');
     assert.equal(counts.courses,2);assert.equal(counts.bookings,0);
     await assert.rejects(seed(db),/已有資料/);
+  });
+
+  await t.test('schema.sql initializes a database ready for migration and seed',async()=>{
+    const snapshot=await scoped('yunbarter_test_snapshot_'+randomBytes(8).toString('hex'));
+    await snapshot.query(await fs.readFile(path.join(__dirname,'../../../db/schema.sql'),'utf8'));
+    assert.equal((await migrate(snapshot)).upgradedPasswords,0);
+    await seed(snapshot);
+    const {rows:[counts]}=await snapshot.query('SELECT COUNT(*)::int AS courses FROM courses');
+    assert.equal(counts.courses,2);
   });
 });

@@ -65,7 +65,7 @@ Set-Location -LiteralPath 'D:\二技專題\P2P-Freelance-Platform\yunbarter-back
 npm run db:migrate
 ```
 
-遷移會建立資料表與補充欄位，並將既有的明碼密碼轉成雜湊。如果只手動執行 `db/schema.sql`，會缺少登入 Session 等新欄位，所以請使用上面的遷移指令。
+遷移會建立空庫所需的資料表、升級既有資料庫，並將舊的明碼密碼轉成雜湊。`db/schema.sql` 包含最新結構和遷移紀錄，也可在空白資料庫直接執行。既有資料庫請用 `npm run db:migrate` 升級。
 
 如果是全新的空白資料庫，需要範例會員及課程時，再執行：
 
