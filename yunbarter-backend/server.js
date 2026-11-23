@@ -7,6 +7,7 @@ const { hashPassword, verifyPassword } = require('./passwords');
 const { installMarketplace, courseCards, HttpError } = require('./marketplace');
 const { createChainService, installChainRoutes } = require('./chain');
 const { createWalletBinding } = require('./walletBinding');
+const { createStarterFunds } = require('./starterFunds');
 const { COURSE_CATEGORIES, createCourseDraftGenerator } = require('./courseDraft');
 const { getCoursePricingOptions, normalizeSuggestedPrice } = require('./coursePricing');
 
@@ -64,6 +65,9 @@ function createApp({ db = pool, allowedOrigins, secureCookies = process.env.NODE
         'INSERT INTO users (email, password_hash, username,verified_wallet_address) VALUES ($1, $2, $3,$4) RETURNING user_id, username,verified_wallet_address',
         [email, passwordHash, userName,walletAddress],
       );
+      await client.query('INSERT INTO starter_skill_grants (user_id, wallet_address) VALUES ($1, $2)',
+        [created.user_id, created.verified_wallet_address]);
+      await client.query('INSERT INTO starter_eth_grants (user_id) VALUES ($1)', [created.user_id]);
       await auth.issueSession(req, res, created.user_id, client);
       return created;
     });
@@ -169,8 +173,35 @@ async function start() {
   await pool.query('SELECT chain_payment_id FROM bookings LIMIT 0');
   await pool.query('SELECT challenge_id FROM registration_wallet_challenges LIMIT 0');
   await pool.query('SELECT tx_hash FROM chain_transaction_records LIMIT 0');
+  await pool.query('SELECT user_id FROM starter_skill_grants LIMIT 0');
+  await pool.query('SELECT user_id FROM starter_eth_grants LIMIT 0');
+  let starterFunds;
+  try {
+    starterFunds = createStarterFunds();
+  } catch (error) {
+    console.error('起始資金發放未啟用:', error.code || error.message);
+  }
   const port = Number(process.env.PORT || 5000);
   const server = createApp().listen(port, () => console.log(`YunBarter API 已連線 PostgreSQL：http://localhost:${port}`));
+  let grantTimer;
+  let grantInProgress;
+  function processStarterGrant() {
+    if (grantInProgress) return;
+    grantInProgress = starterFunds.processNext(pool)
+      .catch(error => console.error('新帳號起始資金發放暫緩:', error.code || error.name))
+      .finally(() => { grantInProgress = undefined; });
+  }
+  if (starterFunds) {
+    server.once('listening', () => {
+      processStarterGrant();
+      grantTimer = setInterval(processStarterGrant, 15_000);
+      grantTimer.unref();
+    });
+    server.once('close', () => {
+      clearInterval(grantTimer);
+      void Promise.resolve(grantInProgress).finally(() => starterFunds.close());
+    });
+  }
   server.on('error', async (error) => {
     console.error('後端啟動失敗:', error.code);
     await pool.end();

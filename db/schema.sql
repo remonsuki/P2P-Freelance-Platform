@@ -1,4 +1,4 @@
--- YunBarter PostgreSQL 目前結構，包含 001 至 007 遷移。
+-- YunBarter PostgreSQL 目前結構，包含 001 至 009 遷移。
 -- 可直接匯入空白 schema。既有資料庫請執行 npm run db:migrate。
 -- 快照只包含結構與遷移版本紀錄。
 
@@ -547,6 +547,41 @@ ALTER TABLE ONLY user_sessions
 ALTER TABLE ONLY wallet_challenges
     ADD CONSTRAINT wallet_challenges_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE;
 
+CREATE TABLE starter_skill_grants (
+    user_id BIGINT PRIMARY KEY REFERENCES users(user_id) ON DELETE RESTRICT,
+    wallet_address TEXT NOT NULL CHECK (wallet_address ~ '^0x[0-9a-f]{40}$'),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    signed_transaction TEXT,
+    transaction_hash TEXT UNIQUE CHECK (transaction_hash ~ '^0x[0-9a-f]{64}$'),
+    confirmed_at TIMESTAMPTZ,
+    CONSTRAINT starter_skill_grants_signed_pair CHECK (
+        (signed_transaction IS NULL) = (transaction_hash IS NULL)
+    ),
+    CONSTRAINT starter_skill_grants_confirmation CHECK (
+        confirmed_at IS NULL OR transaction_hash IS NOT NULL
+    )
+);
+
+CREATE INDEX starter_skill_grants_pending ON starter_skill_grants(user_id)
+    WHERE confirmed_at IS NULL;
+
+CREATE TABLE starter_eth_grants (
+    user_id BIGINT PRIMARY KEY REFERENCES starter_skill_grants(user_id) ON DELETE RESTRICT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    signed_transaction TEXT,
+    transaction_hash TEXT UNIQUE CHECK (transaction_hash ~ '^0x[0-9a-f]{64}$'),
+    confirmed_at TIMESTAMPTZ,
+    CONSTRAINT starter_eth_grants_signed_pair CHECK (
+        (signed_transaction IS NULL) = (transaction_hash IS NULL)
+    ),
+    CONSTRAINT starter_eth_grants_confirmation CHECK (
+        confirmed_at IS NULL OR transaction_hash IS NOT NULL
+    )
+);
+
+CREATE INDEX starter_eth_grants_pending ON starter_eth_grants(user_id)
+    WHERE confirmed_at IS NULL;
+
 -- 記錄已包含在此結構中的版本，後續遷移仍由遷移程式套用。
 INSERT INTO schema_migrations (name) VALUES
     ('001_postgres_auth.sql'),
@@ -555,5 +590,7 @@ INSERT INTO schema_migrations (name) VALUES
     ('004_skill_escrow.sql'),
     ('005_registration_wallet_binding.sql'),
     ('006_chain_only_transactions.sql'),
-    ('007_remove_redundant_structures.sql')
+    ('007_remove_redundant_structures.sql'),
+    ('008_starter_skill_grants.sql'),
+    ('009_starter_eth_grants.sql')
 ON CONFLICT (name) DO NOTHING;

@@ -125,6 +125,18 @@ SKILL_ESCROW_ADDRESS=已查驗的託管合約地址
 - 另建預約，等課程結束後由學生完課，SKILL 應轉入原老師錢包。
 - 測試提出爭議、老師同意退款，以及多次按同步時不會重複結算。
 
+## 會員錢包補款與註冊起始資金
+
+既有會員可在 `yunbarter-backend` 預覽補款。以每次 160 萬 Gas、費率 0.2 gwei 估算，五次授權、託管付款和完課共需 0.0016 Sepolia ETH。`--eth-only` 只補 ETH 差額，`--batch` 用來識別獨立的一批補款。預覽確認後，加上 `--send` 才會送出交易。發送中斷時用相同批次與參數重跑，工具會沿用已簽署的交易。`--verify` 只核對收據與目前餘額。
+
+```powershell
+npm run wallets:top-up -- --eth-only --eth-target 0.0016 --batch five-lessons
+npm run wallets:top-up -- --eth-only --eth-target 0.0016 --batch five-lessons --send
+npm run wallets:top-up -- --eth-only --eth-target 0.0016 --batch five-lessons --verify
+```
+
+註冊完成後，後端為該帳號排入一次 30 SKILL 和一次 0.0016 ETH 發放。先執行 `npm run db:migrate`，並在本機 `yunbarter-backend/.env.starter.local` 設定 `STARTER_FUNDS_ENABLED=true` 與專用測試錢包的 `STARTER_FUNDS_PRIVATE_KEY`。為 20 位新會員備款時，發放錢包需要至少 600 SKILL 和 0.032 Sepolia ETH 本金，另留兩種轉帳的 Gas。兩筆轉帳各自保存簽署交易及收據狀態，缺少資金或 RPC 中斷時會留在佇列，帳號仍可註冊和登入。
+
 ## 交易中斷時
 
 每筆報價在開啟錢包前已存入資料庫。「預約管理 → SKILL 鏈上交易」提供待付款、同步、交易瀏覽器連結與繼續付款。

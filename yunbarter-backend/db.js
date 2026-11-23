@@ -1,5 +1,8 @@
 const path = require('node:path');
-require('dotenv').config({ path: [path.join(__dirname, '.env.chain.local'), path.join(__dirname, '.env')], quiet: true });
+require('dotenv').config({
+  path: ['.env.chain.local', '.env.starter.local', '.env'].map(name => path.join(__dirname, name)),
+  quiet: true,
+});
 const { Pool } = require('pg');
 
 function connectionOptions(env = process.env) {

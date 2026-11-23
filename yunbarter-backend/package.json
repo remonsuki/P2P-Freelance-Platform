@@ -12,7 +12,8 @@
     "db:audit": "node scripts/audit.js",
     "test": "node --test test/*.test.js",
     "test:integration": "node --test test/integration/*.test.js",
-    "db:sync-chain": "node scripts/sync-chain-history.js"
+    "db:sync-chain": "node scripts/sync-chain-history.js",
+    "wallets:top-up": "node scripts/top-up-booking-wallets.js"
   },
   "keywords": [],
   "author": "",
