@@ -1,20 +1,55 @@
 import { apiFetch } from './services/api';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, BookOpen, CircleDollarSign, Tags, AlignLeft, Send, Loader2 } from 'lucide-react';
 
-// 🌟 接收來自 App.jsx 的 showNotification
+const referenceLabels = { similar: '相似', category: '同類別', catalog: '全站' };
+const priceFormat = new Intl.NumberFormat('zh-TW', { maximumFractionDigits: 6 });
+const categoryLabels = {
+  程式: '程式開發',
+  語言: '語言學習',
+  音樂: '音樂藝術',
+  設計: '視覺設計',
+  運動: '健身運動',
+  飲食: '飲食',
+  影像: '影像',
+  手作: '手作',
+  職場: '職場',
+  園藝: '園藝',
+  生活: '生活',
+  綜合: '其他綜合',
+};
+
 export default function PublishSkill({ onAddTeacher, showNotification }) {
   const navigate = useNavigate();
 
   const [skill, setSkill] = useState('');
   const [category, setCategory] = useState('程式');
-  const [price, setPrice] = useState(1.0);
+  const [price, setPrice] = useState('1');
   const [description, setDescription] = useState('');
+  const [pricing, setPricing] = useState(null);
   
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [aiStyle, setAiStyle] = useState('幽默風趣'); 
+  const [aiStyle, setAiStyle] = useState('幽默風趣');
+  const generationRequest = useRef(null);
+
+  useEffect(() => () => {
+    const request = generationRequest.current;
+    generationRequest.current = null;
+    request?.abort();
+  }, []);
+
+  const updateDraft = (setter, value, clearPricing = false) => {
+    const request = generationRequest.current;
+    if (request) {
+      generationRequest.current = null;
+      request.abort();
+      setIsGenerating(false);
+    }
+    setter(value);
+    if (clearPricing) setPricing(null);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -24,10 +59,10 @@ export default function PublishSkill({ onAddTeacher, showNotification }) {
       return;
     }
 
-    if (isSubmitting) return;
+    if (isSubmitting || generationRequest.current) return;
     setIsSubmitting(true);
     try {
-      await onAddTeacher(skill, price, category, description);
+      await onAddTeacher(skill, Number(price), category, description);
       showNotification('success', '上架成功', `成功上架「${skill}」課程！`);
       navigate('/profile');
     } catch (error) {
@@ -38,35 +73,51 @@ export default function PublishSkill({ onAddTeacher, showNotification }) {
   };
 
   const handleAIGenerate = async () => {
+    if (generationRequest.current || isSubmitting) return;
     if (!skill.trim()) {
-      // 🌟 替換為高級通知
-      showNotification('warning', '提示', '請先在上方輸入「課程名稱」，AI 才知道要幫你寫什麼喔！');
+      showNotification('warning', '請先輸入課程名稱', '輸入簡短的課程主題即可產生完整草稿。');
       return;
     }
 
+    const request = new AbortController();
+    generationRequest.current = request;
     setIsGenerating(true);
     try {
       const response = await apiFetch('/api/ai/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ skill, style: aiStyle })
+        signal: request.signal,
+        body: JSON.stringify({ skill: skill.trim(), style: aiStyle, description }),
       });
-      
-      const data = await response.json();
-      
-      if (response.ok) {
-        setSkill(data.title);
-        setDescription(data.description);
-        setPrice(parseFloat(data.price)); 
-        showNotification('success', '生成完成', '已自動為您填入優化後的標題與詳細說明！');
-      } else {
-        showNotification('error', '生成失敗', data.error || "未知錯誤");
+      const data = await response.json().catch(() => null);
+      if (generationRequest.current !== request) return;
+
+      if (!response.ok) {
+        if (response.status === 401) window.dispatchEvent(new Event('yunbarter:unauthorized'));
+        showNotification('error', '生成失敗', data?.error || '暫時無法產生課程草稿，請稍後再試。');
+        return;
       }
-    } catch (error) {
-      console.error("AI 伺服器連線錯誤:", error);
-      showNotification('error', '連線異常', '無法連線至 AI 伺服器，請確認後端已啟動。');
+      if (typeof data?.title !== 'string' || !data.title.trim()
+        || typeof data.description !== 'string' || !data.description.trim()
+        || typeof data.category !== 'string' || !Object.hasOwn(categoryLabels, data.category)
+        || !Number.isFinite(data.price) || data.price < 0.1 || data.price > 1e9) {
+        showNotification('error', '生成失敗', 'AI 回傳的課程資料不完整，請再試一次。');
+        return;
+      }
+      setSkill(data.title);
+      setCategory(data.category);
+      setDescription(data.description);
+      setPrice(String(data.price));
+      setPricing({ ...data.pricing, suggestedPrice: data.price });
+      showNotification('success', '草稿已生成', '可確認或調整草稿內容，再發布課程。');
+    } catch {
+      if (generationRequest.current === request) {
+        showNotification('error', '連線異常', '暫時無法連線產生課程草稿，請稍後再試。');
+      }
     } finally {
-      setIsGenerating(false);
+      if (generationRequest.current === request) {
+        generationRequest.current = null;
+        setIsGenerating(false);
+      }
     }
   };
 
@@ -120,11 +171,15 @@ export default function PublishSkill({ onAddTeacher, showNotification }) {
             box-sizing: border-box;
           }
 
-          /* AI 標題與操作區上下排列 */
+          /* 生成提示與操作區上下排列 */
           .yb-publish-ai-header {
             flex-direction: column !important;
             align-items: stretch !important;
             gap: 14px !important;
+          }
+
+          .yb-publish-ai-header > p {
+            flex: none !important;
           }
 
           /* AI 風格與生成按鈕改成上下排列 */
@@ -210,56 +265,78 @@ export default function PublishSkill({ onAddTeacher, showNotification }) {
             
             {/* 技能名稱 */}
             <div>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', color: '#334155', fontWeight: 'bold', marginBottom: '10px' }}>
+              <label htmlFor="publish-course-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', color: '#334155', fontWeight: 'bold', marginBottom: '10px' }}>
                 <BookOpen size={18} color="#3498db" /> 課程名稱 (你想教什麼？)
               </label>
               <input 
+                id="publish-course-title"
                 type="text" 
                 value={skill} 
-                onChange={(e) => setSkill(e.target.value)} 
+                onChange={(e) => updateDraft(setSkill, e.target.value, true)}
+                maxLength={200}
+                aria-describedby="publish-course-title-help"
                 placeholder="例：從零開始的日文 N3 檢定班" 
                 style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', fontSize: '15px', color: '#0f172a', boxSizing: 'border-box', outlineColor: '#3498db', transition: 'all 0.2s' }} 
                 required 
               />
+              <div className="yb-publish-ai-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', flexWrap: 'wrap', gap: '10px' }}>
+                <p id="publish-course-title-help" style={{ flex: '1 1 200px', margin: 0, fontSize: '13px', lineHeight: 1.5, color: '#475569' }}>
+                  填入課程名稱即可一鍵生成標題、類別、說明與建議價格。
+                </p>
+                <div className="yb-publish-ai-controls" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <select
+                    aria-label="AI 文案風格"
+                    value={aiStyle}
+                    onChange={(e) => updateDraft(setAiStyle, e.target.value)}
+                    style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', fontSize: '13px', color: '#475569', outline: 'none', cursor: 'pointer' }}
+                  >
+                    <option value="幽默風趣">幽默風趣 (適合輕鬆才藝)</option>
+                    <option value="熱血推銷">熱血推銷 (適合衝刺班)</option>
+                    <option value="專業嚴謹">專業嚴謹 (適合專業技能)</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={handleAIGenerate}
+                    disabled={isGenerating || isSubmitting}
+                    style={{ padding: '8px 14px', background: 'linear-gradient(135deg, #a855f7 0%, #ec4899 100%)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '13px', cursor: isGenerating || isSubmitting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px', transition: 'opacity 0.2s', opacity: isGenerating || isSubmitting ? 0.7 : 1, boxShadow: '0 2px 4px rgba(168, 85, 247, 0.15)' }}
+                  >
+                    {isGenerating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                    {isGenerating ? '正在生成…' : '一鍵 AI 生成'}
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* 雙欄位：類別與定價 */}
             <div className="yb-publish-fields" style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
               <div style={{ flex: 1, minWidth: '200px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', color: '#334155', fontWeight: 'bold', marginBottom: '10px' }}>
+                <label htmlFor="publish-course-category" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', color: '#334155', fontWeight: 'bold', marginBottom: '10px' }}>
                   <Tags size={18} color="#9b59b6" /> 技能類別
                 </label>
                 <select 
+                  id="publish-course-category"
                   value={category} 
-                  onChange={(e) => setCategory(e.target.value)} 
+                  onChange={(e) => updateDraft(setCategory, e.target.value, true)}
                   style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', fontSize: '15px', color: '#0f172a', outlineColor: '#3498db', cursor: 'pointer' }}
                 >
-                  <option value="程式">程式開發</option>
-                  <option value="語言">語言學習</option>
-                  <option value="音樂">音樂藝術</option>
-                  <option value="設計">視覺設計</option>
-                  <option value="運動">健身運動</option>
-                  <option value="飲食">飲食</option>
-                  <option value="影像">影像</option>
-                  <option value="手作">手作</option>
-                  <option value="職場">職場</option>
-                  <option value="園藝">園藝</option>
-                  <option value="生活">生活</option>
-                  <option value="綜合">其他綜合</option>
+                  {Object.entries(categoryLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                 </select>
               </div>
               
               <div style={{ flex: 1, minWidth: '200px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', color: '#334155', fontWeight: 'bold', marginBottom: '10px' }}>
+                <label htmlFor="publish-course-price" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', color: '#334155', fontWeight: 'bold', marginBottom: '10px' }}>
                   <CircleDollarSign size={18} color="#d97706" /> 課程定價 (SKILL)
                 </label>
                 <div style={{ position: 'relative' }}>
                   <input 
+                    id="publish-course-price"
                     type="number" 
                     min="0.1" 
+                    max="1000000000"
                     step="0.1" 
                     value={price} 
-                    onChange={(e) => setPrice(parseFloat(e.target.value))} 
+                    onChange={(e) => updateDraft(setPrice, e.target.value)}
+                    aria-describedby={pricing ? 'publish-course-pricing-reference' : undefined}
                     style={{ width: '100%', padding: '14px 16px 14px 45px', borderRadius: '12px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', fontSize: '15px', color: '#0f172a', boxSizing: 'border-box', outlineColor: '#3498db' }} 
                     required 
                   />
@@ -267,44 +344,28 @@ export default function PublishSkill({ onAddTeacher, showNotification }) {
                     <CircleDollarSign size={16} color="#d97706" />
                   </span>
                 </div>
+                {pricing && (
+                  <p id="publish-course-pricing-reference" role="status" style={{ margin: '8px 0 0', fontSize: '13px', lineHeight: 1.5, color: '#475569' }}>
+                    {pricing.referenceCount > 0
+                      ? `AI 建議 ${priceFormat.format(pricing.suggestedPrice)} SKILL。參考 ${pricing.referenceCount} 堂${referenceLabels[pricing.basis] || '已上架'}課程，中位數 ${priceFormat.format(pricing.median)} SKILL。`
+                      : `AI 起始建議 ${priceFormat.format(pricing.suggestedPrice)} SKILL，依課程內容估算。`}
+                  </p>
+                )}
               </div>
             </div>
 
-            {/* 內嵌式 AI 智慧說明欄位 */}
+            {/* 課程詳細說明 */}
             <div>
-              <div className="yb-publish-ai-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '10px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', color: '#334155', fontWeight: 'bold' }}>
-                  <AlignLeft size={18} color="#10b981" /> 課程詳細說明
-                </div>
-                
-                {/* 整合在右側的 AI 控制版面 */}
-                <div className="yb-publish-ai-controls" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <select 
-                    value={aiStyle} 
-                    onChange={(e) => setAiStyle(e.target.value)} 
-                    style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', fontSize: '13px', color: '#475569', outline: 'none', cursor: 'pointer' }}
-                  >
-                    <option value="幽默風趣">幽默風趣 (適合輕鬆才藝)</option>
-                    <option value="熱血推銷">熱血推銷 (適合衝刺班)</option>
-                    <option value="專業嚴謹">專業嚴謹 (適合專業技能)</option>
-                  </select>
-                  
-                  <button 
-                    type="button" 
-                    onClick={handleAIGenerate}
-                    disabled={isGenerating}
-                    style={{ padding: '8px 14px', background: 'linear-gradient(135deg, #a855f7 0%, #ec4899 100%)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '13px', cursor: isGenerating ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px', transition: 'opacity 0.2s', opacity: isGenerating ? 0.7 : 1, boxShadow: '0 2px 4px rgba(168, 85, 247, 0.15)' }}
-                  >
-                    {isGenerating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                    {isGenerating ? '魔法生成中...' : '一鍵 AI 生成'}
-                  </button>
-                </div>
-              </div>
+              <label htmlFor="publish-course-description" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', color: '#334155', fontWeight: 'bold', marginBottom: '10px' }}>
+                <AlignLeft size={18} color="#10b981" /> 課程詳細說明
+              </label>
 
               <textarea 
+                id="publish-course-description"
                 value={description} 
-                onChange={(e) => setDescription(e.target.value)} 
-                placeholder="詳細介紹這堂課會教些什麼、適合什麼樣的學生... 或者利用右側的一鍵 AI 功能自動生成精彩介紹！" 
+                onChange={(e) => updateDraft(setDescription, e.target.value)}
+                maxLength={10000}
+                placeholder="填寫課程重點、適合對象或需要準備的物品，也可交給 AI 整理成草稿。"
                 rows="7" 
                 style={{ width: '100%', padding: '16px', borderRadius: '12px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', fontSize: '15px', color: '#0f172a', boxSizing: 'border-box', resize: 'vertical', outlineColor: '#3498db', lineHeight: '1.6' }} 
               />

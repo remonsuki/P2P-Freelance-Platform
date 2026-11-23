@@ -7,9 +7,12 @@ const { hashPassword, verifyPassword } = require('./passwords');
 const { installMarketplace, courseCards, HttpError } = require('./marketplace');
 const { createChainService, installChainRoutes } = require('./chain');
 const { createWalletBinding } = require('./walletBinding');
+const { COURSE_CATEGORIES, createCourseDraftGenerator } = require('./courseDraft');
+const { getCoursePricingOptions, normalizeSuggestedPrice } = require('./coursePricing');
 
 // A missing account still performs the same password derivation as a failed login.
 const DUMMY_HASH = `scrypt$131072$8$1$${'0'.repeat(32)}$${'0'.repeat(128)}`;
+const COURSE_STYLES = new Set(['幽默風趣', '熱血推銷', '專業嚴謹']);
 
 function text(value, name, maxLength, required = true) {
   if (value === undefined && !required) return undefined;
@@ -21,6 +24,7 @@ function text(value, name, maxLength, required = true) {
 
 function createApp({ db = pool, allowedOrigins, secureCookies = process.env.NODE_ENV === 'production',
   chain = createChainService(),
+  generateCourseDraft = createCourseDraftGenerator(),
   sessionHours = Number(process.env.SESSION_TTL_HOURS || 168) } = {}) {
   if (!Number.isFinite(sessionHours) || sessionHours <= 0 || sessionHours > 720) throw new Error('SESSION_TTL_HOURS 必須介於 0 與 720 之間');
   const origins = new Set(allowedOrigins || (process.env.FRONTEND_ORIGINS
@@ -128,13 +132,16 @@ function createApp({ db = pool, allowedOrigins, secureCookies = process.env.NODE
     throw new HttpError(410,'平台點數儲值與提領已停用，請使用 MetaMask 進行 SKILL 鏈上交易');
   });
 
-  app.post('/api/ai/generate', (req, res) => {
-    const skill = text(req.body?.skill, '技能名稱', 100);
-    const style = req.body?.style;
-    const price = (Math.random() * 3 + 1).toFixed(1);
-    if (style === '幽默風趣') return res.json({ title: `保證不打瞌睡的${skill}大師班`, price, description: `想學${skill}卻總是半途而廢嗎？別擔心，跟著我學，保證讓你笑著學會！` });
-    if (style === '熱血推銷') return res.json({ title: `【極速上手】${skill}特訓營，突破你的極限！`, price, description: `給自己一個改變的機會！這堂${skill}課程專為渴望進步的你設計。` });
-    return res.json({ title: `基礎與進階：${skill}全方位解析`, price, description: `本課程致力於提供系統化的${skill}教學，適合希望建立紮實基礎的學習者。` });
+  app.post('/api/ai/generate', async (req, res) => {
+    const body = req.body || {};
+    const skill = text(body.skill, '技能名稱', 200);
+    const categoryHint = text(body.category, '課程類別', 50, false);
+    const description = text(body.description, '課程說明', 10000, false) || '';
+    const style = COURSE_STYLES.has(body.style) ? body.style : '專業嚴謹';
+    const pricingOptions = await getCoursePricingOptions(db, { categories: COURSE_CATEGORIES, skill });
+    const draft = await generateCourseDraft({ skill, categoryHint, style, description, pricing: pricingOptions });
+    const pricing = pricingOptions.byCategory[draft.category] || pricingOptions.catalog;
+    res.json({ ...draft, price: normalizeSuggestedPrice(draft.price, pricing), pricing });
   });
 
   app.use((req, res) => res.status(404).json({ error: '找不到此 API' }));
