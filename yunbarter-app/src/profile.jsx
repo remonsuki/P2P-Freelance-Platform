@@ -96,7 +96,6 @@ export default function Profile({
   // 載入個人資料
   useEffect(() => {
     let active = true;
-    setProfileLoaded(false);
 
     fetchProfile()
       .then(data => {

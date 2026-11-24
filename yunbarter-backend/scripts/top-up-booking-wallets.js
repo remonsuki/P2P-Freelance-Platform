@@ -7,8 +7,9 @@ const {
   Contract, FetchRequest, JsonRpcProvider, Transaction, Wallet, formatEther, formatUnits,
   getAddress, parseUnits,
 } = require('ethers');
+const { SEPOLIA_CHAIN_ID, sepoliaRpcUrl } = require('../../blockchain/sepolia');
 
-const chainId = 11155111n;
+const chainId = BigInt(SEPOLIA_CHAIN_ID);
 const bookings = 3n;
 const approvalGas = 150_000n;
 const escrowFundingGas = 1_250_000n;
@@ -67,8 +68,8 @@ function parseArguments(args) {
 
 async function loadSettings(env, options) {
   requireCondition(env.CHAIN_ID === String(chainId), '補給僅支援設定為 Ethereum Sepolia 的後端。');
-  const rpc = env.TOPUP_RPC_URL || env.CHAIN_RPC_URL;
-  requireCondition(rpc, '請設定 CHAIN_RPC_URL 或 TOPUP_RPC_URL。');
+  const rpc = env.TOPUP_RPC_URL ? sepoliaRpcUrl(env.TOPUP_RPC_URL, 'TOPUP_RPC_URL').href
+    : sepoliaRpcUrl(env.CHAIN_RPC_URL, 'CHAIN_RPC_URL').href;
   const confirmations = Number(env.CHAIN_CONFIRMATIONS || 2);
   requireCondition(Number.isSafeInteger(confirmations) && confirmations >= 1, 'CHAIN_CONFIRMATIONS 必須為正整數。');
   const tokenAddress = getAddress(env.SKILL_TOKEN_ADDRESS);
@@ -440,7 +441,7 @@ async function main(args = process.argv.slice(2)) {
     const settings = await loadSettings(process.env, options);
     const request = new FetchRequest(settings.rpc);
     request.timeout = 9_000;
-    provider = new JsonRpcProvider(request, undefined, { cacheTimeout: -1, batchMaxCount: 1 });
+    provider = new JsonRpcProvider(request, Number(chainId), { cacheTimeout: -1, batchMaxCount: 1 });
     requireCondition((await provider.getNetwork()).chainId === chainId, 'RPC 連線並非 Ethereum Sepolia。');
     const token = new Contract(settings.tokenAddress, tokenAbi, provider);
     const escrow = new Contract(settings.escrowAddress, ['function token() view returns (address)'], provider);

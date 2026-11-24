@@ -12,7 +12,7 @@
 6. 開課後、完課後 7 天內，學生可提出鏈上爭議，凍結撥款。老師可同意全額退款。爭議一旦成立，7 天後也不會自動撥款。
 7. 沒有爭議、學生也未確認完課時，老師可在完課後 7 天領取款項。
 
-目前爭議由老師同意全額退款。平台的新交易使用 Ethereum Sepolia（`11155111`），自動化測試使用獨立的 Ganache 鏈。
+目前爭議由老師同意全額退款。所有實際交易與合約部署只支援 Ethereum Sepolia（`11155111`）。自動化測試使用模擬錢包與 RPC。
 
 ## 安裝與驗證
 
@@ -36,7 +36,7 @@ npm run lint
 npm run build
 ```
 
-整合測試需可連線 PostgreSQL，可用 `TEST_DATABASE_URL` 指定測試連線。測試會建立並移除隨機命名的 schema，並在程式內啟動的本機 Ganache 測試鏈部署合約，不使用你的 Sepolia 資產。Ganache 在 Node.js 24 可能提示 µWS 原生模組不相容，會改用 Node.js 實作；不影響測試功能。
+整合測試需可連線 PostgreSQL，可用 `TEST_DATABASE_URL` 指定測試連線。測試會建立並移除隨機命名的 schema。實際網路與合約驗證請依下列 Sepolia 驗收流程執行。
 
 ## 部署至 Sepolia
 
@@ -49,7 +49,7 @@ npm run build
 | SkillEscrow | [`0xE6B8B50E94C81ab8eb9eaeEC958ED164d33120b5`](https://sepolia.etherscan.io/address/0xE6B8B50E94C81ab8eb9eaeEC958ED164d33120b5) |
 | 託管合約部署 | [區塊 `12161778` 的部署交易](https://sepolia.etherscan.io/tx/0x614ddea007b3db4d4478fba7ed95a0845dd4e51a6530f63427ecb5df7c5c19a5) |
 
-從 Ganache 切換前，先在原網路同步並結清所有待付款、託管中或爭議中的交易。已結算的舊付款及收據會保留原 Chain ID，可在預約管理及錢包頁查閱。切到 Sepolia 後，會員使用原綁定錢包地址，餘額及新交易均以 Sepolia 為準。
+舊鏈的付款及收據保留原 Chain ID，可在預約管理及錢包頁查閱。會員繼續使用原綁定的錢包地址，餘額與交易操作採用 Sepolia。
 
 ### 1. 確認既有代幣
 
@@ -111,7 +111,7 @@ SKILL_TOKEN_ADDRESS=0xF3A9Ad79A8bCDF5F58C4d79BADebB3F47715B009
 SKILL_ESCROW_ADDRESS=已查驗的託管合約地址
 ```
 
-`CHAIN_QUOTE_PRIVATE_KEY` 由 `.env.chain.local` 提供。先執行 `npm run db:migrate`，再啟動或重啟後端。用 `GET /api/chain/config` 檢查回傳的 `enabled: true`、`chainId: 11155111` 和託管地址。準備期間設定 `CHAIN_ENABLED=false`，付款會暫停。舊 YTC 只供查閱，原點數交易 API 回傳 `410`。
+`CHAIN_QUOTE_PRIVATE_KEY` 由 `.env.chain.local` 提供。先執行 `npm run db:migrate`，再啟動或重啟後端。用 `GET /api/chain/config` 檢查回傳的 `enabled: true`、`chainId: 11155111` 和託管地址。準備期間設定 `CHAIN_ENABLED=false`，付款會暫停。若後端讀到舊鏈設定，會停用 SKILL 交易，註冊與登入仍可使用。舊 YTC 只供查閱，原點數交易 API 回傳 `410`。
 
 有未結束付款時不要更換鏈、代幣、託管合約或報價金鑰；每筆付款保存原合約與錢包快照，必須在原設定下同步。老師與學生的已綁定錢包不能更換；切換 MetaMask 帳戶只會造成錢包不符，不會改寫綁定或交易地址。
 
@@ -173,7 +173,7 @@ npm run wallets:top-up -- --eth-only --eth-target 0.0016 --batch five-lessons --
 | 貨幣符號 | `ETH` |
 | 區塊瀏覽器 | [Sepolia Etherscan](https://sepolia.etherscan.io/) |
 
-後端以 `/api/chain/config` 的 `walletNetwork` 提供錢包設定。`CHAIN_WALLET_RPC_URL` 使用可公開的 RPC，服務端私密 RPC 請填在 `CHAIN_RPC_URL`。修改設定後重啟 API。
+後端以 `/api/chain/config` 的 `walletNetwork` 提供錢包設定。`CHAIN_WALLET_RPC_URL` 使用可公開存取的 Sepolia HTTPS RPC，服務端私密 RPC 請填在 `CHAIN_RPC_URL`。修改設定後重啟 API。
 
 ## MetaMask 4100／could not coalesce error
 

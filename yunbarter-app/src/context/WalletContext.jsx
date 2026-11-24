@@ -8,6 +8,8 @@ import {
   getAuthorizedWalletAccounts,
   createWalletSession,
   ensurePaymentNetwork,
+  isSepoliaChain,
+  isSepoliaPaymentConfig,
   walletErrorMessage,
   subscribeWalletEvents,
   readSkillBalance,
@@ -48,10 +50,10 @@ export function WalletProvider({ children }) {
     const request=++balanceRequest.current;
     try {
       const config = await fetchChainConfig();
-      if(!config.enabled) throw new Error(config.message||'鏈上交易尚未就緒');
+      if(!isSepoliaPaymentConfig(config)) throw new Error(config?.message||'Sepolia 交易尚未就緒');
       const rpc=signerOrProvider.provider || signerOrProvider;
       const network = await rpc.getNetwork();
-      if (network.chainId !== BigInt(config.chainId)) throw new Error('請切換至交易使用的測試網路');
+      if (!isSepoliaChain(network.chainId)) throw new Error('請切換至 Sepolia 以讀取 SKILL 餘額');
       const block=await rpc.getBlockNumber();
       const formatted=await readSkillBalance(signerOrProvider,userAddress,config.tokenAddress,block);
       if (canConnectRef.current && request===balanceRequest.current) {

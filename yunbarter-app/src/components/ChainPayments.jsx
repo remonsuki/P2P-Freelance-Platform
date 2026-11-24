@@ -3,7 +3,7 @@ import { Eye, EyeOff, RefreshCw } from 'lucide-react';
 import { useWallet } from '../hooks/useWallet';
 import { useLiveData } from '../hooks/useLiveData';
 import { backupChainTransaction, fetchChainConfig, fetchChainPayments, syncChainPayment, reviewChainPayment, saveChainDisputeReason } from '../services/api';
-import { fundSkillPayment, changeSkillPayment, walletErrorMessage } from '../services/blockchain';
+import { fundSkillPayment, changeSkillPayment, fundingStatusNotification, isSepoliaChain, isSepoliaPaymentConfig, walletErrorMessage } from '../services/blockchain';
 
 const labels={quoted:'待付款／等待確認',funded:'預約中',disputed:'爭議處理中',released:'已撥款給老師',refunded:'已退款給學生',expired:'未付款，時段已釋放'};
 const button={padding:'9px 13px',border:'1px solid #cbd5e1',borderRadius:'9px',background:'white',cursor:'pointer'};
@@ -28,8 +28,9 @@ function formatSkillAmount(amount) {
 export default function ChainPayments({showNotification,readOnly=false}) {
   const {data,error,loading,refresh}=useLiveData(fetchChainPayments);
   const {connectWallet}=useWallet();
-  const lock=useRef(false);
+  const activeOperation=useRef(null);
   const [busy,setBusy]=useState(false);
+  const [operationMessage,setOperationMessage]=useState('');
   const [modal,setModal]=useState(null);
   const [reason,setReason]=useState('');
   const [rating,setRating]=useState(5);
@@ -37,33 +38,65 @@ export default function ChainPayments({showNotification,readOnly=false}) {
   const [visiblePaymentIds,setVisiblePaymentIds]=useState(()=>new Set());
   const [now,setNow]=useState(()=>Math.floor(Date.now()/1000));
   useEffect(()=>{const timer=setInterval(()=>setNow(Math.floor(Date.now()/1000)),10000);return()=>clearInterval(timer);},[]);
+  useEffect(()=>()=>activeOperation.current?.abort(),[]);
   async function perform(payment,action) {
-    if(lock.current) return;
-    lock.current=true;setBusy(true);
+    if(activeOperation.current) return;
+    const controller=new AbortController();
+    activeOperation.current=controller;
+    const {signal}=controller;
+    const updateProgress=message=>{if(!signal.aborted) setOperationMessage(message);};
+    setBusy(true);
     let submitted=false;
+    let foundOnChain=false;
     try {
+      if(!isSepoliaChain(payment.chainId)) throw new Error('此筆紀錄目前僅供查閱');
+      let result;
       if(action==='review') await reviewChainPayment(payment.paymentId,{rating,review});
       else if(action==='reason') await saveChainDisputeReason(payment.paymentId,reason);
       else {
         if(action!=='sync') {
+          updateProgress('正在確認錢包與交易網路');
           const config=await fetchChainConfig();
-          if(Number(config.chainId)!==Number(payment.chainId)) throw new Error('目前後端網路與這筆付款不同，請恢復原本交易網路設定後再操作');
+          signal.throwIfAborted();
+          if(!isSepoliaPaymentConfig(config)) throw new Error(config?.message||'Sepolia 交易尚未就緒');
           const {signer}=await connectWallet({paymentNetwork:config});
-          const options={signer,payment,onSubmitted:()=>{submitted=true;},onReceipt:r=>backupChainTransaction(r.hash).catch(()=>null)};
+          signal.throwIfAborted();
+          const options={signer,payment,signal,onProgress:updateProgress,onSubmitted:()=>{
+            submitted=true;
+            updateProgress('交易已送出，等待區塊確認');
+          },onReceipt:({hash})=>{void backupChainTransaction(hash).catch(()=>null);}};
+          if(action!=='fund') updateProgress('請在 MetaMask 確認這筆操作');
           if(action==='fund') await fundSkillPayment(options);
           else await changeSkillPayment({...options,action});
+          foundOnChain=true;
         }
-        const result=await syncChainPayment(payment.paymentId);
+        updateProgress('正在同步鏈上狀態');
+        result=await syncChainPayment(payment.paymentId);
         if(action==='dispute'&&result.status==='disputed') await saveChainDisputeReason(payment.paymentId,reason);
       }
+      if(signal.aborted) return;
       setModal(null);
       await refresh();
-      window.dispatchEvent(new Event('yunbarter:data-changed'));
-      showNotification('success','操作已處理',action==='review'?'評價已儲存。':'已查驗鏈上狀態。若狀態尚未更新，請等待區塊確認後按卡片右上角的重新整理圖示。');
+      if(signal.aborted) return;
+      if(action==='fund') showNotification(...fundingStatusNotification(result.status));
+      else if(action==='review') showNotification('success','評價已儲存','已更新這堂課程的評價。');
+      else if(action==='reason') showNotification('success','爭議說明已儲存','已更新這筆交易的爭議說明。');
+      else showNotification('success','已查驗鏈上狀態','若狀態尚未更新，請等待區塊確認後按卡片右上角的重新整理圖示。');
     } catch(err) {
-      showNotification('error','操作尚未完成',`${walletErrorMessage(err)}${submitted?'。交易已送出，請同步確認結果，請勿重複操作。':''}`);
+      if(signal.aborted) return;
+      let detail='';
+      if(foundOnChain) detail='鏈上已找到這筆交易，請同步確認平台狀態，避免重複操作。';
+      else if(submitted&&!(err?.code==='TRANSACTION_REPLACED'&&err.cancelled)) detail='交易已送出，請同步確認結果，避免重複操作。';
+      showNotification('error','操作尚未完成',[walletErrorMessage(err),detail].filter(Boolean).join(' '));
       await refresh();
-    } finally {window.dispatchEvent(new Event('yunbarter:data-changed'));lock.current=false;setBusy(false);}
+    } finally {
+      window.dispatchEvent(new Event('yunbarter:data-changed'));
+      activeOperation.current=null;
+      if(!signal.aborted) {
+        setBusy(false);
+        setOperationMessage('');
+      }
+    }
   }
   function open(payment,action) {setModal({payment,action});setReason('');setReview('');setRating(5);}
   function togglePaymentId(paymentId) {
@@ -84,7 +117,7 @@ export default function ChainPayments({showNotification,readOnly=false}) {
     {data.payments.map(p=>{
       const student=p.role==='student';
       const start=Number(p.quote.startsAt),end=Number(p.quote.endsAt),deadline=Number(p.quote.deadline);
-      const canOperate=!readOnly&&p.canOperate;
+      const canOperate=!readOnly&&p.canOperate&&isSepoliaChain(p.chainId);
       const contractUrl=p.txHash&&p.explorer?`${p.explorer}/tx/${p.txHash}`:null;
       const showPaymentId=visiblePaymentIds.has(p.paymentId);
       const paymentIdElement='payment-id-'+p.paymentId;
@@ -112,7 +145,7 @@ export default function ChainPayments({showNotification,readOnly=false}) {
         <p style={{fontSize:'13px'}}>課程時間：{new Date(start*1000).toLocaleString('zh-TW',{timeZone:'Asia/Taipei'})}（台北時間）</p>
         {p.txHash&&!p.explorer&&<p style={{fontSize:'12px',overflowWrap:'anywhere'}}>結算交易雜湊：{p.txHash}</p>}
         {p.disputeReason&&<p>爭議原因：{p.disputeReason}</p>}
-        {!readOnly&&!p.canOperate&&<p style={{fontSize:'13px',color:'#64748b'}}>此筆紀錄目前僅供查閱。</p>}
+        {!readOnly&&!canOperate&&<p style={{fontSize:'13px',color:'#64748b'}}>此筆紀錄目前僅供查閱。</p>}
         {(contractUrl||canOperate)&&<div style={{display:'flex',flexWrap:'wrap',gap:'9px'}}>
           {contractUrl&&<a href={contractUrl} target="_blank" rel="noreferrer" style={bookingAction}>查看合約</a>}
           {canOperate&&<>
@@ -134,7 +167,8 @@ export default function ChainPayments({showNotification,readOnly=false}) {
         <p>{({fund:'付款至託管合約。MetaMask 可能依序要求代幣授權與付款確認，另需測試網 ETH 支付網路費。',cancel:'取消課前預約，合約將全部 SKILL 退回原付款錢包。',complete:'確認課程已完成，合約將全部 SKILL 撥入老師的原收款錢包。',refund:'同意此筆爭議退款，合約將全部 SKILL 退回學生。',claim:'超過完課後 7 天且沒有爭議，將由合約撥款給老師。',dispute:'提出爭議後停止自動撥款，須由老師同意退款。',reason:'補充這筆鏈上爭議的說明。',review:'評分與評語會儲存在平台，不需要支付網路費。'})[modal.action]}</p>
         {['dispute','reason'].includes(modal.action)&&<textarea aria-label="爭議原因" style={field} required maxLength={3000} value={reason} onChange={e=>setReason(e.target.value)}/>}
         {modal.action==='review'&&<><select aria-label="課程評分" style={field} value={rating} onChange={e=>setRating(Number(e.target.value))}>{[5,4,3,2,1].map(n=><option key={n} value={n}>{n} 分</option>)}</select><textarea aria-label="評語" style={field} maxLength={3000} value={review} onChange={e=>setReview(e.target.value)}/></>}
-        <button style={button} disabled={busy} type="submit">{busy?'等待錢包／鏈上確認…':'確認操作'}</button>
+        {operationMessage&&<p role="status" style={{margin:0,color:'#1d4ed8'}}>{operationMessage}</p>}
+        <button style={button} disabled={busy} type="submit">{busy?'處理中…':'確認操作'}</button>
         <button style={button} disabled={busy} type="button" onClick={()=>setModal(null)}>返回</button>
       </form>
     </div>}

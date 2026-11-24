@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const { once } = require('node:events');
 const { test } = require('node:test');
+const { inspect } = require('node:util');
 const { createCourseDraftGenerator } = require('../courseDraft');
 const { createApp } = require('../server');
 
@@ -22,6 +23,10 @@ function providerResult(value) {
     status: 'completed',
     output: [{ type: 'message', role: 'assistant', content: [{ type: 'output_text', text: JSON.stringify(value) }] }],
   }));
+}
+
+function geminiErrorResponse(status, error) {
+  return Response.json({ error: { code: status, ...error } }, { status });
 }
 
 async function openDraftEndpoint(t, { rows, generateCourseDraft }) {
@@ -93,6 +98,7 @@ test('the draft generator prefers Gemini and sends a structured request with cat
   const { responseMimeType, responseJsonSchema, maxOutputTokens } = sent.body.generationConfig;
   assert.equal(responseMimeType, 'application/json');
   assert.equal(maxOutputTokens, 1600);
+  assert.equal(sent.body.generationConfig.thinkingConfig, undefined);
   assert.deepEqual(new Set(responseJsonSchema.properties.category.enum), new Set(categories));
   assert.equal(responseJsonSchema.properties.price.type, 'number');
   assert.deepEqual(responseJsonSchema.required.sort(), ['category', 'description', 'price', 'title']);
@@ -112,8 +118,95 @@ test('Gemini reports blocked and incomplete draft generation without a template 
       return new Response(JSON.stringify(result));
     } });
     await assert.rejects(generate({ ...topic, pricing: referencePricing }), { status });
-    assert.equal(sentUrl, 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent');
+    assert.equal(sentUrl, 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent');
   }
+});
+
+test('Gemini uses minimal thinking for course drafts and retries a transient HTTP 503', async () => {
+  let attempts = 0;
+  const generate = createCourseDraftGenerator({
+    env: { GEMINI_API_KEY: 'gemini-test-key' },
+    async fetchImpl(url, options) {
+      attempts += 1;
+      assert.deepEqual(JSON.parse(options.body).generationConfig.thinkingConfig, { thinkingLevel: 'MINIMAL' });
+      if (attempts === 1) return geminiErrorResponse(503, { status: 'UNAVAILABLE' });
+      return Response.json({
+        candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify(draft) }] } }],
+      });
+    },
+  });
+
+  assert.deepEqual(await generate({ ...topic, pricing: referencePricing }), draft);
+  assert.equal(attempts, 2);
+});
+
+test('Gemini retries once when the network connection resets', async () => {
+  let attempts = 0;
+  const generate = createCourseDraftGenerator({
+    env: { GEMINI_API_KEY: 'gemini-test-key' },
+    async fetchImpl() {
+      attempts += 1;
+      throw new TypeError('fetch failed', { cause: { code: 'ECONNRESET' } });
+    },
+  });
+
+  await assert.rejects(generate({ ...topic, pricing: referencePricing }), { status: 502 });
+  assert.equal(attempts, 2);
+});
+
+test('Gemini returns a retryable app error after one retry is exhausted', async () => {
+  let attempts = 0;
+  const generate = createCourseDraftGenerator({
+    env: { GEMINI_API_KEY: 'gemini-test-key' },
+    async fetchImpl() {
+      attempts += 1;
+      return geminiErrorResponse(503, { status: 'UNAVAILABLE' });
+    },
+  });
+
+  await assert.rejects(generate({ ...topic, pricing: referencePricing }), { status: 503, message: /Gemini.*暫時/ });
+  assert.equal(attempts, 2);
+});
+
+test('Gemini does not retry key, project setup, or quota errors and keeps provider details private', async t => {
+  const apiKey = 'private-test-api-key';
+  const upstreamMessage = 'private provider error text';
+  const warning = t.mock.method(console, 'warn', () => {});
+  const errorLog = t.mock.method(console, 'error', () => {});
+  const cases = [
+    { httpStatus: 400, providerStatus: 'INVALID_ARGUMENT', reason: 'API_KEY_INVALID', publicMessage: /Gemini.*金鑰/ },
+    { httpStatus: 400, providerStatus: 'FAILED_PRECONDITION', publicMessage: /Gemini.*(?:專案|地區|帳務|帳單|計費)/ },
+    { httpStatus: 429, providerStatus: 'RESOURCE_EXHAUSTED', publicMessage: /Gemini.*(?:額度|頻率)/ },
+  ];
+
+  for (const { httpStatus, providerStatus, reason, publicMessage } of cases) {
+    let attempts = 0;
+    const generate = createCourseDraftGenerator({
+      env: { GEMINI_API_KEY: apiKey },
+      async fetchImpl() {
+        attempts += 1;
+        return geminiErrorResponse(httpStatus, {
+          status: providerStatus,
+          message: `${upstreamMessage} ${apiKey}`,
+          details: reason ? [{
+            '@type': 'type.googleapis.com/google.rpc.ErrorInfo',
+            reason,
+            domain: 'googleapis.com',
+            metadata: { consumer: upstreamMessage },
+          }] : [],
+        });
+      },
+    });
+
+    await assert.rejects(generate({ ...topic, pricing: referencePricing }), error => {
+      assert.equal(error.status, 503);
+      assert.match(error.message, publicMessage);
+      assert.doesNotMatch(inspect(error, { depth: null }), /private-test-api-key|private provider error text/);
+      return true;
+    });
+    assert.equal(attempts, 1);
+  }
+  assert.doesNotMatch(inspect([warning.mock.calls, errorLog.mock.calls], { depth: null }), /private-test-api-key|private provider error text/);
 });
 
 test('missing credentials, invalid output, and refusals fail without a template result', async () => {

@@ -5,7 +5,7 @@ import ConnectWalletButton from './components/ConnectWalletButton';
 import { useLiveData } from './hooks/useLiveData';
 import { useWallet } from './hooks/useWallet';
 import { fetchChainConfig, fetchChainTransactions, fetchWallet, verifyTransactionWallet } from './services/api';
-import { walletErrorMessage } from './services/blockchain';
+import { isSepoliaPaymentConfig, walletErrorMessage } from './services/blockchain';
 import './wallet.css';
 
 const actions = {
@@ -69,7 +69,7 @@ export default function Wallet({ showNotification }) {
   const [revealedWallet, setRevealedWallet] = useState(null);
   const addressId = useId();
   const wallet = account?.verifiedWalletAddress;
-  const paymentNetwork = config?.enabled ? config : undefined;
+  const paymentNetwork = isSepoliaPaymentConfig(config) ? config : undefined;
   const showAddress = Boolean(wallet && revealedWallet === wallet);
   const addressAction = showAddress ? '隱藏綁定地址' : '顯示綁定地址';
   const transactions = data?.transactions ?? [];

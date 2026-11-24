@@ -90,11 +90,13 @@ function AppContent() {
   // ===== Step 5.1：手機版導覽選單 =====
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const [menuPath, setMenuPath] = useState(location.pathname);
 
   // 切換頁面時關閉手機選單
-  useEffect(() => {
+  if (menuPath !== location.pathname) {
+    setMenuPath(location.pathname);
     setMobileMenuOpen(false);
-  }, [location.pathname]);
+  }
 
   // Session 尚未確認前，不允許連線錢包
   useEffect(() => {

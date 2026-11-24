@@ -23,8 +23,16 @@ function text(value, name, maxLength, required = true) {
   return value.trim();
 }
 
+function configuredChain() {
+  try { return createChainService(); }
+  catch {
+    console.error('SKILL 託管交易未啟用，請核對 Sepolia 網路、RPC、合約和報價設定。');
+    return null;
+  }
+}
+
 function createApp({ db = pool, allowedOrigins, secureCookies = process.env.NODE_ENV === 'production',
-  chain = createChainService(),
+  chain = configuredChain(),
   generateCourseDraft = createCourseDraftGenerator(),
   sessionHours = Number(process.env.SESSION_TTL_HOURS || 168) } = {}) {
   if (!Number.isFinite(sessionHours) || sessionHours <= 0 || sessionHours > 720) throw new Error('SESSION_TTL_HOURS 必須介於 0 與 720 之間');
@@ -93,7 +101,10 @@ function createApp({ db = pool, allowedOrigins, secureCookies = process.env.NODE
   app.get('/api/chain/config', async (req, res) => {
     if (!chain) return res.json({enabled:false,message:'SKILL 託管交易尚未啟用'});
     try { await chain.ready(); res.json(chain.config()); }
-    catch { res.json({enabled:false,message:'SKILL 託管交易暫時無法使用，請檢查後端鏈上設定'}); }
+    catch (error) {
+      const message = error instanceof HttpError ? error.message : 'SKILL 託管交易暫時無法使用，請檢查後端鏈上設定';
+      res.json({ enabled: false, message });
+    }
   });
 
   let catalogReconciliation = null;

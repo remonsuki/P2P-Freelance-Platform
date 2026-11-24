@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Search, Code, Music, Languages, Sparkles, User, X, Clock, Calendar, Star, ShieldCheck, AlignLeft, Info, CircleDollarSign, Loader2 } from 'lucide-react';
 import { useSkillTrade } from './hooks/useSkillTrade';
 import { fetchChainConfig } from './services/api';
+import { fundingStatusNotification, isSepoliaPaymentConfig } from './services/blockchain';
 import { useLiveData } from './hooks/useLiveData';
 import './SearchTeacher.css';
 
@@ -10,7 +11,8 @@ import './SearchTeacher.css';
 export default function SearchTeacher({ isLoggedIn, teachers, userId, showNotification }) {
   const navigate = useNavigate();
   const {data:chainConfig}=useLiveData(fetchChainConfig);
-  const { executeSkillTrade, loadingMessage, isTrading } = useSkillTrade();
+  const paymentsEnabled=isSepoliaPaymentConfig(chainConfig);
+  const { executeSkillTrade, cancelSkillTrade, loadingMessage, isTrading, walletOperationStarted } = useSkillTrade();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategories, setSelectedCategories] = useState([]);
@@ -18,7 +20,6 @@ export default function SearchTeacher({ isLoggedIn, teachers, userId, showNotifi
   const [sortBy, setSortBy] = useState('new'); 
   const [selectedTeacher, setSelectedTeacher] = useState(null);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState('');
-  const [isBooking, setIsBooking] = useState(false);
 
   const availableCategories = useMemo(() => {
     const categories = teachers.map(t => t.category);
@@ -56,7 +57,7 @@ export default function SearchTeacher({ isLoggedIn, teachers, userId, showNotifi
   };
 
   const confirmBooking = async () => {
-    if (isBooking || isTrading) return;
+    if (isTrading) return;
     if (!isLoggedIn) {
       showNotification('warning', '權限提示', '請先登入才能預約課程喔！');
       navigate('/login', { state: { from: '/search' } });
@@ -68,20 +69,17 @@ export default function SearchTeacher({ isLoggedIn, teachers, userId, showNotifi
       return;
     }
 
-    if(!chainConfig?.enabled) { showNotification('error','交易暫停',chainConfig?.message||'鏈上交易尚未就緒'); return; }
+    if(!paymentsEnabled) { showNotification('error','交易暫停',chainConfig?.message||'Sepolia 交易尚未就緒'); return; }
 
-    setIsBooking(true);
     try {
       const payment=await executeSkillTrade(selectedTeacher.courseId,selectedTimeSlot,userId);
-      showNotification(payment.status==='quoted'?'warning':'success',payment.status==='quoted'?'付款確認中':'SKILL 付款已確認',
-        payment.status==='quoted'?'交易已送出，請到預約管理同步確認，請勿重複付款。':'SKILL 已存入託管合約，完課後才會撥款給老師。');
+      showNotification(...fundingStatusNotification(payment.status));
       setSelectedTeacher(null);
       navigate('/bookings');
     } catch (err) {
-      showNotification('error', '交易失敗', err.message || '未知錯誤');
+      if (err.name === 'AbortError') return;
+      showNotification('error', '預約尚未完成', err.message || '未知錯誤');
       setSelectedTeacher(null);
-    } finally {
-      setIsBooking(false);
     }
   };
 
@@ -897,8 +895,9 @@ export default function SearchTeacher({ isLoggedIn, teachers, userId, showNotifi
       <button
         type="button"
         className="yb-modal-close"
-        aria-label="關閉課程詳情"
-        onClick={() => setSelectedTeacher(null)}
+        aria-label={isTrading && !walletOperationStarted ? '停止準備這筆付款' : '關閉課程詳情'}
+        disabled={walletOperationStarted}
+        onClick={() => { if (cancelSkillTrade()) setSelectedTeacher(null); }}
         style={{
           position: 'absolute',
           top: '20px',
@@ -911,7 +910,7 @@ export default function SearchTeacher({ isLoggedIn, teachers, userId, showNotifi
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          cursor: 'pointer',
+          cursor: walletOperationStarted ? 'not-allowed' : 'pointer',
           boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
           zIndex: 10
         }}
@@ -1154,9 +1153,9 @@ export default function SearchTeacher({ isLoggedIn, teachers, userId, showNotifi
             MetaMask 的授權與付款。
           </p>
 
-          {!chainConfig?.enabled && (
+          {!paymentsEnabled && (
             <p role="alert">
-              {chainConfig?.message || '鏈上交易尚未就緒'}
+              {chainConfig?.message || 'Sepolia 交易尚未就緒'}
             </p>
           )}
 
@@ -1242,7 +1241,7 @@ export default function SearchTeacher({ isLoggedIn, teachers, userId, showNotifi
 
         {/* 交易處理提示 */}
         {isTrading && loadingMessage && (
-          <div style={{
+          <div role="status" style={{
             padding: '12px',
             backgroundColor: '#eff6ff',
             borderRadius: '10px',
@@ -1269,8 +1268,7 @@ export default function SearchTeacher({ isLoggedIn, teachers, userId, showNotifi
             onClick={confirmBooking}
             disabled={
               isTrading ||
-              isBooking ||
-              !chainConfig?.enabled ||
+              !paymentsEnabled ||
               !selectedTeacher.availableTimes?.length
             }
             style={{
@@ -1311,8 +1309,8 @@ export default function SearchTeacher({ isLoggedIn, teachers, userId, showNotifi
               <ShieldCheck size={20} />
             )}
 
-            {isTrading || isBooking
-              ? (loadingMessage || '處理中...')
+            {isTrading
+              ? '處理中…'
               : '確認預約並扣款'}
           </button>
         </div>

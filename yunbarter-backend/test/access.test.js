@@ -3,6 +3,51 @@ const assert = require('node:assert/strict');
 const { once } = require('node:events');
 const { createApp } = require('../server');
 
+test('stale chain configuration disables payments but preserves health and wallet registration', async (t) => {
+  const config = { CHAIN_ENABLED: 'true', CHAIN_ID: '1337', CHAIN_RPC_URL: 'http://test:private-rpc-token@127.0.0.1:8545' };
+  const previous = Object.fromEntries(Object.keys(config).map(key => [key, process.env[key]]));
+  const diagnostics = t.mock.method(console, 'error', () => {});
+  const db = {
+    async query(sql) {
+      if (sql.includes('FROM user_sessions')) return { rows: [{ user_id: '1' }] };
+      assert.match(sql, /^(SELECT 1|DELETE FROM registration_wallet_challenges|INSERT INTO registration_wallet_challenges)/);
+      return { rows: [], rowCount: 0 };
+    },
+  };
+  let app;
+  Object.assign(process.env, config);
+  try { app = createApp({ db }); }
+  finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+  const server = app.listen(0, '127.0.0.1');
+  t.after(() => new Promise(resolve => server.close(resolve)));
+  await once(server, 'listening');
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const health = await fetch(base + '/api/health');
+  assert.equal(health.status, 200);
+  assert.deepEqual(await health.json(), { status: 'ok', database: 'postgresql' });
+  const chain = await fetch(base + '/api/chain/config');
+  assert.equal((await chain.json()).enabled, false);
+  const quote = await fetch(base + '/api/chain/quotes', {
+    method: 'POST', headers: { Cookie: 'yunbarter_session=' + 'a'.repeat(64) },
+  });
+  assert.equal(quote.status, 503);
+  const walletAddress = '0x' + '1'.repeat(40);
+  const challenge = await fetch(base + '/api/auth/register/wallet-challenge', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: 'registration@example.com', walletAddress }),
+  });
+  assert.equal(challenge.status, 200);
+  assert.equal((await challenge.json()).walletAddress, walletAddress);
+  assert.equal(diagnostics.mock.callCount(), 1);
+  assert.match(diagnostics.mock.calls[0].arguments.join(' '), /Sepolia/);
+  assert.doesNotMatch(diagnostics.mock.calls[0].arguments.join(' '), /private-rpc-token|127\.0\.0\.1/);
+});
+
 test('the public course catalog responds while a shared chain reconciliation is pending', async (t) => {
   const db = {
     async query() {

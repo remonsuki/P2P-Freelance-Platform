@@ -42,11 +42,15 @@ function createWalletBinding(db,{secureCookies=false}={}) {
     if(!proof||typeof proof.challengeId!=='string'||!/^[0-9a-f]{64}$/.test(proof.challengeId)) throw new HttpError(400,'建立帳號前請先連接 MetaMask 並完成錢包簽章');
     const token=registrationToken(req);
     if(!token) throw new HttpError(409,'錢包驗證已失效，請重新開始註冊');
-    const {rows:[c]}=await client.query('SELECT *,expires_at>NOW() AS valid FROM registration_wallet_challenges WHERE challenge_id=$1 FOR UPDATE',[proof.challengeId]);
-    if(!c||!c.valid||c.browser_hash!==hash(token)||c.email!==normalizedEmail||c.origin!==(req.headers.origin||'YunBarter')) throw new HttpError(409,'錢包驗證已失效或註冊資料已變更，請重新簽章');
-    if(recover(c.message,proof.signature)!==c.wallet_address) throw new HttpError(403,'錢包簽章與註冊錢包不符');
-    await client.query('DELETE FROM registration_wallet_challenges WHERE challenge_id=$1',[c.challenge_id]);
-    return c.wallet_address;
+    // The registration transaction restores the challenge if verification or account creation fails.
+    const { rows: [challenge] } = await client.query(`DELETE FROM registration_wallet_challenges
+      WHERE challenge_id=$1 AND browser_hash=$2 AND email=$3 AND origin=$4 AND expires_at>NOW()
+      RETURNING message, wallet_address`, [proof.challengeId, hash(token), normalizedEmail, req.headers.origin || 'YunBarter']);
+    if (!challenge) throw new HttpError(409, '錢包驗證已失效或註冊資料已變更，請重新簽章');
+    if (recover(challenge.message, proof.signature) !== challenge.wallet_address) {
+      throw new HttpError(403, '錢包簽章與註冊錢包不符');
+    }
+    return challenge.wallet_address;
   }
   function clearRegistrationCookie(res) {res.clearCookie(COOKIE,cookieOptions);}
   function installAccountRoutes(app) {

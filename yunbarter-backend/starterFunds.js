@@ -2,6 +2,7 @@ const {
   Contract, FetchRequest, Interface, JsonRpcProvider, Transaction, Wallet,
   ZeroAddress, getAddress, parseUnits,
 } = require('ethers');
+const { sepoliaChainId, sepoliaRpcUrl } = require('../blockchain/sepolia');
 
 const STARTER_SKILL_AMOUNT = parseUnits('30', 18);
 const STARTER_ETH_AMOUNT = parseUnits('0.0016', 18);
@@ -28,9 +29,8 @@ function configuredWallet(key) {
 function createStarterFunds(env = process.env, { provider } = {}) {
   if (env.STARTER_FUNDS_ENABLED !== 'true') return null;
 
-  const chainId = Number(env.CHAIN_ID || 11155111);
+  const chainId = sepoliaChainId(env.CHAIN_ID);
   const confirmations = Number(env.CHAIN_CONFIRMATIONS || 2);
-  if (![11155111, 1337, 31337].includes(chainId)) throw new Error('起始 SKILL 只支援 Sepolia 和本機測試鏈');
   if (!Number.isInteger(confirmations) || confirmations < 1 || confirmations > 64) {
     throw new Error('CHAIN_CONFIRMATIONS 必須為 1 至 64');
   }
@@ -43,20 +43,12 @@ function createStarterFunds(env = process.env, { provider } = {}) {
 
   let rpc = provider;
   if (!rpc) {
-    const rpcUrl = env.STARTER_FUNDS_RPC_URL || env.CHAIN_RPC_URL;
-    let url;
-    try {
-      url = new URL(rpcUrl);
-    } catch {
-      throw new Error('請設定有效的起始 SKILL RPC 網址');
-    }
-    if (!['https:', 'http:'].includes(url.protocol)) throw new Error('起始 SKILL RPC 須使用 HTTP 或 HTTPS');
-    if (chainId !== 11155111 && !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)) {
-      throw new Error('本機測試鏈的起始 SKILL RPC 須使用本機網址');
-    }
-    const request = new FetchRequest(rpcUrl);
+    const rpcUrl = env.STARTER_FUNDS_RPC_URL
+      ? sepoliaRpcUrl(env.STARTER_FUNDS_RPC_URL, 'STARTER_FUNDS_RPC_URL')
+      : sepoliaRpcUrl(env.CHAIN_RPC_URL, 'CHAIN_RPC_URL');
+    const request = new FetchRequest(rpcUrl.href);
     request.timeout = 15000;
-    rpc = new JsonRpcProvider(request, undefined, { cacheTimeout: -1, batchMaxCount: 1 });
+    rpc = new JsonRpcProvider(request, chainId, { cacheTimeout: -1, batchMaxCount: 1 });
   }
 
   const token = new Contract(tokenAddress, TOKEN_ABI, rpc);
@@ -154,12 +146,10 @@ function createStarterFunds(env = process.env, { provider } = {}) {
     }
     const balance = await rpc.getBalance(wallet.address);
     if (balance <= request.value) throw new Error('發放錢包的 ETH 不足以支付起始資金與 Gas');
-    if (chainId === 11155111) {
-      const { maxFeePerGas, maxPriorityFeePerGas } = await rpc.getFeeData();
-      request.maxPriorityFeePerGas = maxPriorityFeePerGas > SEPOLIA_TIP_FLOOR ? maxPriorityFeePerGas : SEPOLIA_TIP_FLOOR;
-      request.maxFeePerGas = (maxFeePerGas > SEPOLIA_FEE_CAP_FLOOR ? maxFeePerGas : SEPOLIA_FEE_CAP_FLOOR)
-        + request.maxPriorityFeePerGas;
-    }
+    const { maxFeePerGas, maxPriorityFeePerGas } = await rpc.getFeeData();
+    request.maxPriorityFeePerGas = maxPriorityFeePerGas > SEPOLIA_TIP_FLOOR ? maxPriorityFeePerGas : SEPOLIA_TIP_FLOOR;
+    request.maxFeePerGas = (maxFeePerGas > SEPOLIA_FEE_CAP_FLOOR ? maxFeePerGas : SEPOLIA_FEE_CAP_FLOOR)
+      + request.maxPriorityFeePerGas;
     const unsigned = await signer.populateTransaction(request);
     const fee = (unsigned.maxFeePerGas ?? unsigned.gasPrice) * unsigned.gasLimit;
     if (balance < request.value + fee) throw new Error('發放錢包的 ETH 不足以支付起始資金與 Gas');

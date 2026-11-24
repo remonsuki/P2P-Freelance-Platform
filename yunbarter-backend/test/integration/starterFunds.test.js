@@ -3,14 +3,67 @@ const assert = require('node:assert/strict');
 const { randomBytes } = require('node:crypto');
 const { once } = require('node:events');
 const { Pool } = require('pg');
-const { Wallet, parseEther, parseUnits, toQuantity } = require('ethers');
-const { fixture } = require('../../../blockchain/test/helpers');
+const { Interface, Transaction, Wallet, parseEther, parseUnits } = require('ethers');
 const { assertConfigured, connectionOptions } = require('../../db');
 const { migrate } = require('../../scripts/migrate');
 const { createApp } = require('../../server');
 const { createStarterFunds } = require('../../starterFunds');
 
-test('verified registration pays one 30 SKILL and one 0.0016 ETH grant across retries and restarts', async (t) => {
+function starterRpc(donor, recipient) {
+  const tokenAddress = '0x' + '1'.repeat(40);
+  const token = new Interface([
+    'function decimals() view returns(uint8)', 'function symbol() view returns(string)',
+    'function balanceOf(address) view returns(uint256)', 'function transfer(address to, uint256 amount) returns(bool)',
+    'event Transfer(address indexed from, address indexed to, uint256 value)',
+  ]);
+  const receipts = new Map();
+  const transactions = new Map();
+  const sentTransfers = [];
+  let donorETH = parseEther('1'), recipientETH = 0n, recipientSKILL = 0n;
+  const block = { hash: '0x' + '2'.repeat(64), number: 100 };
+  const provider = {
+    async getNetwork() { return { chainId: 11155111n }; },
+    async getCode() { return '0x01'; },
+    async getBalance(address) { return address === donor.address ? donorETH : recipientETH; },
+    async getFeeData() { return { maxPriorityFeePerGas: 1n, maxFeePerGas: 2n }; },
+    async getTransactionCount() { return transactions.size; },
+    async estimateGas() { return 52000n; },
+    async getBlockNumber() { return 101; },
+    async getBlock() { return block; },
+    async getTransaction(hash) { return transactions.get(hash) ?? null; },
+    async getTransactionReceipt(hash) { return receipts.get(hash) ?? null; },
+    async call({ data }) {
+      const fn = token.getFunction(data.slice(0, 10));
+      const values = { decimals: 18, symbol: 'SKILL', balanceOf: parseUnits('1000', 18) };
+      return token.encodeFunctionResult(fn, [values[fn.name]]);
+    },
+    async broadcastTransaction(raw) {
+      const tx = Transaction.from(raw);
+      assert.equal(tx.chainId, 11155111n);
+      assert.equal(tx.from, donor.address);
+      assert.ok(!transactions.has(tx.hash));
+      const logs = [];
+      if (tx.to === tokenAddress) {
+        const [to, amount] = token.decodeFunctionData('transfer', tx.data);
+        assert.equal(to, recipient.address);
+        recipientSKILL += amount;
+        sentTransfers.push({ hash: tx.hash, amount });
+        logs.push({ address: tokenAddress, ...token.encodeEventLog('Transfer', [tx.from, to, amount]) });
+      } else {
+        assert.equal(tx.to, recipient.address);
+        recipientETH += tx.value;
+      }
+      transactions.set(tx.hash, tx);
+      receipts.set(tx.hash, { hash: tx.hash, to: tx.to, from: tx.from, status: 1, logs,
+        blockHash: block.hash, blockNumber: block.number });
+      return { hash: tx.hash };
+    },
+  };
+  return { provider, tokenAddress, sentTransfers, skillBalance: () => recipientSKILL,
+    setDonorETH: value => { donorETH = value; } };
+}
+
+test('verified registration processes both starter grants once with mocked Sepolia RPC responses', async (t) => {
   const env = process.env.TEST_DATABASE_URL ? { DATABASE_URL: process.env.TEST_DATABASE_URL } : process.env;
   assertConfigured(env);
   const pool = new Pool(connectionOptions(env));
@@ -40,17 +93,17 @@ test('verified registration pays one 30 SKILL and one 0.0016 ETH grant across re
     },
   };
   await migrate(db);
-  const chain = await fixture(t);
-  const donor = chain.wallets[0];
+  const donor = Wallet.createRandom();
   const recipient = Wallet.createRandom();
+  const chain = starterRpc(donor, recipient);
   const skillAmount = parseUnits('30', 18);
   const ethAmount = parseEther('0.0016');
   const starterEnv = {
     STARTER_FUNDS_ENABLED: 'true',
     STARTER_FUNDS_PRIVATE_KEY: donor.privateKey,
-    CHAIN_ID: '1337',
-    CHAIN_CONFIRMATIONS: '1',
-    SKILL_TOKEN_ADDRESS: await chain.token.getAddress(),
+    CHAIN_ID: '11155111',
+    CHAIN_CONFIRMATIONS: '2',
+    SKILL_TOKEN_ADDRESS: chain.tokenAddress,
   };
   const startWorker = () => createStarterFunds(starterEnv, { provider: chain.provider });
 
@@ -94,7 +147,7 @@ test('verified registration pays one 30 SKILL and one 0.0016 ETH grant across re
     assert.equal(grant.transaction_hash, null);
     assert.equal(grant.confirmed_at, null);
   }
-  assert.equal(await chain.token.balanceOf(recipient.address), 0n);
+  assert.equal(chain.skillBalance(), 0n);
   assert.equal(await chain.provider.getBalance(recipient.address), 0n);
 
   async function finishAfterInterruptedBroadcast(asset) {
@@ -132,9 +185,9 @@ test('verified registration pays one 30 SKILL and one 0.0016 ETH grant across re
   }
 
   const donorBalance = await chain.provider.getBalance(donor.address);
-  await chain.rpc.request({ method: 'evm_setAccountBalance', params: [donor.address, toQuantity(parseEther('0.001'))] });
+  chain.setDonorETH(parseEther('0.001'));
   const skillHash = await finishAfterInterruptedBroadcast('SKILL');
-  assert.equal(await chain.token.balanceOf(recipient.address), skillAmount);
+  assert.equal(chain.skillBalance(), skillAmount);
   const lowBalanceWorker = startWorker();
   try {
     await assert.rejects(() => lowBalanceWorker.processNext(db));
@@ -144,7 +197,7 @@ test('verified registration pays one 30 SKILL and one 0.0016 ETH grant across re
   assert.equal((await grants()).find(grant => grant.asset === 'ETH').transaction_hash, null);
   assert.equal(await chain.provider.getBalance(recipient.address), 0n);
 
-  await chain.rpc.request({ method: 'evm_setAccountBalance', params: [donor.address, toQuantity(donorBalance)] });
+  chain.setDonorETH(donorBalance);
   const ethHash = await finishAfterInterruptedBroadcast('ETH');
 
   const restarted = startWorker();
@@ -162,9 +215,6 @@ test('verified registration pays one 30 SKILL and one 0.0016 ETH grant across re
   assert.equal(ethTransfer.to, recipient.address);
   assert.equal(ethTransfer.value, ethAmount);
   assert.equal((await chain.provider.getTransactionReceipt(ethHash)).status, 1);
-  assert.equal(await chain.token.balanceOf(recipient.address), skillAmount);
-  const transfers = await chain.token.queryFilter(chain.token.filters.Transfer(donor.address, recipient.address));
-  assert.equal(transfers.length, 1);
-  assert.equal(transfers[0].transactionHash, skillHash);
-  assert.equal(transfers[0].args.value, skillAmount);
+  assert.equal(chain.skillBalance(), skillAmount);
+  assert.deepEqual(chain.sentTransfers, [{ hash: skillHash, amount: skillAmount }]);
 });

@@ -178,12 +178,22 @@ test('PostgreSQL: migrated history, schedules, course content, archived history 
     await assert.rejects(seed(db),/已有資料/);
   });
 
-  await t.test('schema.sql initializes a database ready for migration and seed',async()=>{
+  await t.test('schema.sql initializes a database that can seed with advanced sequences',async()=>{
     const snapshot=await scoped('yunbarter_test_snapshot_'+randomBytes(8).toString('hex'));
     await snapshot.query(await fs.readFile(path.join(__dirname,'../../../db/schema.sql'),'utf8'));
     assert.equal((await migrate(snapshot)).upgradedPasswords,0);
-    await seed(snapshot);
-    const {rows:[counts]}=await snapshot.query('SELECT COUNT(*)::int AS courses FROM courses');
-    assert.equal(counts.courses,2);
+    await snapshot.query(`SELECT setval('users_user_id_seq', 10), setval('skills_skill_id_seq', 20),
+      setval('courses_course_id_seq', 30), setval('classes_class_id_seq', 40)`);
+    await snapshot.query(await fs.readFile(path.join(__dirname,'../../../db/seed.sql'),'utf8'));
+    const {rows}=await snapshot.query(`SELECT u.email, c.title, COUNT(cl.class_id)::int AS slots
+      FROM courses c JOIN users u ON u.user_id=c.teacher_id
+      JOIN classes cl ON cl.course_id=c.course_id AND cl.teacher_id=u.user_id AND cl.skill_id=c.skill_id
+      JOIN teacher_availability a ON a.teacher_id=cl.teacher_id AND a.available_date=cl.class_date AND a.slot_type=cl.slot_type
+      WHERE u.schedule_configured AND u.user_id>10 AND c.skill_id>20 AND c.course_id>30 AND cl.class_id>40
+      GROUP BY u.email,c.title ORDER BY u.email`);
+    assert.deepEqual(rows,[
+      {email:'axian@email.com',title:'吉他指彈教學',slots:2},
+      {email:'link@email.com',title:'網頁開發實戰',slots:2},
+    ]);
   });
 });

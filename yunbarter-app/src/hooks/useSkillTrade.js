@@ -1,6 +1,6 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useWallet } from './useWallet';
-import { ensurePaymentNetwork, fundSkillPayment, walletErrorMessage } from '../services/blockchain';
+import { checkSepoliaGasBalance, ensurePaymentNetwork, fundSkillPayment, isSepoliaPaymentConfig, walletErrorMessage } from '../services/blockchain';
 import { backupChainTransaction, fetchChainConfig, verifyTransactionWallet, createChainQuote, syncChainPayment } from '../services/api';
 
 /**
@@ -9,29 +9,80 @@ import { backupChainTransaction, fetchChainConfig, verifyTransactionWallet, crea
  */
 export function useSkillTrade() {
   const { connectWallet } = useWallet();
-  const busy=useRef(false);
+  const activeTrade=useRef(null);
+  const mounted=useRef(false);
   const [loadingMessage,setLoadingMessage]=useState('');
   const [isTrading,setIsTrading]=useState(false);
+  const [walletOperationStarted,setWalletOperationStarted]=useState(false);
+
+  useEffect(()=>{
+    mounted.current=true;
+    return ()=>{
+      mounted.current=false;
+      activeTrade.current?.controller.abort();
+    };
+  },[]);
+
+  function cancelSkillTrade() {
+    const trade=activeTrade.current;
+    if(trade?.walletOperationStarted) return false;
+    trade?.controller.abort();
+    return true;
+  }
+
   async function executeSkillTrade(courseId,timeSlot,expectedUserId) {
-    if(busy.current) throw new Error('上一筆交易仍在處理');
-    busy.current=true;setIsTrading(true);
+    if(activeTrade.current) throw new Error('上一筆交易仍在處理');
+    const trade={controller:new AbortController(),walletOperationStarted:false};
+    activeTrade.current=trade;
+    const {signal}=trade.controller;
+    const updateProgress=message=>{if(!signal.aborted) setLoadingMessage(message);};
+    setIsTrading(true);
     let payment;
     let sent=false;
+    let foundOnChain=false;
     try {
       const config=await fetchChainConfig();
-      if(!config.enabled) throw new Error(config.message || 'SKILL 交易尚未啟用');
-      setLoadingMessage('請在 MetaMask 確認連線與交易網路');
+      signal.throwIfAborted();
+      if(!isSepoliaPaymentConfig(config)) throw new Error(config?.message || 'Sepolia SKILL 交易尚未啟用');
+      updateProgress('請在 MetaMask 確認連線與交易網路');
       const {signer}=await connectWallet({paymentNetwork:config});
+      signal.throwIfAborted();
       await ensurePaymentNetwork(signer,config.chainId);
+      updateProgress('正在確認測試網 ETH 餘額與錢包綁定');
+      await checkSepoliaGasBalance(signer);
+      signal.throwIfAborted();
       await verifyTransactionWallet(signer);
-      payment=await createChainQuote({courseId,timeSlot,expectedUserId});
-      await fundSkillPayment({signer,payment,onProgress:setLoadingMessage,onSubmitted:()=>{sent=true;},onReceipt:r=>backupChainTransaction(r.hash).catch(()=>null)});
-      setLoadingMessage('正在由後端驗證付款');
-      return await syncChainPayment(payment.paymentId);
+      signal.throwIfAborted();
+      updateProgress('正在確認時段並建立付款報價');
+      payment=await createChainQuote({courseId,timeSlot,expectedUserId},signal);
+      await fundSkillPayment({
+        signer,payment,signal,onProgress:updateProgress,
+        onWalletRequest:()=>{trade.walletOperationStarted=true;setWalletOperationStarted(true);},
+        onSubmitted:()=>{sent=true;},
+        onReceipt:({hash})=>{void backupChainTransaction(hash).catch(()=>null);},
+      });
+      foundOnChain=true;
+      updateProgress('正在由後端驗證付款');
+      const result=await syncChainPayment(payment.paymentId);
+      signal.throwIfAborted();
+      return result;
     } catch(error) {
+      signal.throwIfAborted();
       const message=walletErrorMessage(error);
-      throw new Error(`${message}${payment ? sent ? '。付款可能已送出，請到預約管理同步，請勿另外付款。' : '。待付款紀錄已保留，可至預約管理繼續付款；報價到期確認後會釋放時段。' : ''}`,{cause:error});
-    } finally {window.dispatchEvent(new Event('yunbarter:data-changed'));busy.current=false;setIsTrading(false);setLoadingMessage('');}
+      let detail='';
+      if (foundOnChain) detail='已在鏈上找到這筆付款，平台同步尚未完成。請到預約管理同步，避免重複付款。';
+      else if (sent&&!(error?.code==='TRANSACTION_REPLACED'&&error.cancelled)) detail='付款已送出，請到預約管理同步確認，避免重複付款。';
+      else if (payment) detail='付款報價已保留。請到預約管理同步，再查看是否可以繼續付款。';
+      throw new Error([message,detail].filter(Boolean).join(' '),{cause:error});
+    } finally {
+      window.dispatchEvent(new Event('yunbarter:data-changed'));
+      activeTrade.current=null;
+      if(mounted.current) {
+        setIsTrading(false);
+        setLoadingMessage('');
+        setWalletOperationStarted(false);
+      }
+    }
   }
-  return {executeSkillTrade,loadingMessage,isTrading};
+  return {executeSkillTrade,cancelSkillTrade,loadingMessage,isTrading,walletOperationStarted};
 }

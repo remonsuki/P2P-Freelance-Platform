@@ -11,7 +11,7 @@ async function mockRegistration(t,{rejectConnection=false,rejectSignature=false,
   globalThis.window={dispatchEvent(){},ethereum:{async request({method,params}){
     if(method==='eth_requestAccounts') {calls.push('connect');if(rejectConnection)throw Object.assign(new Error('Rejected'),{code:4001});return [current];}
     if(method==='eth_accounts')return [current];
-    if(method==='eth_chainId')return '0xaa36a7';
+    if(method==='eth_chainId')return '0x1';
     if(method==='personal_sign') {calls.push('sign');if(rejectSignature)throw Object.assign(new Error('Rejected'),{code:4001});return wallet.signMessage(getBytes(params[0]));}
     throw new Error('Unexpected RPC '+method);
   }}};
@@ -30,7 +30,7 @@ async function mockRegistration(t,{rejectConnection=false,rejectSignature=false,
   return {registerWithWallet,calls,wallet};
 }
 const payload={email:'alice@example.com',password:'password-123',userName:'Alice'};
-test('registration connects, signs and only then creates an account while retaining the wallet session',async t=>{
+test('registration uses a personal signature without changing the active network or sending transactions',async t=>{
   const f=await mockRegistration(t);
   const result=await f.registerWithWallet(payload);
   assert.deepEqual(f.calls,['connect','challenge','sign','register']);

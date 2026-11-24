@@ -4,7 +4,7 @@ const {Wallet}=require('ethers');
 const adapter=()=>import('../../yunbarter-app/src/services/blockchain.js');
 const unauthorized=()=>Object.assign(new Error('The requested account and/or method has not been authorized by the user.'),{code:4100});
 
-function walletMock(t,{accounts=[],grant,requestError,readError,codeError,permissionError}={}) {
+function walletMock(t,{accounts=[],grant,requestError,readError,codeError,permissionError,chainId='0x1'}={}) {
   const previous=globalThis.window,calls=[];
   let allowed=accounts,granted=false;
   globalThis.window={ethereum:{async request(req){
@@ -16,7 +16,7 @@ function walletMock(t,{accounts=[],grant,requestError,readError,codeError,permis
     }
     if(req.method==='eth_requestAccounts') {if(requestError&&!granted)throw requestError;return allowed;}
     if(req.method==='eth_accounts') {if(readError&&!granted)throw readError;return allowed;}
-    if(req.method==='eth_chainId')return '0x539';
+    if(req.method==='eth_chainId')return chainId;
     if(req.method==='eth_getCode') {if(codeError&&!granted)throw codeError;return '0x6000';}
     assert.fail('Connection must not request signatures or send transactions: '+req.method);
   }}};
@@ -50,10 +50,19 @@ test('a permission failure while creating a signer is recovered before any payme
 
 test('an ethers-wrapped permission failure during network checks is recovered before a payment quote',async t=>{
   const bound=Wallet.createRandom(),token=Wallet.createRandom(),escrow=Wallet.createRandom();
-  const calls=walletMock(t,{accounts:[bound.address],codeError:unauthorized(),grant:[bound.address]});
-  const session=await(await adapter()).connectAuthorizedWallet({expectedAddress:bound.address,paymentNetwork:{enabled:true,chainId:1337,tokenAddress:token.address,escrowAddress:escrow.address}});
+  const calls=walletMock(t,{accounts:[bound.address],codeError:unauthorized(),grant:[bound.address],chainId:'0xaa36a7'});
+  const session=await(await adapter()).connectAuthorizedWallet({expectedAddress:bound.address,paymentNetwork:{enabled:true,chainId:11155111,tokenAddress:token.address,escrowAddress:escrow.address}});
   try {assert.equal(session.address,bound.address);assert.equal(calls.filter(m=>m==='wallet_requestPermissions').length,1);}
   finally {session.provider.destroy();}
+});
+
+test('unsupported payment configurations do not request wallet permission',async t=>{
+  const calls=walletMock(t);
+  const {connectAuthorizedWallet}=await adapter();
+  for(const chainId of [1,1337,31337]) {
+    await assert.rejects(connectAuthorizedWallet({paymentNetwork:{enabled:true,chainId}}),/Sepolia 交易網路尚未就緒/);
+  }
+  assert.deepEqual(calls,[]);
 });
 
 test('reauthorizing the wrong account cannot replace the permanent binding or create a signer',async t=>{

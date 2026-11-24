@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1540" height="1432" viewBox="0 0 1540 1432" fill="#22334b" role="img" aria-labelledby="erd-title erd-description">
+<svg xmlns="http://www.w3.org/2000/svg" width="1540" height="1685" viewBox="0 0 1540 1685" fill="#22334b" role="img" aria-labelledby="erd-title erd-description">
 <title id="erd-title">YunBarter 資料庫 ERD</title>
-<desc id="erd-description">本機 PostgreSQL public schema 的 16 張資料表與 23 個外鍵，反映遷移 007。每張表標示主鍵、外鍵、部分欄位與查詢當下的資料筆數。三張管理或驗證表沒有實體外鍵。</desc>
+<desc id="erd-description">本機 PostgreSQL public schema 的 18 張資料表與 25 個外鍵，反映遷移 009。圖中標示主鍵、外鍵、關聯基數、部分欄位與查詢當下的筆數，包含新帳號的 SKILL 與 ETH 發放。</desc>
 <style>
   text { font-family: "Microsoft JhengHei", "Noto Sans TC", system-ui, sans-serif; }
   .heading { font-size: 43px; font-weight: 750; letter-spacing: -.8px; fill: #152a46; }
@@ -20,12 +20,54 @@
 </style>
 <rect width="100%" height="100%" fill="#f5f7fb"/>
 <text x="52" y="71" class="heading">YunBarter 資料庫 ERD</text>
-<text x="54" y="108" class="subtitle">本機 PostgreSQL · public · 2026-11-23 · 遷移 007 · 16 張表 · 23 個外鍵</text>
+<text x="54" y="108" class="subtitle">本機 PostgreSQL · public · 2026-11-24 · 遷移 009 · 18 張表 · 25 個外鍵</text>
 <path d="M52 151 H85" stroke="#52657e" stroke-width="1.5"/><g transform="translate(52 151) rotate(0)" fill="none" stroke="#52657e" stroke-width="1.8"><path d="M7 -6V6 M13 -6V6"/></g><text x="95" y="156" class="legend">1 必須一筆</text>
 <path d="M217 151 H250" stroke="#52657e" stroke-width="1.5"/><g transform="translate(217 151) rotate(0)" fill="none" stroke="#52657e" stroke-width="1.8"><path d="M7 -6V6"/><circle cx="17" cy="0" r="4.4" fill="#f5f7fb"/></g><text x="260" y="156" class="legend">0..1 至多一筆</text>
 <path d="M391 151 H424" stroke="#52657e" stroke-width="1.5"/><g transform="translate(391 151) rotate(0)" fill="none" stroke="#52657e" stroke-width="1.8"><path d="M1 -6L12 0L1 6"/><circle cx="18" cy="0" r="4.4" fill="#f5f7fb"/></g><text x="434" y="156" class="legend">0..* 可有多筆</text>
 <text x="594" y="156" class="legend">PK 主鍵　 FK 外鍵　 UQ 唯一　 ? 可空　 ×2 兩表間有兩個外鍵</text>
 <text x="1480" y="156" class="legend" text-anchor="end">欄位擇要列出</text>
+<g data-from="users" data-to="starter_skill_grants">
+<title>users → starter_skill_grants：每位會員至多一筆 SKILL 發放</title>
+<path d="M480 468 L480 380" class="halo"/>
+<path d="M480 468 L480 380" class="connector" stroke="#a97130"/>
+<g transform="translate(480 468) rotate(-90)" fill="none" stroke="#a97130" stroke-width="1.8"><path d="M7 -6V6 M13 -6V6"/></g>
+<g transform="translate(480 380) rotate(90)" fill="none" stroke="#a97130" stroke-width="1.8"><path d="M7 -6V6"/><circle cx="17" cy="0" r="4.4" fill="#f5f7fb"/></g>
+</g>
+<g data-from="starter_skill_grants" data-to="starter_eth_grants">
+<title>starter_skill_grants → starter_eth_grants：每筆 SKILL 發放至多對應一筆 ETH 發放</title>
+<path d="M702 230 L788 230" class="halo"/>
+<path d="M702 230 L788 230" class="connector" stroke="#a97130"/>
+<g transform="translate(702 230) rotate(0)" fill="none" stroke="#a97130" stroke-width="1.8"><path d="M7 -6V6 M13 -6V6"/></g>
+<g transform="translate(788 230) rotate(180)" fill="none" stroke="#a97130" stroke-width="1.8"><path d="M7 -6V6"/><circle cx="17" cy="0" r="4.4" fill="#f5f7fb"/></g>
+</g>
+<g class="table" id="starter_skill_grants" transform="translate(400 183)">
+<title>starter_skill_grants，註冊 SKILL 發放，0 筆</title>
+<rect width="302" height="197" class="card"/>
+<path d="M13 1H289Q301 1 301 13V65H1V13Q1 1 13 1" fill="#fcf1df"/>
+<line x1="1" y1="65" x2="301" y2="65" stroke="#a97130" opacity=".25"/>
+<text x="15" y="27" fill="#835012" class="table-name" style="font-size:19px">starter_skill_grants</text>
+<text x="15" y="51" class="table-note">註冊 SKILL 發放</text>
+<text x="287" y="51" text-anchor="end" fill="#835012" class="count">0 筆</text>
+<text x="15" y="89" fill="#835012" class="key">PK/FK</text><text x="62" y="89" class="field" style="font-size:13.2px">user_id</text>
+<text x="62" y="112" class="field" style="font-size:13.2px">wallet_address</text>
+<text x="15" y="135" fill="#835012" class="key">UQ</text><text x="62" y="135" class="field" style="font-size:13.2px">transaction_hash ?</text>
+<text x="62" y="158" class="field" style="font-size:13.2px">signed_transaction ?</text>
+<text x="62" y="181" class="field" style="font-size:13.2px">created_at · confirmed_at ?</text>
+</g>
+<g class="table" id="starter_eth_grants" transform="translate(788 183)">
+<title>starter_eth_grants，註冊 ETH 發放，0 筆</title>
+<rect width="302" height="197" class="card"/>
+<path d="M13 1H289Q301 1 301 13V65H1V13Q1 1 13 1" fill="#fcf1df"/>
+<line x1="1" y1="65" x2="301" y2="65" stroke="#a97130" opacity=".25"/>
+<text x="15" y="27" fill="#835012" class="table-name" style="font-size:19px">starter_eth_grants</text>
+<text x="15" y="51" class="table-note">註冊 ETH 發放</text>
+<text x="287" y="51" text-anchor="end" fill="#835012" class="count">0 筆</text>
+<text x="15" y="89" fill="#835012" class="key">PK/FK</text><text x="62" y="89" class="field" style="font-size:13.2px">user_id</text>
+<text x="15" y="112" fill="#835012" class="key">UQ</text><text x="62" y="112" class="field" style="font-size:13.2px">transaction_hash ?</text>
+<text x="62" y="135" class="field" style="font-size:13.2px">signed_transaction ?</text>
+<text x="62" y="158" class="field" style="font-size:13.2px">created_at · confirmed_at ?</text>
+</g>
+<g transform="translate(0 230)">
 <g data-from="users" data-to="user_sessions">
 <title>users → user_sessions：登入使用者</title>
 <path d="M400 282 L354 282" class="halo"/>
@@ -231,13 +273,13 @@
 <text x="62" y="158" class="field" style="font-size:13.2px">message · origin</text>
 </g>
 <g class="table" id="schema_migrations" transform="translate(52 865)">
-<title>schema_migrations，資料庫遷移紀錄，7 筆</title>
+<title>schema_migrations，資料庫遷移紀錄，9 筆</title>
 <rect width="302" height="137" class="card"/>
 <path d="M13 1H289Q301 1 301 13V65H1V13Q1 1 13 1" fill="#edf1f5"/>
 <line x1="1" y1="65" x2="301" y2="65" stroke="#617389" opacity=".25"/>
 <text x="15" y="27" fill="#48596f" class="table-name" style="font-size:19px">schema_migrations</text>
 <text x="15" y="51" class="table-note">資料庫遷移紀錄</text>
-<text x="287" y="51" text-anchor="end" fill="#48596f" class="count">7 筆</text>
+<text x="287" y="51" text-anchor="end" fill="#48596f" class="count">9 筆</text>
 <text x="15" y="89" fill="#48596f" class="key">PK</text><text x="62" y="89" class="field" style="font-size:13.2px">name</text>
 <text x="62" y="112" class="field" style="font-size:13.2px">applied_at</text>
 </g>
@@ -405,4 +447,6 @@
 <line x1="52" y1="1359" x2="1480" y2="1359" stroke="#d4dde8"/>
 <text x="52" y="1385" class="footnote">複合外鍵：classes 以 (course_id, teacher_id, skill_id) 連到 courses，bookings 以 (class_id, teacher_id) 連到 classes。</text>
 <text x="52" y="1408" class="footnote">同場次可有多筆歷史預約，部分唯一索引將未封存的 confirmed、disputed、completed 預約合計限制為一筆。</text>
+<text x="52" y="1431" class="footnote">註冊起始資金按資產各記一筆發放。ETH 發放的收款地址來自同一會員的 SKILL 發放紀錄。</text>
+</g>
 </svg>

@@ -49,7 +49,7 @@ async function createTestAccounts({db=pool,manifestPath=DEFAULT_PATH}={}) {
     const expected=manifest.accounts.find(a=>a.email===u.email);
     if(!expected||u.verified_wallet_address!==expected.walletAddress.toLowerCase()||!await verifyPassword(expected.password,u.password_hash))throw new Error(`測試帳號或錢包與既有資料衝突（user_id=${u.user_id}），已停止，未重設任何帳號`);
   }
-  const server=createApp({db,chain:null,secureCookies:false,demoPayments:true,allowedOrigins:['http://localhost:5173']}).listen(0,'127.0.0.1');
+  const server=createApp({db,chain:null,secureCookies:false,allowedOrigins:['http://localhost:5173']}).listen(0,'127.0.0.1');
   const results=[];
   try {
     await once(server,'listening');
@@ -97,7 +97,7 @@ async function createTestAccounts({db=pool,manifestPath=DEFAULT_PATH}={}) {
   const lines=['# 本機開發測試帳號','',`建立／驗證時間：${new Date().toISOString()}`,'','以下帳號已透過簽章完成永久錢包綁定，所有密碼皆為 `YunTest!2026`。','','| 用途 | 帳號 | 錢包地址 |','| --- | --- | --- |',
     ...results.map(a=>`| ${a.role==='teacher'?'老師':'學生'} | ${a.email} | ${a.walletAddress} |`),'',
     '同目錄的 `accounts.json` 包含測試錢包私鑰，可將個別 privateKey 匯入 MetaMask 後使用對應帳號。請只用於開發測試；此目錄已被 Git 忽略。',
-    '本工具只建立帳號、錢包及課程，不會發送鏈上交易。若已執行本機鏈測試，結果見 ../chain-test/report.md；本機 ETH／SKILL 與 Sepolia 餘額分開。',
+    '本工具只建立帳號、錢包及課程。操作鏈上功能前，請在 MetaMask 選擇 Ethereum Sepolia 並確認餘額。',
     '重複執行建立指令不會更換錢包、重設密碼、發放代幣或修改鏈上餘額；既有課程與排班也會保留。',''];
   await fs.writeFile(report,lines.join('\n'),'utf8');
   return {accounts:results,manifestPath,reportPath:report};

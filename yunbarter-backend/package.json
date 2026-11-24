@@ -8,7 +8,6 @@
     "db:migrate": "node scripts/migrate.js",
     "db:seed": "node scripts/seed.js",
     "db:create-test-accounts": "node scripts/create-test-accounts.js",
-    "test:local-transactions": "node scripts/test-local-transactions.js",
     "db:audit": "node scripts/audit.js",
     "test": "node --test test/*.test.js",
     "test:integration": "node --test test/integration/*.test.js",

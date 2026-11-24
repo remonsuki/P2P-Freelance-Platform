@@ -85,7 +85,7 @@ export const fetchBookings = () => request('/api/bookings');
 
 export const fetchChainConfig = () => request('/api/chain/config');
 export const fetchChainPayments = () => request('/api/chain/payments');
-export const createChainQuote = (payload) => request('/api/chain/quotes', {method:'POST',body:JSON.stringify(payload)});
+export const createChainQuote = (payload, signal) => request('/api/chain/quotes', {method:'POST',body:JSON.stringify(payload),signal});
 export const syncChainPayment = (id) => request(`/api/chain/payments/${id}/sync`, {method:'POST'});
 export const reviewChainPayment = (id,payload) => request(`/api/chain/payments/${id}/review`, {method:'POST',body:JSON.stringify(payload)});
 export const saveChainDisputeReason = (id,reason) => request(`/api/chain/payments/${id}/reason`, {method:'POST',body:JSON.stringify({reason})});

@@ -52,11 +52,12 @@ npm run dev
 | 目錄 | 指令 | 用途 |
 | --- | --- | --- |
 | `yunbarter-backend` | `npm test` | 密碼、Session 與 API 存取驗證 |
-| `yunbarter-backend` | `npm run test:integration` | 使用獨立 PostgreSQL schema 與本機測試鏈驗證流程 |
+| `yunbarter-backend` | `npm run test:integration` | 在獨立 PostgreSQL schema 驗證註冊、預約與資料庫操作 |
 | `yunbarter-backend` | `npm run db:audit` | 唯讀檢查資料庫 |
 | `yunbarter-app` | `npm run lint`、`npm run build` | 檢查程式碼與建置前端 |
+| `blockchain` | `npm test`、`npm run compile` | 使用模擬錢包與 RPC 驗證交易程式，並檢查合約能否編譯 |
 
-執行後端整合測試前，先在 `blockchain` 執行 `npm ci`。專案更新後若有新遷移，請先執行 `npm run db:migrate` 再重啟後端。
+專案更新後若有新遷移，請先執行 `npm run db:migrate` 再重啟後端。實際鏈上驗收統一使用 Sepolia `11155111`。
 
 ## 延伸文件
 

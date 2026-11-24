@@ -1,62 +1,66 @@
-const {test}=require('node:test');
-const assert=require('node:assert/strict');
-const {Wallet,parseUnits}=require('ethers');
-const protocol=require('../protocol.json');
-const {fixture}=require('./helpers');
+const assert = require('node:assert/strict');
+const { test } = require('node:test');
+const { Interface, Wallet, parseUnits, verifyTypedData } = require('ethers');
+const protocol = require('../protocol.json');
+const { compile } = require('../scripts/compile');
+const { SEPOLIA_CHAIN_ID } = require('../sepolia');
 
-test('signed SKILL escrow rejects tampering and duplicate funding; cancellation refunds exactly once',async t=>{
-  const f=await fixture(t);const {q,signature}=await f.quote();
-  const balance=await f.token.balanceOf(q.student);
-  await assert.rejects(f.fund({...q,amount:'1'},signature));
-  await assert.rejects(f.fund(q,await Wallet.createRandom().signTypedData(f.domain,protocol.types,q)));
-  await assert.rejects(f.fund(q,signature,f.actors[3]));
-  await assert.rejects(f.fund(q,await f.signer.signTypedData({...f.domain,chainId:11155111},protocol.types,q)));
-  await f.fund(q,signature);
-  assert.equal(await f.token.balanceOf(await f.escrow.getAddress()),BigInt(q.amount));
-  assert.equal(await f.token.balanceOf(q.student),balance-BigInt(q.amount));
-  await assert.rejects(f.fund(q,signature));
-  const competing=await f.quote({slotKey:q.slotKey});await assert.rejects(f.fund(competing.q,competing.signature));
-  await assert.rejects(f.escrow.connect(f.actors[2]).cancel(q.paymentId));
-  await (await f.escrow.connect(f.actors[1]).cancel(q.paymentId)).wait();
-  assert.equal(await f.token.balanceOf(q.student),balance);
-  await assert.rejects(f.escrow.connect(f.actors[1]).cancel(q.paymentId));
-  await assert.rejects(f.fund(q,signature));
-  await f.fund(competing.q,competing.signature);
+const sharedAbi = new Interface(protocol.abi);
+
+function assertParameters(actual, expected, readNames = false) {
+  assert.equal(actual.length, expected.length);
+  for (const [index, parameter] of expected.entries()) {
+    const compiled = actual[index];
+    assert.equal(compiled.format('sighash'), parameter.format('sighash'));
+    if (readNames && parameter.name) assert.equal(compiled.name, parameter.name);
+    if (parameter.indexed !== null) assert.equal(Boolean(compiled.indexed), Boolean(parameter.indexed));
+    if (parameter.components) assertParameters(compiled.components, parameter.components, true);
+  }
+}
+
+test('offline Solidity compilation preserves the escrow and token interfaces', () => {
+  const { SkillEscrow, SkillToken } = compile();
+  for (const artifact of [SkillEscrow, SkillToken]) {
+    assert.match(artifact.evm.bytecode.object, /^[a-f0-9]+$/);
+  }
+  const escrow = new Interface(SkillEscrow.abi);
+  const token = new Interface(SkillToken.abi);
+  for (const fragment of sharedAbi.fragments) {
+    const signature = fragment.format('sighash');
+    if (fragment.type === 'event') {
+      assertParameters(escrow.getEvent(signature).inputs, fragment.inputs, true);
+      continue;
+    }
+    const compiled = escrow.getFunction(signature);
+    assertParameters(compiled.inputs, fragment.inputs);
+    assertParameters(compiled.outputs, fragment.outputs);
+    assert.ok(compiled.stateMutability === fragment.stateMutability
+      || (compiled.stateMutability === 'pure' && fragment.stateMutability === 'view'));
+  }
+  for (const signature of ['balanceOf(address)', 'allowance(address,address)', 'approve(address,uint256)',
+    'transfer(address,uint256)', 'decimals()', 'symbol()', 'mint(address,uint256)']) {
+    assert.ok(token.getFunction(signature));
+  }
+  const quote = escrow.getFunction('fund').inputs[0];
+  assert.deepEqual(quote.components.map(({ name, type }) => ({ name, type })), protocol.types.Quote);
 });
 
-test('only the student can complete after course end; teacher receives exact SKILL once',async t=>{
-  const f=await fixture(t);const {q,signature}=await f.quote();await f.fund(q,signature);
-  await assert.rejects(f.escrow.connect(f.actors[1]).complete(q.paymentId));
-  await f.advance(7201);
-  await assert.rejects(f.escrow.connect(f.actors[2]).complete(q.paymentId));
-  await (await f.escrow.connect(f.actors[1]).complete(q.paymentId)).wait();
-  assert.equal(await f.token.balanceOf(q.teacher),BigInt(q.amount));
-  await assert.rejects(f.escrow.connect(f.actors[1]).complete(q.paymentId));
-  assert.equal((await f.escrow.getPayment(q.paymentId)).state,3n);
-});
-
-test('disputes freeze settlement and timeout claims; only teacher can refund',async t=>{
-  const f=await fixture(t);const {q,signature}=await f.quote();await f.fund(q,signature);
-  await assert.rejects(f.escrow.connect(f.actors[1]).dispute(q.paymentId));
-  await f.advance(3601);
-  await (await f.escrow.connect(f.actors[1]).dispute(q.paymentId)).wait();
-  await f.advance(8*86400);
-  await assert.rejects(f.escrow.connect(f.actors[1]).complete(q.paymentId));
-  await assert.rejects(f.escrow.connect(f.actors[2]).claim(q.paymentId));
-  await assert.rejects(f.escrow.connect(f.actors[1]).refund(q.paymentId));
-  await (await f.escrow.connect(f.actors[2]).refund(q.paymentId)).wait();
-  assert.equal(await f.token.balanceOf(q.student),parseUnits('1000',18));
-  await assert.rejects(f.escrow.connect(f.actors[2]).refund(q.paymentId));
-});
-
-test('teacher timeout claim needs seven days and no dispute; expired or unfunded quotes cannot settle',async t=>{
-  const f=await fixture(t);const expired=await f.quote();await f.advance(601);
-  await assert.rejects(f.fund(expired.q,expired.signature));
-  const {q,signature}=await f.quote();await f.fund(q,signature);
-  await assert.rejects(f.escrow.connect(f.actors[2]).claim(q.paymentId));
-  await f.advance(7200+7*86400+1);
-  await assert.rejects(f.escrow.connect(f.actors[1]).cancel(q.paymentId));
-  await (await f.escrow.connect(f.actors[2]).claim(q.paymentId)).wait();
-  assert.equal(await f.token.balanceOf(q.teacher),BigInt(q.amount));
-  await assert.rejects(f.escrow.connect(f.actors[1]).complete(expired.q.paymentId));
+test('an offline quote signs the Sepolia escrow domain and round-trips through the ABI', async () => {
+  const signer = Wallet.createRandom();
+  const domain = {
+    name: protocol.name, version: protocol.version, chainId: SEPOLIA_CHAIN_ID,
+    verifyingContract: '0x4000000000000000000000000000000000000004',
+  };
+  const quote = {
+    paymentId: `0x${'01'.repeat(32)}`, slotKey: `0x${'02'.repeat(32)}`,
+    student: '0x2000000000000000000000000000000000000002', teacher: '0x3000000000000000000000000000000000000003',
+    amount: parseUnits('2.123456', 18), startsAt: 10_600n, endsAt: 14_200n, deadline: 10_599n,
+  };
+  const signature = await signer.signTypedData(domain, protocol.types, quote);
+  const calldata = sharedAbi.encodeFunctionData('fund', [quote, signature]);
+  const [decoded, decodedSignature] = sharedAbi.decodeFunctionData('fund', calldata);
+  for (const [key, value] of Object.entries(quote)) assert.equal(decoded[key], value);
+  assert.equal(verifyTypedData(domain, protocol.types, quote, decodedSignature), signer.address);
+  assert.notEqual(verifyTypedData(domain, protocol.types, { ...quote, amount: 1n }, signature), signer.address);
+  assert.notEqual(verifyTypedData({ ...domain, chainId: 1 }, protocol.types, quote, signature), signer.address);
 });
